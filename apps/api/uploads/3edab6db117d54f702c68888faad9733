@@ -1,0 +1,480 @@
+# 博客系统安装指南
+
+本文档提供详细的安装和配置说明，帮助您快速搭建自己的博客系统。
+
+## 目录
+
+- [系统要求](#系统要求)
+- [快速安装](#快速安装)
+- [手动安装](#手动安装)
+- [Docker部署](#docker部署)
+- [配置说明](#配置说明)
+- [常见问题](#常见问题)
+
+## 系统要求
+
+### 最低要求
+- **操作系统**: Linux, macOS, Windows 10+
+- **Python**: 3.8 或更高版本
+- **Node.js**: 16 或更高版本
+- **内存**: 2GB RAM
+- **存储**: 1GB 可用空间
+
+### 推荐配置
+- **操作系统**: Ubuntu 20.04+ / CentOS 8+ / macOS 12+
+- **Python**: 3.11
+- **Node.js**: 18 LTS
+- **内存**: 4GB RAM
+- **存储**: 5GB 可用空间
+
+## 快速安装
+
+### 使用一键安装脚本
+
+```bash
+# 1. 下载项目
+git clone <repository-url>
+cd blog-system
+
+# 2. 运行安装脚本
+./deploy.sh install
+
+# 3. 启动服务
+./deploy.sh start
+```
+
+安装完成后，访问：
+- 前端博客: http://localhost:5174
+- 管理后台: http://localhost:5175
+- 默认账户: admin / admin123
+
+## 手动安装
+
+### 1. 环境准备
+
+#### 安装Python 3.8+
+```bash
+# Ubuntu/Debian
+sudo apt update
+sudo apt install python3 python3-pip python3-venv
+
+# CentOS/RHEL
+sudo yum install python3 python3-pip
+
+# macOS (使用Homebrew)
+brew install python@3.11
+```
+
+#### 安装Node.js 16+
+```bash
+# Ubuntu/Debian
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# CentOS/RHEL
+curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
+sudo yum install -y nodejs
+
+# macOS (使用Homebrew)
+brew install node@18
+```
+
+### 2. 后端安装
+
+```bash
+# 进入后端目录
+cd blog_backend
+
+# 创建虚拟环境
+python3 -m venv venv
+
+# 激活虚拟环境
+# Linux/macOS
+source venv/bin/activate
+# Windows
+venv\Scripts\activate
+
+# 升级pip
+pip install --upgrade pip
+
+# 安装依赖
+pip install -r requirements.txt
+
+# 初始化数据库
+python -c "
+from src.main import app
+from src.models.blog_models import db
+with app.app_context():
+    db.create_all()
+    print('数据库初始化完成')
+"
+
+# 创建管理员用户
+python -c "
+from src.main import app
+from src.models.blog_models import db, User
+from werkzeug.security import generate_password_hash
+
+with app.app_context():
+    admin = User(
+        username='admin',
+        email='admin@example.com',
+        password_hash=generate_password_hash('admin123'),
+        display_name='管理员',
+        role='admin',
+        is_active=True
+    )
+    db.session.add(admin)
+    db.session.commit()
+    print('管理员用户创建成功！')
+"
+
+# 启动后端服务
+python src/main.py
+```
+
+### 3. 前端安装
+
+```bash
+# 新开终端，进入前端目录
+cd blog_frontend
+
+# 安装依赖
+npm install
+
+# 启动开发服务器
+npm run dev
+```
+
+### 4. 管理后台安装
+
+```bash
+# 新开终端，进入管理后台目录
+cd blog_admin
+
+# 安装依赖
+npm install
+
+# 启动开发服务器
+npm run dev
+```
+
+## Docker部署
+
+### 使用Docker Compose
+
+```bash
+# 1. 确保已安装Docker和Docker Compose
+docker --version
+docker-compose --version
+
+# 2. 构建并启动服务
+docker-compose up -d
+
+# 3. 查看服务状态
+docker-compose ps
+
+# 4. 查看日志
+docker-compose logs -f
+
+# 5. 停止服务
+docker-compose down
+```
+
+### 单独构建镜像
+
+```bash
+# 构建后端镜像
+cd blog_backend
+docker build -t blog-backend .
+
+# 构建前端镜像
+cd ../blog_frontend
+docker build -t blog-frontend .
+
+# 构建管理后台镜像
+cd ../blog_admin
+docker build -t blog-admin .
+
+# 运行容器
+docker run -d -p 5000:5000 --name backend blog-backend
+docker run -d -p 5174:80 --name frontend blog-frontend
+docker run -d -p 5175:80 --name admin blog-admin
+```
+
+## 配置说明
+
+### 后端配置
+
+编辑 `blog_backend/config.py`:
+
+```python
+class Config:
+    # 数据库配置
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///blog.db'  # 或使用MySQL/PostgreSQL
+    
+    # JWT配置
+    JWT_SECRET_KEY = 'your-secret-key'  # 生产环境请更改
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=24)
+    
+    # 文件上传配置
+    UPLOAD_FOLDER = 'uploads'
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB
+    
+    # CORS配置
+    CORS_ORIGINS = ['http://localhost:5174', 'http://localhost:5175']
+```
+
+### 前端配置
+
+编辑 `blog_frontend/src/lib/api.js`:
+
+```javascript
+const API_BASE_URL = 'http://localhost:5000/api/v1';
+```
+
+### 环境变量配置
+
+创建 `.env` 文件：
+
+```bash
+# 后端配置
+FLASK_ENV=development
+SECRET_KEY=your-secret-key
+JWT_SECRET_KEY=your-jwt-secret-key
+DATABASE_URL=sqlite:///blog.db
+
+# 前端配置
+REACT_APP_API_URL=http://localhost:5000/api/v1
+REACT_APP_SITE_NAME=我的博客
+```
+
+## 生产环境部署
+
+### 1. 后端生产部署
+
+```bash
+# 安装Gunicorn
+pip install gunicorn
+
+# 使用Gunicorn启动
+gunicorn -w 4 -b 0.0.0.0:5000 src.main:app
+
+# 或使用systemd服务
+sudo cp blog-backend.service /etc/systemd/system/
+sudo systemctl enable blog-backend
+sudo systemctl start blog-backend
+```
+
+### 2. 前端生产部署
+
+```bash
+# 构建前端
+cd blog_frontend
+npm run build
+
+# 部署到Nginx
+sudo cp -r dist/* /var/www/html/
+
+# 配置Nginx
+sudo cp nginx.conf /etc/nginx/sites-available/blog
+sudo ln -s /etc/nginx/sites-available/blog /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### 3. 使用反向代理
+
+Nginx配置示例：
+
+```nginx
+server {
+    listen 80;
+    server_name yourdomain.com;
+
+    # 前端
+    location / {
+        root /var/www/html;
+        try_files $uri $uri/ /index.html;
+    }
+
+    # API代理
+    location /api/ {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # 管理后台
+    location /admin/ {
+        alias /var/www/admin/;
+        try_files $uri $uri/ /admin/index.html;
+    }
+}
+```
+
+## 数据库配置
+
+### SQLite (默认)
+```python
+SQLALCHEMY_DATABASE_URI = 'sqlite:///blog.db'
+```
+
+### MySQL
+```python
+SQLALCHEMY_DATABASE_URI = 'mysql://username:password@localhost/blog_db'
+```
+
+### PostgreSQL
+```python
+SQLALCHEMY_DATABASE_URI = 'postgresql://username:password@localhost/blog_db'
+```
+
+## 常见问题
+
+### Q: 端口被占用怎么办？
+A: 修改配置文件中的端口号，或使用以下命令查找并终止占用进程：
+```bash
+# 查找占用端口的进程
+lsof -i :5000
+# 终止进程
+kill -9 <PID>
+```
+
+### Q: 数据库连接失败？
+A: 检查数据库配置和权限：
+```bash
+# 检查SQLite文件权限
+ls -la blog.db
+# 修改权限
+chmod 664 blog.db
+```
+
+### Q: 前端无法连接后端API？
+A: 检查CORS配置和API地址：
+1. 确认后端CORS_ORIGINS包含前端地址
+2. 检查前端API_BASE_URL配置
+3. 确认防火墙设置
+
+### Q: 管理员登录失败？
+A: 重置管理员密码：
+```bash
+python -c "
+from src.main import app
+from src.models.blog_models import db, User
+from werkzeug.security import generate_password_hash
+
+with app.app_context():
+    admin = User.query.filter_by(username='admin').first()
+    if admin:
+        admin.password_hash = generate_password_hash('new_password')
+        db.session.commit()
+        print('密码重置成功')
+"
+```
+
+### Q: 文件上传失败？
+A: 检查上传目录权限：
+```bash
+# 创建上传目录
+mkdir -p uploads
+# 设置权限
+chmod 755 uploads
+```
+
+### Q: 服务启动后无法访问？
+A: 检查防火墙和端口：
+```bash
+# Ubuntu/Debian
+sudo ufw allow 5000
+sudo ufw allow 5174
+sudo ufw allow 5175
+
+# CentOS/RHEL
+sudo firewall-cmd --permanent --add-port=5000/tcp
+sudo firewall-cmd --permanent --add-port=5174/tcp
+sudo firewall-cmd --permanent --add-port=5175/tcp
+sudo firewall-cmd --reload
+```
+
+## 性能优化
+
+### 1. 数据库优化
+- 使用数据库连接池
+- 添加适当的索引
+- 定期清理日志
+
+### 2. 前端优化
+- 启用Gzip压缩
+- 使用CDN加速
+- 图片懒加载
+
+### 3. 缓存配置
+- Redis缓存
+- 浏览器缓存
+- API响应缓存
+
+## 备份和恢复
+
+### 数据备份
+```bash
+# SQLite备份
+cp blog.db blog_backup_$(date +%Y%m%d).db
+
+# MySQL备份
+mysqldump -u username -p blog_db > blog_backup_$(date +%Y%m%d).sql
+```
+
+### 数据恢复
+```bash
+# SQLite恢复
+cp blog_backup_20231201.db blog.db
+
+# MySQL恢复
+mysql -u username -p blog_db < blog_backup_20231201.sql
+```
+
+## 监控和日志
+
+### 日志配置
+```python
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s %(levelname)s %(message)s',
+    handlers=[
+        logging.FileHandler('app.log'),
+        logging.StreamHandler()
+    ]
+)
+```
+
+### 监控工具
+- 使用PM2管理Node.js进程
+- 使用Supervisor管理Python进程
+- 配置日志轮转
+
+## 安全建议
+
+1. **更改默认密码**: 立即更改admin默认密码
+2. **使用HTTPS**: 生产环境启用SSL/TLS
+3. **定期更新**: 保持依赖包最新版本
+4. **备份数据**: 定期备份数据库和文件
+5. **监控日志**: 定期检查错误日志
+6. **限制访问**: 配置防火墙和访问控制
+
+## 获取帮助
+
+如果遇到问题，请：
+
+1. 查看日志文件
+2. 检查配置文件
+3. 参考常见问题
+4. 提交Issue到项目仓库
+
+---
+
+祝您使用愉快！🎉
+

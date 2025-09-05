@@ -1,0 +1,101 @@
+version: '3.8'
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: whispers-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: whispers_db
+      POSTGRES_USER: whispers_user
+      POSTGRES_PASSWORD: whispers_password
+      TZ: Asia/Shanghai
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - whispers-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U whispers_user -d whispers_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: whispers-redis-dev
+    restart: unless-stopped
+    environment:
+      TZ: Asia/Shanghai
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - whispers-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO 对象存储
+  minio:
+    image: minio/minio:latest
+    container_name: whispers-minio-dev
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: whispers_minio
+      MINIO_ROOT_PASSWORD: whispers_minio_password
+      TZ: Asia/Shanghai
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - whispers-network
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 数据库管理工具 pgAdmin
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: whispers-pgadmin-dev
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@whispers.local
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      TZ: Asia/Shanghai
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - whispers-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+    name: whispers_postgres_data
+  redis_data:
+    name: whispers_redis_data
+  minio_data:
+    name: whispers_minio_data
+  pgadmin_data:
+    name: whispers_pgadmin_data
+
+networks:
+  whispers-network:
+    name: whispers-network
+    driver: bridge

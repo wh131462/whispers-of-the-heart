@@ -1,0 +1,103 @@
+{
+  "name": "whispers-of-the-heart",
+  "version": "1.0.0",
+  "description": "Whispers of the Heart - A modern blog platform with React frontend and NestJS backend",
+  "author": "Your Name",
+  "private": true,
+  "license": "MIT",
+  "packageManager": "pnpm@10.15.0",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "react": "^19.1.1",
+      "react-dom": "^19.1.1",
+      "@types/react": "^19.1.12",
+      "@types/react-dom": "^19.1.9"
+    }
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "type-check": "turbo run type-check",
+    "clean": "turbo run clean",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "test": "turbo run test",
+    
+    "dev:api": "turbo run dev --filter=api",
+    "dev:web": "turbo run dev --filter=web",
+    "dev:admin": "turbo run dev --filter=admin",
+    
+    "build:api": "turbo run build --filter=api",
+    "build:web": "turbo run build --filter=web",
+    "build:admin": "turbo run build --filter=admin",
+    
+    "start:api": "turbo run start --filter=api",
+    "start:web": "turbo run start --filter=web",
+    "start:admin": "turbo run start --filter=admin",
+    
+        
+    "env:dev": "cp configs/env.development .env",
+    "env:prod": "cp configs/env.production .env",
+    
+    "dev:local": "pnpm env:dev && docker-compose -f docker-compose.dev.yml up -d && pnpm dev",
+    "dev:local:db": "docker-compose -f docker-compose.dev.yml up -d postgres redis minio pgadmin",
+    "dev:local:stop": "docker-compose -f docker-compose.dev.yml down",
+    "dev:local:clean": "docker-compose -f docker-compose.dev.yml down -v",
+    
+    "build:all": "pnpm packages:build && pnpm build",
+    "build:prod": "pnpm env:prod && pnpm build:all",
+    
+    "prod:build": "docker-compose -f docker-compose.prod.yml build",
+    "prod:up": "docker-compose -f docker-compose.prod.yml up -d",
+    "prod:down": "docker-compose -f docker-compose.prod.yml down",
+    "prod:logs": "docker-compose -f docker-compose.prod.yml logs -f",
+    "prod:restart": "docker-compose -f docker-compose.prod.yml restart",
+    
+    "deploy": "pnpm build:prod && pnpm prod:build && pnpm prod:up",
+    "deploy:restart": "pnpm prod:build && pnpm prod:restart",
+    
+    "db:backup": "scripts/backup-db.sh",
+    "db:restore": "scripts/restore-db.sh",
+    "db:init": "./scripts/init-db.sh",
+
+    "setup": "pnpm install && pnpm db:generate && pnpm packages:build",
+    "setup:dev": "pnpm setup && pnpm dev:local:db",
+    "reset": "pnpm clean && pnpm install && pnpm db:generate && pnpm packages:build",
+    
+    "packages:build": "turbo run build --filter=./packages/*",
+    "packages:dev": "turbo run dev --filter=./packages/*",
+    
+    "docker:up": "cd infra/docker && docker-compose up -d",
+    "docker:down": "cd infra/docker && docker-compose down",
+    "docker:build": "cd infra/docker && docker-compose build",
+    "docker:logs": "cd infra/docker && docker-compose logs -f",
+    
+     "ports": "echo '🚀 项目端口信息:' && echo '  本地开发:' && echo '    API: http://localhost:7777/api/v1' && echo '    Web: http://localhost:8888' && echo '    Admin: http://localhost:9999' && echo '    PostgreSQL: localhost:5432' && echo '    Redis: localhost:6379' && echo '    MinIO: http://localhost:9001' && echo '    pgAdmin: http://localhost:5050' && echo '' && echo '  生产环境:' && echo '    Web: https://whispers.example.com' && echo '    API: https://api.whispers.example.com' && echo '    Admin: https://admin.whispers.example.com'",
+    "health": "echo '🔍 检查服务状态...' && curl -s http://localhost:7777/api/v1/health || echo 'API 未运行' && curl -s http://localhost:8888 -o /dev/null && echo 'Web 运行正常' || echo 'Web 未运行' && curl -s http://localhost:9999 -o /dev/null && echo 'Admin 运行正常' || echo 'Admin 未运行'"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "eslint": "^9.34.0",
+    "prettier": "^3.6.2",
+    "turbo": "^2.0.0",
+    "typescript": "^5.8.3"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "infra/*"
+  ]
+}
