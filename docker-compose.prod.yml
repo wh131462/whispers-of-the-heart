@@ -1,0 +1,143 @@
+version: '3.8'
+
+services:
+  # Nginx 反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: whispers-nginx-prod
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/nginx/sites-available:/etc/nginx/sites-available:ro
+      - ./infra/ssl:/etc/nginx/ssl:ro
+      - ./uploads:/var/www/uploads:ro
+    networks:
+      - whispers-network
+    depends_on:
+      - api
+      - web
+      - admin
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # API 后端服务
+  api:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.api
+      target: production
+    container_name: whispers-api-prod
+    restart: always
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - configs/env.production
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    networks:
+      - whispers-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7777/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Web 前端服务
+  web:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.web
+      target: production
+      args:
+        - VITE_API_URL=https://api.whispers.example.com
+        - VITE_ADMIN_URL=https://admin.whispers.example.com
+    container_name: whispers-web-prod
+    restart: always
+    networks:
+      - whispers-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Admin 管理后台服务
+  admin:
+    build:
+      context: .
+      dockerfile: infra/docker/Dockerfile.admin
+      target: production
+      args:
+        - VITE_API_URL=https://api.whispers.example.com
+    container_name: whispers-admin-prod
+    restart: always
+    networks:
+      - whispers-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9999"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: whispers-postgres-prod
+    restart: always
+    environment:
+      POSTGRES_DB: whispers_prod
+      POSTGRES_USER: ${POSTGRES_USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: Asia/Shanghai
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    networks:
+      - whispers-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME} -d whispers_prod"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: whispers-redis-prod
+    restart: always
+    environment:
+      TZ: Asia/Shanghai
+    volumes:
+      - redis_data:/data
+      - ./infra/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    networks:
+      - whispers-network
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+    name: whispers_postgres_prod_data
+  redis_data:
+    name: whispers_redis_prod_data
+
+networks:
+  whispers-network:
+    name: whispers-prod-network
+    driver: bridge

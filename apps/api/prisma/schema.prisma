@@ -1,0 +1,286 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 用户模型
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  email     String   @unique
+  password  String
+  role      UserRole @default(USER)
+  avatar    String?
+  bio       String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 关联关系
+  posts     Post[]
+  comments  Comment[]
+  likes     Like[]
+  commentLikes CommentLike[]
+  favorites Favorite[]
+  refreshTokens RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
+  files     File[]
+
+  @@map("users")
+}
+
+// 用户角色枚举
+enum UserRole {
+  ADMIN
+  USER
+  EDITOR
+}
+
+// 刷新令牌模型
+model RefreshToken {
+  id          String   @id @default(cuid())
+  token       String   @unique
+  userId      String
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+// 密码重置令牌模型
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
+}
+
+// 文章模型
+model Post {
+  id          String      @id @default(cuid())
+  title       String
+  content     String      @db.Text
+  excerpt     String?
+  slug        String      @unique
+  status      PostStatus  @default(DRAFT)
+  category    String?
+  coverImage  String?
+  views       Int         @default(0)
+  likes       Int         @default(0)
+  comments    Int         @default(0)
+  publishedAt DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  // 关联关系
+  authorId    String
+  author      User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  postTags    PostTag[]
+  postComments Comment[]
+  postLikes   Like[]
+  postFavorites Favorite[]
+
+  @@map("posts")
+}
+
+// 文章状态枚举
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+// 标签模型
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  color     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 关联关系
+  postTags  PostTag[]
+
+  @@map("tags")
+}
+
+// 文章标签关联表
+model PostTag {
+  id     String @id @default(cuid())
+  postId String
+  tagId  String
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, tagId])
+  @@map("post_tags")
+}
+
+// 评论模型
+model Comment {
+  id        String   @id @default(cuid())
+  content   String
+  isApproved Boolean  @default(false)
+  likes     Int      @default(0)
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 关联关系
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parentId  String?
+  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
+  commentLikes CommentLike[]
+
+  @@map("comments")
+}
+
+// 点赞模型
+model Like {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  // 关联关系
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@map("likes")
+}
+
+// 评论点赞模型
+model CommentLike {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  // 关联关系
+  commentId String
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([commentId, userId])
+  @@map("comment_likes")
+}
+
+// 收藏模型
+model Favorite {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  // 关联关系
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@map("favorites")
+}
+
+// 文件夹模型
+model Folder {
+  id          String   @id @default(cuid())
+  name        String
+  path        String   @unique  // 文件夹路径，如 /uploads/images/
+  parentId    String?  // 父文件夹ID，支持嵌套
+  description String?
+  isSystem    Boolean  @default(false)  // 是否为系统文件夹
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // 关联关系
+  parent      Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Folder[] @relation("FolderHierarchy")
+  files       File[]
+
+  @@map("folders")
+}
+
+// 文件模型
+model File {
+  id          String   @id @default(cuid())
+  filename    String
+  originalName String
+  mimeType    String
+  size        Int
+  url         String
+  thumbnail   String?
+  alt         String?
+  description String?
+  tags        String[] // 文件标签
+  isPublic    Boolean  @default(true)  // 是否公开
+  downloadCount Int    @default(0)     // 下载次数
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // 关联关系
+  folderId    String
+  folder      Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  uploaderId  String
+  uploader    User     @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+
+  @@map("files")
+}
+
+// 媒体文件模型（保持向后兼容）
+model Media {
+  id          String   @id @default(cuid())
+  filename    String
+  originalName String
+  mimeType    String
+  size        Int
+  url         String
+  thumbnail   String?
+  alt         String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("media")
+}
+
+// 站点配置模型
+model SiteConfig {
+  id          String   @id @default(cuid())
+  siteName    String
+  siteDescription String?
+  siteLogo    String?
+  siteIcon    String?
+  aboutMe     String?  @db.Text
+  contactEmail String?
+  socialLinks Json?    // GitHub, Twitter, LinkedIn 等
+  seoSettings Json?    // 标题、描述、关键词等
+  ossConfig   Json?    // OSS 配置
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("site_config")
+}
