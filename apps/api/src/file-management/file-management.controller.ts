@@ -1,28 +1,34 @@
-import { 
-  Controller, 
-  Get, 
-  Post, 
-  Put, 
-  Delete, 
-  Body, 
-  Param, 
-  Query, 
-  UploadedFile, 
+import {
+  Controller,
+  Get,
+  Post,
+  Put,
+  Delete,
+  Body,
+  Param,
+  Query,
+  UploadedFile,
   UseInterceptors,
   ParseIntPipe,
   UseGuards,
-  Request
+  Request,
+  UsePipes
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import * as path from 'path';
 import { ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { FileManagementService } from './file-management.service';
-import { 
-  CreateFolderDto, 
-  UpdateFolderDto, 
-  UploadFileDto, 
+import {
+  CreateFolderDto,
+  UpdateFolderDto,
+  UploadFileDto,
+  UploadFileRawDto,
   UpdateFileDto,
 } from './dto/file-management.dto';
+import { SkipValidationPipe } from '../common/pipes/skip-validation.pipe';
+import { fixFilenameEncoding, generateUniqueFilename } from '../common/utils/filename-encoding.util';
 
 @Controller('file-management')
 @UseGuards(JwtAuthGuard)
@@ -36,7 +42,11 @@ export class FileManagementController {
   @Post('folders')
   async createFolder(@Body() createFolderDto: CreateFolderDto, @Request() req) {
     try {
-      const folder = await this.fileManagementService.createFolder(createFolderDto, req.user.id);
+      const folder = await this.fileManagementService.createFolder(
+        createFolderDto, 
+        req.user.id, 
+        req.user.role
+      );
       return {
         success: true,
         data: folder,
@@ -52,9 +62,13 @@ export class FileManagementController {
   }
 
   @Get('folders')
-  async getFolders(@Query('parentId') parentId?: string) {
+  async getFolders(@Request() req, @Query('parentId') parentId?: string) {
     try {
-      const folders = await this.fileManagementService.getFolders(parentId);
+      const folders = await this.fileManagementService.getFolders(
+        req.user.id, 
+        req.user.role, 
+        parentId
+      );
       return {
         success: true,
         data: folders,
@@ -70,9 +84,12 @@ export class FileManagementController {
   }
 
   @Get('folders/tree')
-  async getFolderTree() {
+  async getFolderTree(@Request() req) {
     try {
-      const tree = await this.fileManagementService.getFolderTree();
+      const tree = await this.fileManagementService.getFolderTree(
+        req.user.id, 
+        req.user.role
+      );
       return {
         success: true,
         data: tree,
@@ -88,9 +105,14 @@ export class FileManagementController {
   }
 
   @Put('folders/:id')
-  async updateFolder(@Param('id') id: string, @Body() updateFolderDto: UpdateFolderDto) {
+  async updateFolder(@Param('id') id: string, @Body() updateFolderDto: UpdateFolderDto, @Request() req) {
     try {
-      const folder = await this.fileManagementService.updateFolder(id, updateFolderDto);
+      const folder = await this.fileManagementService.updateFolder(
+        id, 
+        updateFolderDto, 
+        req.user.id, 
+        req.user.role
+      );
       return {
         success: true,
         data: folder,
@@ -106,9 +128,13 @@ export class FileManagementController {
   }
 
   @Delete('folders/:id')
-  async deleteFolder(@Param('id') id: string) {
+  async deleteFolder(@Param('id') id: string, @Request() req) {
     try {
-      await this.fileManagementService.deleteFolder(id);
+      await this.fileManagementService.deleteFolder(
+        id, 
+        req.user.id, 
+        req.user.role
+      );
       return {
         success: true,
         data: null,
@@ -126,16 +152,41 @@ export class FileManagementController {
   // 文件管理
   @Post('files/upload')
   @UseInterceptors(FileInterceptor('file', {
+    storage: diskStorage({
+      destination: (req, file, cb) => {
+        // 使用绝对路径确保目录正确
+        const uploadsPath = path.join(process.cwd(), 'uploads');
+        cb(null, uploadsPath);
+      },
+      filename: (req, file, cb) => {
+        // 使用工具函数修复中文文件名编码问题
+        const fixedName = fixFilenameEncoding(file.originalname);
+        const uniqueFilename = generateUniqueFilename(fixedName);
+        cb(null, uniqueFilename);
+      },
+    }),
     limits: {
       fileSize: 50 * 1024 * 1024, // 50MB
     },
+    fileFilter: (req, file, cb) => {
+      // 修复中文文件名编码问题
+      file.originalname = fixFilenameEncoding(file.originalname);
+      cb(null, true);
+    },
   }))
+  @UsePipes(new SkipValidationPipe())
   async uploadFile(
-    @Body() body: any,
     @UploadedFile() file: any,
+    @Body() body: any, // 使用any类型避免DTO验证问题
     @Request() req
   ) {
     try {
+      console.log('Upload request body:', body);
+      console.log('Upload request body type:', typeof body);
+      console.log('Upload request body keys:', Object.keys(body));
+      console.log('Upload file object:', file);
+      console.log('Upload file keys:', file ? Object.keys(file) : 'No file');
+      
       if (!file) {
         return {
           success: false,
@@ -144,27 +195,78 @@ export class FileManagementController {
         };
       }
 
-      // 处理 tags 字段
+      // 处理FormData中的字段，特别是tags字段需要手动解析
       let tags: string[] = [];
+      console.log('body.tags:', body.tags);
+      console.log('body.tags type:', typeof body.tags);
+      
       if (body.tags) {
         try {
-          tags = JSON.parse(body.tags);
-        } catch {
-          // 如果不是 JSON 格式，按逗号分割
-          tags = body.tags.split(',').map((tag: string) => tag.trim()).filter((tag: string) => tag.length > 0);
+          // tags字段是从前端JSON.stringify()发送的，需要解析
+          const parsedTags: any = JSON.parse(body.tags as unknown as string);
+          console.log('parsed tags:', parsedTags);
+          // 确保tags是字符串数组
+          if (!Array.isArray(parsedTags)) {
+            tags = [];
+          } else {
+            tags = parsedTags.filter((tag: any) => typeof tag === 'string' && tag.trim().length > 0);
+          }
+        } catch (error) {
+          console.warn('Failed to parse tags, using empty array:', error);
+          tags = [];
+        }
+      }
+      console.log('final tags:', tags);
+
+      // 处理isPublic字段
+      let isPublic = false;
+      if (body.isPublic !== undefined) {
+        if (typeof body.isPublic === 'string') {
+          isPublic = body.isPublic === 'true';
+        } else if (typeof body.isPublic === 'boolean') {
+          isPublic = body.isPublic;
         }
       }
 
+      // 手动验证和构建DTO
       const uploadFileDto: UploadFileDto = {
-        folderId: body.folderId,
-        description: body.description,
+        folderId: body.folderId || undefined,
+        description: body.description || undefined,
         tags: tags,
-        isPublic: body.isPublic === 'true'
+        isPublic: isPublic
       };
+
+      // 手动验证DTO
+      const validationErrors: string[] = [];
+      if (uploadFileDto.folderId && typeof uploadFileDto.folderId !== 'string') {
+        validationErrors.push('folderId must be a string');
+      }
+      if (uploadFileDto.description && typeof uploadFileDto.description !== 'string') {
+        validationErrors.push('description must be a string');
+      }
+      if (uploadFileDto.tags && !Array.isArray(uploadFileDto.tags)) {
+        validationErrors.push('tags must be an array');
+      }
+      if (uploadFileDto.isPublic !== undefined && typeof uploadFileDto.isPublic !== 'boolean') {
+        validationErrors.push('isPublic must be a boolean');
+      }
+
+      if (validationErrors.length > 0) {
+        return {
+          success: false,
+          data: null,
+          message: validationErrors.join(', ')
+        };
+      }
 
       const userId = req.user?.id || req.user?.sub;
 
-      const uploadedFile = await this.fileManagementService.uploadFile(uploadFileDto, userId, file);
+      const uploadedFile = await this.fileManagementService.uploadFile(
+        uploadFileDto, 
+        userId, 
+        req.user.role, 
+        file
+      );
       return {
         success: true,
         data: uploadedFile,

@@ -1,0 +1,79 @@
+/* 文件预览模态框样式重置 - 确保不受外部样式影响 */
+.file-preview-modal {
+  /* 重置所有可能的外边距和内边距 */
+  margin: 0 !important;
+  padding: 0 !important;
+  
+  /* 确保完全覆盖视口 */
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  
+  /* 确保最高层级 */
+  z-index: 999999 !important;
+  
+  /* 防止被其他样式覆盖 */
+  box-sizing: border-box !important;
+  
+  /* 重置可能的变换 */
+  transform: none !important;
+  
+  /* 重置可能的过滤器 */
+  filter: none !important;
+  
+  /* 确保背景色 */
+  background-color: #000000 !important;
+}
+
+/* 重置所有子元素可能受到的外部样式影响 */
+.file-preview-modal * {
+  /* 防止继承外部的margin影响 */
+  margin-top: unset !important;
+  margin-bottom: unset !important;
+}
+
+/* 特别重置space-y等Tailwind工具类的影响 */
+.file-preview-modal > *:not([hidden]) ~ *:not([hidden]) {
+  margin-top: 0 !important;
+}
+
+/* 重置可能的flexbox gap影响 */
+.file-preview-modal {
+  gap: 0 !important;
+  row-gap: 0 !important;
+  column-gap: 0 !important;
+}
+
+/* 确保预览内容区域不受外部样式影响 */
+.file-preview-modal .file-preview-content {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* 防止Tailwind space-y类的影响 */
+.file-preview-modal .space-y-6 > :not([hidden]) ~ :not([hidden]),
+.file-preview-modal .space-y-4 > :not([hidden]) ~ :not([hidden]),
+.file-preview-modal .space-y-8 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: 0 !important;
+}
+
+/* 确保所有图片、视频、音频组件不受外部margin影响 */
+.file-preview-modal img,
+.file-preview-modal video,
+.file-preview-modal audio,
+.file-preview-modal canvas {
+  margin: 0 !important;
+}
+
+/* 确保容器元素的重置 */
+.file-preview-modal div,
+.file-preview-modal section,
+.file-preview-modal article {
+  /* 只重置可能影响布局的margin，保留其他样式 */
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}

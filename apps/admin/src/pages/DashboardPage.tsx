@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import ProtectedPage from '../components/ProtectedPage'
@@ -31,6 +32,7 @@ import {
   Pie,
   Cell
 } from 'recharts'
+import { api, setTokenFromStorage } from '@whispers/utils'
 
 interface DashboardStats {
   totalUsers: number
@@ -70,6 +72,7 @@ interface DashboardStats {
 }
 
 const DashboardPage: React.FC = () => {
+  const navigate = useNavigate()
   const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
     totalPosts: 0,
@@ -98,37 +101,16 @@ const DashboardPage: React.FC = () => {
         setLoading(true)
       }
 
-      const token = localStorage.getItem('admin_token')
-      const statsResponse = await fetch('http://localhost:7777/api/v1/admin/dashboard', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
+      // 设置认证token
+      setTokenFromStorage('admin_token')
       
-      if (statsResponse.ok) {
-        const response = await statsResponse.json()
-        if (response.success && response.data) {
-          setStats(response.data)
-        } else {
-          console.error('API returned error:', response.message)
-          // 不设置 mock 数据，保持空状态
-          setStats({
-            totalUsers: 0,
-            totalPosts: 0,
-            totalComments: 0,
-            totalMedia: 0,
-            userGrowth: '0%',
-            postGrowth: '0%',
-            recentPosts: [],
-            recentComments: [],
-            monthlyStats: [],
-            categoryStats: [],
-            lastUpdated: ''
-          })
-        }
+      const response = await api.get<{success: boolean; data: DashboardStats; message: string}>('/admin/dashboard')
+      
+      // 检查API响应结构
+      if (response.data && response.data.success && response.data.data) {
+        setStats(response.data.data)
       } else {
-        console.error('Failed to fetch dashboard data:', statsResponse.status, statsResponse.statusText)
+        console.error('API returned no data or failed:', response.data)
         // 不设置 mock 数据，保持空状态
         setStats({
           totalUsers: 0,
@@ -145,8 +127,8 @@ const DashboardPage: React.FC = () => {
         })
       }
     } catch (error) {
-      console.error('Failed to fetch dashboard data:', error)
-      // 不设置 mock 数据，保持空状态
+      console.error('Error fetching dashboard data:', error)
+      // 错误时设置空状态
       setStats({
         totalUsers: 0,
         totalPosts: 0,
@@ -324,7 +306,7 @@ const DashboardPage: React.FC = () => {
               <Button 
                 variant="outline" 
                 className="h-20 flex flex-col items-center justify-center space-y-2 hover:bg-blue-50 hover:border-blue-200"
-                onClick={() => window.location.href = '/admin/posts/new'}
+                onClick={() => navigate('/admin/posts/new')}
               >
                 <Plus className="h-6 w-6 text-blue-600" />
                 <span className="text-sm font-medium">新建文章</span>
@@ -333,7 +315,7 @@ const DashboardPage: React.FC = () => {
               <Button 
                 variant="outline" 
                 className="h-20 flex flex-col items-center justify-center space-y-2 hover:bg-green-50 hover:border-green-200"
-                onClick={() => window.location.href = '/admin/posts'}
+                onClick={() => navigate('/admin/posts')}
               >
                 <Edit className="h-6 w-6 text-green-600" />
                 <span className="text-sm font-medium">管理文章</span>
@@ -342,7 +324,7 @@ const DashboardPage: React.FC = () => {
               <Button 
                 variant="outline" 
                 className="h-20 flex flex-col items-center justify-center space-y-2 hover:bg-purple-50 hover:border-purple-200"
-                onClick={() => window.location.href = '/admin/comments'}
+                onClick={() => navigate('/admin/comments')}
               >
                 <MessageSquare className="h-6 w-6 text-purple-600" />
                 <span className="text-sm font-medium">管理评论</span>
@@ -351,7 +333,7 @@ const DashboardPage: React.FC = () => {
               <Button 
                 variant="outline" 
                 className="h-20 flex flex-col items-center justify-center space-y-2 hover:bg-orange-50 hover:border-orange-200"
-                onClick={() => window.location.href = '/admin/users'}
+                onClick={() => navigate('/admin/users')}
               >
                 <UserPlus className="h-6 w-6 text-orange-600" />
                 <span className="text-sm font-medium">管理用户</span>
@@ -360,16 +342,16 @@ const DashboardPage: React.FC = () => {
               <Button 
                 variant="outline" 
                 className="h-20 flex flex-col items-center justify-center space-y-2 hover:bg-pink-50 hover:border-pink-200"
-                onClick={() => window.location.href = '/admin/media'}
+                onClick={() => navigate('/admin/files')}
               >
                 <Upload className="h-6 w-6 text-pink-600" />
-                <span className="text-sm font-medium">媒体管理</span>
+                <span className="text-sm font-medium">文件管理</span>
               </Button>
               
               <Button 
                 variant="outline" 
                 className="h-20 flex flex-col items-center justify-center space-y-2 hover:bg-gray-50 hover:border-gray-200"
-                onClick={() => window.location.href = '/admin/settings'}
+                onClick={() => navigate('/admin/settings')}
               >
                 <Settings className="h-6 w-6 text-gray-600" />
                 <span className="text-sm font-medium">系统设置</span>
@@ -378,7 +360,7 @@ const DashboardPage: React.FC = () => {
               <Button 
                 variant="outline" 
                 className="h-20 flex flex-col items-center justify-center space-y-2 hover:bg-indigo-50 hover:border-indigo-200"
-                onClick={() => window.location.href = '/admin/users'}
+                onClick={() => navigate('/admin/users')}
               >
                 <Users className="h-6 w-6 text-indigo-600" />
                 <span className="text-sm font-medium">用户统计</span>
@@ -474,9 +456,13 @@ const DashboardPage: React.FC = () => {
             <CardContent>
               <div className="space-y-4">
                 {stats.recentPosts.map((post) => (
-                  <div key={post.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                  <div 
+                    key={post.id} 
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/admin/posts/${post.id}/edit`)}
+                  >
                     <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-medium text-gray-900 truncate">{post.title}</h4>
+                      <h4 className="text-sm font-medium text-gray-900 truncate hover:text-blue-600">{post.title}</h4>
                       <p className="text-xs text-gray-500">{formatDate(post.createdAt)}</p>
                     </div>
                     <div className="flex items-center space-x-4 text-xs text-gray-500">
@@ -497,7 +483,11 @@ const DashboardPage: React.FC = () => {
                 ))}
               </div>
               <div className="mt-4">
-                <Button variant="outline" className="w-full">
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => navigate('/admin/posts')}
+                >
                   查看所有文章
                 </Button>
               </div>
@@ -515,14 +505,18 @@ const DashboardPage: React.FC = () => {
             <CardContent>
               <div className="space-y-4">
                 {stats.recentComments.map((comment) => (
-                  <div key={comment.id} className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                  <div 
+                    key={comment.id} 
+                    className="p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/admin/comments?highlight=${comment.id}`)}
+                  >
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm text-gray-900 line-clamp-2">{comment.content}</p>
+                        <p className="text-sm text-gray-900 line-clamp-2 hover:text-blue-600">{comment.content}</p>
                         <p className="text-xs text-gray-500 mt-1">
                           <span className="font-medium">
                             {typeof comment.author === 'string' ? comment.author : comment.author?.username || '未知用户'}
-                          </span> 评论于 {comment.postTitle}
+                          </span> 评论于 <span className="hover:text-blue-600">{comment.postTitle}</span>
                         </p>
                         <p className="text-xs text-gray-400">{formatDate(comment.createdAt)}</p>
                       </div>
@@ -531,7 +525,11 @@ const DashboardPage: React.FC = () => {
                 ))}
               </div>
               <div className="mt-4">
-                <Button variant="outline" className="w-full">
+                <Button 
+                  variant="outline" 
+                  className="w-full"
+                  onClick={() => navigate('/admin/comments')}
+                >
                   查看所有评论
                 </Button>
               </div>

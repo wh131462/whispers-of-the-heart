@@ -2,6 +2,30 @@
 
 echo "🚀 启动博客系统..."
 
+# 加载环境变量的函数（过滤注释和空行）
+load_env() {
+    local env_file="$1"
+    if [ ! -f "$env_file" ]; then
+        echo "❌ 环境配置文件不存在: $env_file"
+        exit 1
+    fi
+    
+    echo "📋 加载环境配置: $env_file"
+    
+    # 过滤掉注释行（以#开头）和空行，只保留包含=的有效环境变量行
+    local env_vars=$(cat "$env_file" | grep -E '^[^#\s]*=' | grep -v '^$')
+    local var_count=$(echo "$env_vars" | wc -l)
+    
+    export $(echo "$env_vars" | xargs)
+    
+    if [ $? -ne 0 ]; then
+        echo "❌ 加载环境变量失败: $env_file"
+        exit 1
+    fi
+    
+    echo "✅ 成功加载 $var_count 个环境变量"
+}
+
 # 检查是否安装了必要的依赖
 if ! command -v pnpm &> /dev/null; then
     echo "❌ 请先安装 pnpm"
@@ -31,7 +55,8 @@ echo "🔌 启动 API 服务..."
 cd apps/api
 pnpm install
 # 加载环境变量并启动API
-export $(cat ../../configs/env.development | xargs) && pnpm run start:dev &
+load_env "../../configs/env.development"
+pnpm run start:dev &
 API_PID=$!
 cd ../..
 
@@ -44,7 +69,8 @@ echo "🌐 启动 Web 服务..."
 cd apps/web
 pnpm install
 # 加载环境变量并启动Web
-export $(cat ../../configs/env.development | xargs) && pnpm run dev &
+load_env "../../configs/env.development"
+pnpm run dev &
 WEB_PID=$!
 cd ../..
 
@@ -53,7 +79,8 @@ echo "⚙️  启动 Admin 服务..."
 cd apps/admin
 pnpm install
 # 加载环境变量并启动Admin
-export $(cat ../../configs/env.development | xargs) && pnpm run dev &
+load_env "../../configs/env.development"
+pnpm run dev &
 ADMIN_PID=$!
 cd ../..
 

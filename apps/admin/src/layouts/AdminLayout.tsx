@@ -10,7 +10,9 @@ import {
   Menu,
   X,
   LogOut,
-  User
+  User,
+  Palette,
+  Tag
 } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { useAuthStore } from '../stores/useAuthStore'
@@ -32,6 +34,8 @@ const AdminLayout: React.FC = () => {
   const navigation = [
     { name: '仪表盘', href: '/admin/dashboard', icon: LayoutDashboard },
     { name: '文章管理', href: '/admin/posts', icon: FileText },
+    { name: '分类管理', href: '/admin/categories', icon: Palette },
+    { name: '标签管理', href: '/admin/tags', icon: Tag },
     { name: '评论管理', href: '/admin/comments', icon: MessageSquare },
     { name: '用户管理', href: '/admin/users', icon: Users },
     { name: '文件管理', href: '/admin/files', icon: FolderOpen },
@@ -84,9 +88,20 @@ const AdminLayout: React.FC = () => {
             <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
               <User className="h-5 w-5 text-gray-600" />
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-900">{user?.username || 'Admin'}</p>
-              <p className="text-xs text-gray-500">{user?.email || 'admin@example.com'}</p>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center space-x-2">
+                <p className="text-sm font-medium text-gray-900 truncate">{user?.username || 'Admin'}</p>
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${
+                  user?.role === 'ADMIN' ? 'bg-red-100 text-red-800' :
+                  user?.role === 'EDITOR' ? 'bg-blue-100 text-blue-800' :
+                  'bg-gray-100 text-gray-800'
+                }`}>
+                  {user?.role === 'ADMIN' ? '管理员' :
+                   user?.role === 'EDITOR' ? '编辑者' :
+                   '用户'}
+                </span>
+              </div>
+              <p className="text-xs text-gray-500 truncate">{user?.email || 'admin@example.com'}</p>
             </div>
           </div>
         </div>

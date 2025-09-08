@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react'
 import { CommentEditor } from '@whispers/ui'
 import { MessageCircle } from 'lucide-react'
 import { useToast } from '../contexts/ToastContext'
+import { api } from '@whispers/utils'
 
 interface CommentFormProps {
   postId: string
@@ -33,35 +34,20 @@ const CommentForm: React.FC<CommentFormProps> = ({
     setIsSubmitting(true)
     
     try {
-      const response = await fetch('http://localhost:7777/api/v1/comments', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content: content.trim(),
-          postId,
-          parentId,
-          authorId: 'anonymous', // 暂时使用匿名用户ID
-        }),
+      await api.post('/comments', {
+        content: content.trim(),
+        postId,
+        parentId,
+        authorId: 'anonymous', // 暂时使用匿名用户ID
       })
 
-      if (response.ok) {
-        onCommentAdded()
-        addToast({
-          title: '评论成功',
-          description: '您的评论已提交，等待审核',
-          variant: 'success'
-        })
-        // 不需要手动清空 content，CommentEditor 会自动清空
-      } else {
-        const error = await response.json()
-        addToast({
-          title: '评论失败',
-          description: error.message || '未知错误',
-          variant: 'destructive'
-        })
-      }
+      onCommentAdded()
+      addToast({
+        title: '评论成功',
+        description: '您的评论已提交，等待审核',
+        variant: 'success'
+      })
+      // 不需要手动清空 content，CommentEditor 会自动清空
     } catch (error) {
       console.error('Failed to submit comment:', error)
       addToast({

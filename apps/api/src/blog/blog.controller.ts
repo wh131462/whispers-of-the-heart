@@ -68,13 +68,35 @@ export class BlogController {
     return ApiResponseDto.success(post, '获取文章详情成功');
   }
 
+  // 专门用于编辑的接口，不增加访问量
+  @Get('post/:id/edit')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.EDITOR)
+  async findOneForEdit(@Param('id') id: string) {
+    const post = await this.blogService.findOnePostForEdit(id);
+    return ApiResponseDto.success(post, '获取编辑文章详情成功');
+  }
+
   // 需要认证的文章管理接口
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN, UserRole.EDITOR)
   async create(@Body() createPostDto: CreatePostDto, @Req() req: any) {
-    const post = await this.blogService.createPost(createPostDto, req.user.sub);
-    return ApiResponseDto.success(post, '文章创建成功');
+    try {
+      // 确保用户ID存在
+      const userId = req.user?.sub || req.user?.id;
+      if (!userId) {
+        throw new Error('用户ID未找到');
+      }
+
+      console.log('Creating post with user ID:', userId, 'User info:', req.user);
+      
+      const post = await this.blogService.createPost(createPostDto, userId);
+      return ApiResponseDto.success(post, '文章创建成功');
+    } catch (error) {
+      console.error('Create post error:', error);
+      throw error;
+    }
   }
 
   @Patch('post/:id')

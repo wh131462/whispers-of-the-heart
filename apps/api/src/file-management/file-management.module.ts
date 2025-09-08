@@ -3,6 +3,7 @@ import { MulterModule } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { FileManagementController } from './file-management.controller';
 import { FileManagementService } from './file-management.service';
+import { InitSystemFoldersService } from './init-system-folders.service';
 
 @Module({
   imports: [
@@ -17,7 +18,7 @@ import { FileManagementService } from './file-management.service';
     }),
   ],
   controllers: [FileManagementController],
-  providers: [FileManagementService],
-  exports: [FileManagementService],
+  providers: [FileManagementService, InitSystemFoldersService],
+  exports: [FileManagementService, InitSystemFoldersService],
 })
 export class FileManagementModule {}

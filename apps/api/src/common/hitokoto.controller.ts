@@ -1,16 +1,21 @@
 import { Controller, Get } from '@nestjs/common'
 import { ApiResponseDto } from './dto/api-response.dto'
 
+// 简单的外部API fetch函数
+async function fetchExternal(url: string) {
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+  }
+  return response.json()
+}
+
 @Controller('hitokoto')
 export class HitokotoController {
   @Get()
   async getHitokoto() {
     try {
-      const response = await fetch('https://v1.hitokoto.cn/')
-      if (!response.ok) {
-        throw new Error('Failed to fetch hitokoto')
-      }
-      const data = await response.json()
+      const data = await fetchExternal('https://v1.hitokoto.cn/')
       return ApiResponseDto.success(data, '获取一言成功')
     } catch (error) {
       console.error('Hitokoto API error:', error)

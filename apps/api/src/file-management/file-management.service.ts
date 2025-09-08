@@ -1,31 +1,81 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CreateFolderDto, UpdateFolderDto, UploadFileDto, UpdateFileDto } from './dto/file-management.dto';
-import { writeFileSync, mkdirSync, existsSync } from 'fs';
+import { InitSystemFoldersService } from './init-system-folders.service';
+import { writeFileSync, mkdirSync, existsSync, createWriteStream } from 'fs';
 import { join } from 'path';
+import { fixFilenameEncoding } from '../common/utils/filename-encoding.util';
 
 @Injectable()
 export class FileManagementService {
   constructor(
     private prisma: PrismaService,
-    private configService: ConfigService
+    private configService: ConfigService,
+    private initSystemFoldersService: InitSystemFoldersService
   ) {}
 
+  // 权限检查方法
+  private async checkFolderPermission(folderId: string, userId: string, userRole: string): Promise<boolean> {
+    const folder = await this.prisma.folder.findUnique({
+      where: { id: folderId }
+    });
+
+    if (!folder) return false;
+
+    // 管理员有所有权限
+    if (userRole === 'ADMIN') return true;
+
+    // 公共目录需要编辑权限
+    if (folder.isPublic) {
+      return userRole === 'EDITOR' || userRole === 'ADMIN';
+    }
+
+    // 用户只能访问自己的文件夹
+    return folder.ownerId === userId || folder.path.startsWith(`/${userId}`);
+  }
+
+  private async checkCreateFolderPermission(parentId: string | null | undefined, userId: string, userRole: string): Promise<boolean> {
+    // 管理员可以在任何地方创建文件夹
+    if (userRole === 'ADMIN') return true;
+
+    if (!parentId) {
+      // 不允许在根目录创建文件夹
+      return false;
+    }
+
+    return this.checkFolderPermission(parentId, userId, userRole);
+  }
+
   // 文件夹管理
-  async createFolder(createFolderDto: CreateFolderDto, userId: string) {
+  async createFolder(createFolderDto: CreateFolderDto, userId: string, userRole: string = 'USER') {
     const { name, parentId, description } = createFolderDto;
     
-    // 生成文件夹路径
-    let path = `/${name}`;
+    // 权限检查
+    const hasPermission = await this.checkCreateFolderPermission(parentId, userId, userRole);
+    if (!hasPermission) {
+      throw new ForbiddenException('没有权限在此位置创建文件夹');
+    }
+
+    let path: string;
+    let ownerId: string;
+    let parentFolder: any = null;
+
     if (parentId) {
-      const parentFolder = await this.prisma.folder.findUnique({
+      parentFolder = await this.prisma.folder.findUnique({
         where: { id: parentId }
       });
       if (!parentFolder) {
         throw new NotFoundException('Parent folder not found');
       }
       path = `${parentFolder.path}/${name}`;
+      
+      // 继承父文件夹的所有者
+      ownerId = parentFolder.ownerId || userId;
+    } else {
+      // 在用户根目录创建
+      path = `/${userId}/${name}`;
+      ownerId = userId;
     }
 
     // 检查路径是否已存在
@@ -33,7 +83,7 @@ export class FileManagementService {
       where: { path }
     });
     if (existingFolder) {
-      throw new BadRequestException('Folder with this path already exists');
+      throw new BadRequestException('文件夹已存在');
     }
 
     return this.prisma.folder.create({
@@ -42,11 +92,19 @@ export class FileManagementService {
         path,
         parentId,
         description,
-        isSystem: false
+        isSystem: false,
+        isPublic: parentFolder?.isPublic || false,
+        ownerId
       },
       include: {
         parent: true,
         children: true,
+        owner: {
+          select: {
+            id: true,
+            username: true
+          }
+        },
         _count: {
           select: {
             files: true
@@ -56,40 +114,87 @@ export class FileManagementService {
     });
   }
 
-  async getFolders(parentId?: string) {
+  async getFolders(userId: string, userRole: string = 'USER', parentId?: string) {
+    // 构建查询条件
+    const where: any = {
+      parentId: parentId || null
+    };
+
+    // 非管理员只能看到自己有权限的文件夹
+    if (userRole !== 'ADMIN') {
+      where.OR = [
+        // 公共文件夹（所有人可见）
+        { isPublic: true },
+        // 用户自己的文件夹
+        { ownerId: userId },
+        // 用户目录下的文件夹
+        { path: { startsWith: `/${userId}` } }
+      ];
+    }
+
     return this.prisma.folder.findMany({
-      where: {
-        parentId: parentId || null
-      },
+      where,
       include: {
         parent: true,
         children: true,
+        owner: {
+          select: {
+            id: true,
+            username: true
+          }
+        },
         _count: {
           select: {
             files: true
           }
         }
       },
-      orderBy: {
-        name: 'asc'
-      }
+      orderBy: [
+        { isPublic: 'desc' }, // 公共文件夹优先
+        { isSystem: 'desc' }, // 系统文件夹优先
+        { name: 'asc' }
+      ]
     });
   }
 
-  async getFolderTree() {
+  async getFolderTree(userId: string, userRole: string = 'USER') {
+    // 构建查询条件
+    const where: any = {};
+
+    // 非管理员只能看到自己有权限的文件夹
+    if (userRole !== 'ADMIN') {
+      where.OR = [
+        // 公共文件夹（所有人可见）
+        { isPublic: true },
+        // 用户自己的文件夹
+        { ownerId: userId },
+        // 用户目录下的文件夹
+        { path: { startsWith: `/${userId}` } }
+      ];
+    }
+
     const allFolders = await this.prisma.folder.findMany({
+      where,
       include: {
         parent: true,
         children: true,
+        owner: {
+          select: {
+            id: true,
+            username: true
+          }
+        },
         _count: {
           select: {
             files: true
           }
         }
       },
-      orderBy: {
-        name: 'asc'
-      }
+      orderBy: [
+        { isPublic: 'desc' }, // 公共文件夹优先
+        { isSystem: 'desc' }, // 系统文件夹优先
+        { name: 'asc' }
+      ]
     });
 
     // 构建树形结构
@@ -105,12 +210,23 @@ export class FileManagementService {
     return buildTree(allFolders);
   }
 
-  async updateFolder(id: string, updateFolderDto: UpdateFolderDto) {
+  async updateFolder(id: string, updateFolderDto: UpdateFolderDto, userId: string, userRole: string = 'USER') {
     const folder = await this.prisma.folder.findUnique({
       where: { id }
     });
     if (!folder) {
       throw new NotFoundException('Folder not found');
+    }
+
+    // 权限检查
+    const hasPermission = await this.checkFolderPermission(id, userId, userRole);
+    if (!hasPermission) {
+      throw new ForbiddenException('没有权限修改此文件夹');
+    }
+
+    // 系统文件夹不允许重命名
+    if (folder.isSystem && updateFolderDto.name && updateFolderDto.name !== folder.name) {
+      throw new BadRequestException('系统文件夹不能重命名');
     }
 
     return this.prisma.folder.update({
@@ -119,6 +235,12 @@ export class FileManagementService {
       include: {
         parent: true,
         children: true,
+        owner: {
+          select: {
+            id: true,
+            username: true
+          }
+        },
         _count: {
           select: {
             files: true
@@ -128,7 +250,7 @@ export class FileManagementService {
     });
   }
 
-  async deleteFolder(id: string) {
+  async deleteFolder(id: string, userId: string, userRole: string = 'USER') {
     const folder = await this.prisma.folder.findUnique({
       where: { id },
       include: {
@@ -140,16 +262,22 @@ export class FileManagementService {
       throw new NotFoundException('Folder not found');
     }
 
+    // 权限检查
+    const hasPermission = await this.checkFolderPermission(id, userId, userRole);
+    if (!hasPermission) {
+      throw new ForbiddenException('没有权限删除此文件夹');
+    }
+
     if (folder.isSystem) {
-      throw new BadRequestException('Cannot delete system folder');
+      throw new BadRequestException('系统文件夹不能删除');
     }
 
     if (folder.children.length > 0) {
-      throw new BadRequestException('Cannot delete folder with subfolders');
+      throw new BadRequestException('文件夹包含子文件夹，无法删除');
     }
 
     if (folder.files.length > 0) {
-      throw new BadRequestException('Cannot delete folder with files');
+      throw new BadRequestException('文件夹包含文件，无法删除');
     }
 
     return this.prisma.folder.delete({
@@ -158,59 +286,134 @@ export class FileManagementService {
   }
 
   // 文件管理
-  async uploadFile(uploadFileDto: UploadFileDto, userId: string, file:any) {
+  async uploadFile(uploadFileDto: UploadFileDto, userId: string, userRole: string = 'USER', file: any) {
     const { folderId, description, tags, isPublic } = uploadFileDto;
 
-    // 验证文件夹是否存在
-    const folder = await this.prisma.folder.findUnique({
-      where: { id: folderId }
-    });
-    if (!folder) {
-      throw new NotFoundException('Folder not found');
+    // 确保用户根目录存在
+    await this.initSystemFoldersService.ensureUserRootFolder(userId, `user-${userId}`);
+
+    let folder;
+    let fileDir;
+    let relativePath;
+    let folderPath = `/${userId}`; // 默认为用户根目录路径
+
+    if (folderId && folderId.trim() !== '' && folderId !== 'root' && folderId !== 'public') {
+      // 有指定文件夹，验证权限
+      folder = await this.prisma.folder.findUnique({
+        where: { id: folderId }
+      });
+      if (!folder) {
+        throw new NotFoundException('目标文件夹不存在');
+      }
+
+      // 权限检查
+      const hasPermission = await this.checkFolderPermission(folderId, userId, userRole);
+      if (!hasPermission) {
+        throw new ForbiddenException('没有权限上传到此文件夹');
+      }
+
+      folderPath = folder.path;
+    } else if (folderId === 'public') {
+      // 上传到公共目录 - 需要编辑权限
+      if (userRole !== 'ADMIN' && userRole !== 'EDITOR') {
+        throw new ForbiddenException('没有权限上传到公共目录');
+      }
+
+      // 确保公共文件夹存在
+      folder = await this.prisma.folder.findFirst({
+        where: { path: '/public', isPublic: true }
+      });
+
+      if (!folder) {
+        throw new NotFoundException('公共目录不存在');
+      }
+
+      folderPath = '/public';
+    } else {
+      // 上传到用户根目录
+      folder = await this.prisma.folder.findFirst({
+        where: { path: `/${userId}`, ownerId: userId }
+      });
+      
+      if (!folder) {
+        throw new NotFoundException('用户根目录不存在');
+      }
+
+      folderPath = `/${userId}`;
     }
 
     // 生成唯一文件名
     const timestamp = Date.now();
     const filename = `${timestamp}-${file.originalname}`;
-    const relativePath = `${folder.path}/${filename}`;
-    
+    relativePath = `${folderPath}${folderPath === '/' ? '' : '/'}${filename}`;
+
     // 确保文件夹存在
     const uploadsDir = join(process.cwd(), 'uploads');
-    const fileDir = join(uploadsDir, folder.path);
+    fileDir = join(uploadsDir, folderPath);
     if (!existsSync(fileDir)) {
       mkdirSync(fileDir, { recursive: true });
     }
+
+    // 文件已经被multer保存到磁盘，我们只需要移动或重命名它
+    const finalFilePath = join(fileDir, filename);
     
-    // 保存文件到磁盘
-    const filePath = join(fileDir, filename);
-    writeFileSync(filePath, file.buffer);
+    // 如果multer保存的文件路径与目标路径不同，则移动文件
+    if (file.path && file.path !== finalFilePath) {
+      const fs = require('fs');
+      // 确保目标目录存在
+      if (!existsSync(fileDir)) {
+        mkdirSync(fileDir, { recursive: true });
+      }
+      // 移动文件到正确位置
+      fs.renameSync(file.path, finalFilePath);
+    }
     
-    // 生成完整的URL - 确保路径正确
+    // 生成完整的URL - 确保路径正确并进行URL编码
     const apiUrl = this.configService.get('API_URL', 'http://localhost:7777');
     const cleanPath = relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
-    const url = `${apiUrl}/uploads${cleanPath}`;
+    
+    // 对路径中的文件名部分进行URL编码，但保留路径分隔符
+    const pathParts = cleanPath.split('/');
+    const encodedPath = pathParts.map((part, index) => {
+      // 跳过空字符串和路径分隔符
+      if (part === '' || index === 0) return part;
+      // 对文件名进行URL编码
+      return encodeURIComponent(part);
+    }).join('/');
+    
+    const url = `${apiUrl}/uploads${encodedPath}`;
+
+    // 使用工具函数确保原始文件名使用正确的UTF-8编码
+    const originalName = fixFilenameEncoding(file.originalname);
+
+    // 准备文件创建数据
+    const fileData: any = {
+      filename,
+      originalName,
+      mimeType: file.mimetype,
+      size: file.size,
+      url,
+      description: description || null,
+      tags: tags || [],
+      isPublic: isPublic !== false,
+      uploader: {
+        connect: {
+          id: userId
+        }
+      }
+    };
+
+    // 只有当folder存在时才连接文件夹
+    if (folder) {
+      fileData.folder = {
+        connect: {
+          id: folder.id
+        }
+      };
+    }
 
     return this.prisma.file.create({
-      data: {
-        filename,
-        originalName: file.originalname,
-        mimeType: file.mimetype,
-        size: file.size,
-        url,
-        description,
-        tags: tags || [],
-        isPublic: isPublic !== false,
-        folder: {
-          connect: {
-            id: folderId
-          }
-        },
-        uploader: {
-          connect: {
-            id: userId
-          }
-        }
-      },
+      data: fileData,
       include: {
         folder: true,
         uploader: {
@@ -398,7 +601,9 @@ export class FileManagementService {
     const apiUrl = this.configService.get('API_URL', 'http://localhost:7777');
 
     for (const file of files) {
-      const relativePath = `${file.folder.path}/${file.filename}`;
+      // 处理根目录文件（没有folder关联）
+      const folderPath = file.folder?.path || '/';
+      const relativePath = `${folderPath}${folderPath === '/' ? '' : '/'}${file.filename}`;
       const cleanPath = relativePath.startsWith('/') ? relativePath : `/${relativePath}`;
       const correctUrl = `${apiUrl}/uploads${cleanPath}`;
 
@@ -419,8 +624,15 @@ export class FileManagementService {
 
     for (const file of files) {
       try {
+        // 如果文件没有folder关联，跳过移动操作
+        if (!file.folder) {
+          console.log(`File ${file.originalName} is in root directory, skipping move`);
+          continue;
+        }
+
         // 检查文件是否已经存在于正确的位置
-        const correctPath = join(uploadsDir, file.folder.path, file.filename);
+        const folderPath = file.folder.path;
+        const correctPath = join(uploadsDir, folderPath, file.filename);
         if (existsSync(correctPath)) {
           console.log(`File already in correct location: ${file.originalName}`);
           continue;

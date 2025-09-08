@@ -4,10 +4,11 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import PostCard from '../components/PostCard'
-import { 
-  Search, 
+import {
+  Search,
   X
 } from 'lucide-react'
+import { api } from '@whispers/utils'
 
 interface Post {
   id: string
@@ -64,12 +65,9 @@ const PostsPage: React.FC = () => {
   const fetchPosts = async () => {
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:7777/api/v1/blog')
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success && data.data && data.data.items) {
-          setPosts(data.data.items)
-        }
+      const response = await api.get('/blog')
+      if (response.data?.success && response.data?.data?.items) {
+        setPosts(response.data.data.items)
       }
     } catch (error) {
       console.error('Failed to fetch posts:', error)
@@ -80,15 +78,15 @@ const PostsPage: React.FC = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('http://localhost:7777/api/v1/blog/categories')
-      if (response.ok) {
-        const data = await response.json()
-        if (data.success && data.data) {
-          setCategories(data.data)
-        }
+      const response = await api.get('/blog/categories')
+      if (response.data?.success && response.data?.data && Array.isArray(response.data.data)) {
+        setCategories(response.data.data)
+      } else {
+        setCategories([])
       }
     } catch (error) {
       console.error('Failed to fetch categories:', error)
+      setCategories([])
     }
   }
 
@@ -142,7 +140,7 @@ const PostsPage: React.FC = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">所有分类</SelectItem>
-                {categories
+                {Array.isArray(categories) && categories
                   .filter(category => category.name && category.name.trim() !== '')
                   .map((category) => (
                     <SelectItem key={category.name} value={category.name}>

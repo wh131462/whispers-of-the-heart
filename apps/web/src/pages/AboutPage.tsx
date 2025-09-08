@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent } from '../components/ui/card'
 import { Github, Twitter, Linkedin, Mail } from 'lucide-react'
+import { api } from '@whispers/utils'
 
 interface SiteConfig {
   siteName: string
@@ -32,10 +33,9 @@ const AboutPage: React.FC = () => {
   const fetchSiteConfig = async () => {
     try {
       setLoading(true)
-      const response = await fetch('http://localhost:7777/api/v1/site-config')
-      if (response.ok) {
-        const configData = await response.json()
-        setSiteConfig(configData)
+      const response = await api.get('/site-config')
+      if (response.data?.success && response.data?.data) {
+        setSiteConfig(response.data.data)
       } else {
         // 使用默认配置
         setSiteConfig({

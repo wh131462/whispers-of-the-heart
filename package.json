@@ -39,6 +39,11 @@
     "start:web": "turbo run start --filter=web",
     "start:admin": "turbo run start --filter=admin",
     
+    "dev:development": "cross-env NODE_ENV=development turbo run dev",
+    "dev:production": "cross-env NODE_ENV=production turbo run dev",
+    "build:development": "cross-env NODE_ENV=development turbo run build",
+    "build:production": "cross-env NODE_ENV=production turbo run build",
+    
         
     "env:dev": "cp configs/env.development .env",
     "env:prod": "cp configs/env.production .env",
@@ -84,6 +89,7 @@
     "eslint": "^9.34.0",
     "prettier": "^3.6.2",
     "turbo": "^2.0.0",
+    "cross-env": "^10.0.0",
     "typescript": "^5.8.3"
   },
   "lint-staged": {

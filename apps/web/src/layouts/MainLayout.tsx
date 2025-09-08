@@ -20,6 +20,7 @@ import { Button } from '../components/ui/button'
 import { useAuthStore } from '../stores/useAuthStore'
 import { DEFAULT_AVATAR } from '../constants/images'
 import SearchDialog from '../components/SearchDialog'
+import { api } from '@whispers/utils'
 
 // 获取admin URL，支持不同环境
 const getAdminUrl = () => {
@@ -99,14 +100,9 @@ const MainLayout: React.FC = () => {
 
   const fetchHitokoto = async () => {
     try {
-      const response = await fetch('http://localhost:7777/api/v1/hitokoto')
-      if (response.ok) {
-        const result = await response.json()
-        if (result.success && result.data) {
-          setHitokoto(result.data.hitokoto)
-        } else {
-          setHitokoto('生活不止眼前的代码，还有诗和远方。')
-        }
+      const response = await api.get('/hitokoto')
+      if (response.data?.hitokoto) {
+        setHitokoto(response.data.hitokoto)
       } else {
         setHitokoto('生活不止眼前的代码，还有诗和远方。')
       }
@@ -118,10 +114,9 @@ const MainLayout: React.FC = () => {
 
   const fetchSiteConfig = async () => {
     try {
-      const response = await fetch('http://localhost:7777/api/v1/site-config')
-      if (response.ok) {
-        const configData = await response.json()
-        setSiteConfig(configData)
+      const response = await api.get('/site-config')
+      if (response.data) {
+        setSiteConfig(response.data)
       }
     } catch (error) {
       console.error('Failed to fetch site config:', error)

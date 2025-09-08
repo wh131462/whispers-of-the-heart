@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { ArrowRight } from 'lucide-react'
 import PostCard from '../components/PostCard'
+import { api } from '@whispers/utils'
 
 interface Post {
   id: string
@@ -78,29 +79,23 @@ const HomePage: React.FC = () => {
   const fetchData = async () => {
     try {
       setLoading(true)
-      
+
       // 并行获取文章和站点配置
       const [postsResponse, configResponse] = await Promise.all([
-        fetch('http://localhost:7777/api/v1/blog'),
-        fetch('http://localhost:7777/api/v1/site-config')
+        api.get('/blog'),
+        api.get('/site-config')
       ])
 
       // 处理文章数据
-      if (postsResponse.ok) {
-        const postsData = await postsResponse.json()
-        if (postsData.success && postsData.data && postsData.data.items) {
-          // 只显示已发布的文章
-          const publishedPosts = postsData.data.items.filter((post: Post) => post.status === 'PUBLISHED')
-          setPosts(publishedPosts.slice(0, 6)) // 只显示前6篇文章
-        }
+      if (postsResponse.data?.success && postsResponse.data?.data?.items) {
+        // 只显示已发布的文章
+        const publishedPosts = postsResponse.data.data.items.filter((post: Post) => post.status === 'PUBLISHED')
+        setPosts(publishedPosts.slice(0, 6)) // 只显示前6篇文章
       }
 
       // 处理站点配置
-      if (configResponse.ok) {
-        const configData = await configResponse.json()
-        if (configData.success && configData.data) {
-          setSiteConfig(configData.data)
-        }
+      if (configResponse.data?.success && configResponse.data?.data) {
+        setSiteConfig(configResponse.data.data)
       }
     } catch (error) {
       console.error('Failed to fetch data:', error)
@@ -111,14 +106,9 @@ const HomePage: React.FC = () => {
 
   const fetchHitokoto = async () => {
     try {
-      const response = await fetch('http://localhost:7777/api/v1/hitokoto')
-      if (response.ok) {
-        const result = await response.json()
-        if (result.success && result.data) {
-          setHitokoto(result.data.hitokoto)
-        } else {
-          setHitokoto('生活不止眼前的代码，还有诗和远方。')
-        }
+      const response = await api.get('/hitokoto')
+      if (response.data?.hitokoto) {
+        setHitokoto(response.data.hitokoto)
       } else {
         setHitokoto('生活不止眼前的代码，还有诗和远方。')
       }

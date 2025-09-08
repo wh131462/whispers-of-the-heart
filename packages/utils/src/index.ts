@@ -24,5 +24,11 @@ export type {
   UpdatePostDto, 
   PostListResponse, 
   LoginDto, 
-  LoginResponse 
+  LoginResponse,
+  Category,
+  Tag,
+  CreateCategoryDto,
+  UpdateCategoryDto,
+  CreateTagDto,
+  UpdateTagDto
 } from './blog-api'

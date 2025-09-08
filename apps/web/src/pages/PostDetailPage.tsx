@@ -10,6 +10,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { blogApi } from '../services/blogApi'
 import { useAuthStore } from '../stores/useAuthStore'
 import { useToast } from '../contexts/ToastContext'
+import { api } from '@whispers/utils'
 
 interface Post {
   id: string
@@ -75,21 +76,20 @@ const PostDetailPage: React.FC = () => {
   const fetchPost = async (slug: string) => {
     try {
       setLoading(true)
-      const response = await fetch(`http://localhost:7777/api/v1/blog/slug/${slug}`)
-      
-      if (response.ok) {
-        const result = await response.json()
-        if (result.success && result.data) {
-          setPost(result.data)
-          setCommentCount(result.data._count?.postComments || 0)
-          setLikesCount(result.data.likes || 0)
+      const response = await api.get(`/blog/slug/${slug}`)
+
+      if (response.data?.success && response.data?.data) {
+        const postData = response.data.data
+        setPost(postData)
+        setCommentCount(postData._count?.postComments || 0)
+        setLikesCount(postData.likes || 0)
           
           // 如果用户已登录，获取点赞和收藏状态
           if (isAuthenticated) {
             try {
               const [likeStatus, favoriteStatus] = await Promise.all([
-                blogApi.getLikeStatus(result.data.id),
-                blogApi.getFavoriteStatus(result.data.id)
+                blogApi.getLikeStatus(postData.id),
+                blogApi.getFavoriteStatus(postData.id)
               ])
               setIsLiked(likeStatus.liked)
               setIsBookmarked(favoriteStatus.favorited)
@@ -104,14 +104,9 @@ const PostDetailPage: React.FC = () => {
             setIsLiked(false)
             setIsBookmarked(false)
           }
-        } else {
-          throw new Error(result.message || '获取文章失败')
-        }
-      } else if (response.status === 404) {
-        // 文章不存在
-        setPost(null)
       } else {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        // 文章不存在或获取失败
+        setPost(null)
       }
     } catch (error) {
       console.error('Failed to fetch post:', error)

@@ -33,7 +33,7 @@ interface UserListResponse {
 
 const UserManagementPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([])
-  const [loading, setLoading] = useState(true)
+  const [, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -55,7 +55,7 @@ const UserManagementPage: React.FC = () => {
         return
       }
 
-      const response = await request<UserListResponse>(`/api/v1/users`, {
+      const response = await request<UserListResponse>(`/users`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -172,7 +172,7 @@ const UserManagementPage: React.FC = () => {
         return
       }
 
-      const response = await request(`/api/v1/users/${userId}/toggle-active`, {
+      const response = await request(`/users/${userId}/toggle-active`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -200,7 +200,7 @@ const UserManagementPage: React.FC = () => {
         return
       }
 
-      const response = await request(`/api/v1/users/${userId}`, {
+      const response = await request(`/users/${userId}`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -225,7 +225,7 @@ const UserManagementPage: React.FC = () => {
   }
 
   // 封禁用户
-  const handleBanUser = (userId: string, reason: string) => {
+  const handleBanUser = (userId: string, _reason: string) => {
     setUsers(prev => prev.map(user => 
       user.id === userId
         ? { ...user, isActive: false }
@@ -235,7 +235,7 @@ const UserManagementPage: React.FC = () => {
   }
 
   // 批量封禁
-  const handleBatchBan = (reason: string) => {
+  const handleBatchBan = (_reason: string) => {
     setUsers(prev => prev.map(user => 
       selectedRows.some(selected => selected.id === user.id)
         ? { ...user, isActive: false }

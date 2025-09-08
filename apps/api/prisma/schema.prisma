@@ -35,6 +35,7 @@ model User {
   refreshTokens RefreshToken[]
   passwordResetTokens PasswordResetToken[]
   files     File[]
+  folders   Folder[] @relation("UserFolders")
 
   @@map("users")
 }
@@ -208,18 +209,21 @@ model Favorite {
 
 // 文件夹模型
 model Folder {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   name        String
-  path        String   @unique  // 文件夹路径，如 /uploads/images/
-  parentId    String?  // 父文件夹ID，支持嵌套
+  path        String      @unique  // 文件夹路径，如 /public, /user-uuid/subfolder
+  parentId    String?     // 父文件夹ID，支持嵌套
   description String?
-  isSystem    Boolean  @default(false)  // 是否为系统文件夹
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isSystem    Boolean     @default(false)  // 是否为系统文件夹（公共目录、用户根目录）
+  isPublic    Boolean     @default(false)  // 是否为公共目录
+  ownerId     String?     // 文件夹所有者（用户ID），公共目录为null
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   // 关联关系
-  parent      Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
-  children    Folder[] @relation("FolderHierarchy")
+  owner       User?       @relation("UserFolders", fields: [ownerId], references: [id], onDelete: Cascade)
+  parent      Folder?     @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Folder[]    @relation("FolderHierarchy")
   files       File[]
 
   @@map("folders")
@@ -243,8 +247,8 @@ model File {
   updatedAt   DateTime @updatedAt
 
   // 关联关系
-  folderId    String
-  folder      Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  folderId    String?
+  folder      Folder?  @relation(fields: [folderId], references: [id], onDelete: Cascade)
   uploaderId  String
   uploader    User     @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
 
