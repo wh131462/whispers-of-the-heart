@@ -82,7 +82,7 @@ export function DataTable<T extends { id: string | number }>({
             </tr>
           </thead>
           <tbody>
-            {currentData.map((item, index) => (
+            {currentData.map((item) => (
               <tr key={item.id} className="border-t hover:bg-muted/50">
                 {selectable && (
                   <td className="px-4 py-3">

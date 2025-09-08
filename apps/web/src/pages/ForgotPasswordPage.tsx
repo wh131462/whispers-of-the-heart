@@ -5,6 +5,7 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Mail, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react'
+import { api } from '@whispers/utils'
 
 const ForgotPasswordPage: React.FC = () => {
   const [email, setEmail] = useState('')
@@ -30,20 +31,12 @@ const ForgotPasswordPage: React.FC = () => {
     try {
       setLoading(true)
       
-      const response = await fetch('http://localhost:7777/api/v1/auth/forgot-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      })
+      const response = await api.post('/auth/forgot-password', { email })
 
-      const data = await response.json()
-
-      if (response.ok && data.success) {
+      if (response.data?.success) {
         setSuccess(true)
       } else {
-        setError(data.message || '发送重置邮件失败，请重试')
+        setError(response.data?.message || '发送重置邮件失败，请重试')
       }
     } catch (error) {
       console.error('Forgot password error:', error)

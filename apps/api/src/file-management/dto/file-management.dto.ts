@@ -25,9 +25,9 @@ export class UpdateFolderDto {
 }
 
 export class UploadFileDto {
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  folderId: string;
+  folderId?: string;
 
   @IsOptional()
   @IsString()
@@ -41,6 +41,14 @@ export class UploadFileDto {
   @IsOptional()
   @IsBoolean()
   isPublic?: boolean;
+}
+
+// 用于处理FormData的原始DTO，不进行验证
+export class UploadFileRawDto {
+  folderId?: any;
+  description?: any;
+  tags?: any;
+  isPublic?: any;
 }
 
 export class UpdateFileDto {

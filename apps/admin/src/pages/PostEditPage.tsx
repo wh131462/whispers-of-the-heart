@@ -1,19 +1,25 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
+import { Card, CardContent } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Textarea } from '../components/ui/textarea'
+import { Switch } from '../components/ui/switch'
+import { Combobox, MultiCombobox } from '../components/ui/combobox'
 import ProtectedPage from '../components/ProtectedPage'
 import { 
   Save, 
-  FileText, 
   Calendar,
   ArrowLeft,
-  Trash2
+  Trash2,
+  Eye,
+  Heart,
+  MessageSquare,
+  Sparkles
 } from 'lucide-react'
 import { TiptapEditor } from '@whispers/ui'
-import { blogApi, type CreatePostDto, type UpdatePostDto } from '@whispers/utils'
+import { blogApi, type CreatePostDto, type UpdatePostDto, type Category, type Tag, api, setTokenFromStorage } from '@whispers/utils'
+import { useToastContext } from '../contexts/ToastContext'
 
 // 本地Post接口，用于编辑表单
 interface LocalPost {
@@ -27,11 +33,15 @@ interface LocalPost {
   coverImage?: string
   createdAt?: string
   updatedAt?: string
+  views?: number
+  likes?: number
+  comments?: number
 }
 
 const PostEditPage: React.FC = () => {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
+  const { success, error } = useToastContext()
   const isEditing = !!id
   
   const [post, setPost] = useState<LocalPost>({
@@ -40,12 +50,17 @@ const PostEditPage: React.FC = () => {
     excerpt: '',
     tags: [],
     category: '',
-    status: 'draft'
+    status: 'draft',
+    views: 0,
+    likes: 0,
+    comments: 0
   })
   
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [tagInput, setTagInput] = useState('')
+  const [isPublished, setIsPublished] = useState(false)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [tags, setTags] = useState<Tag[]>([])
 
   useEffect(() => {
     // 初始化token
@@ -54,15 +69,38 @@ const PostEditPage: React.FC = () => {
       blogApi.setToken(token)
     }
     
+    fetchCategoriesAndTags()
+    
     if (isEditing) {
       fetchPost()
     }
   }, [id])
 
+  const fetchCategoriesAndTags = async () => {
+    try {
+      const [categoriesRes, tagsRes] = await Promise.all([
+        blogApi.getCategories(),
+        blogApi.getTags()
+      ])
+      
+      if (categoriesRes.success && categoriesRes.data) {
+        setCategories(categoriesRes.data)
+      }
+      
+      if (tagsRes.success && tagsRes.data) {
+        setTags(tagsRes.data)
+      }
+    } catch (err) {
+      console.error('Failed to fetch categories and tags:', err)
+      error('获取分类和标签列表失败')
+    }
+  }
+
   const fetchPost = async () => {
     try {
       setLoading(true)
-      const response = await blogApi.getPost(id!)
+      // 使用专门的编辑方法，不会增加访问量
+      const response = await blogApi.getPostForEdit(id!)
       
       if (response.success && response.data) {
         const apiPost = response.data
@@ -78,8 +116,12 @@ const PostEditPage: React.FC = () => {
           coverImage: apiPost.coverImage,
           createdAt: apiPost.createdAt,
           updatedAt: apiPost.updatedAt,
+          views: apiPost.views || 0,
+          likes: apiPost.likes || 0,
+          comments: apiPost.comments || 0,
         }
         setPost(localPost)
+        setIsPublished(apiPost.status === 'PUBLISHED')
       } else {
         console.error('Post not found')
         navigate('/admin/posts')
@@ -93,7 +135,7 @@ const PostEditPage: React.FC = () => {
   }
 
 
-  const handleSave = async (publish: boolean = false) => {
+  const handleSave = async (publishStatus?: boolean) => {
     try {
       setSaving(true)
       
@@ -102,10 +144,13 @@ const PostEditPage: React.FC = () => {
       if (token) {
         blogApi.setToken(token)
       } else {
-        alert('请先登录')
+        error('请先登录')
         navigate('/admin/login')
         return
       }
+      
+      // 使用当前发布状态或传入的状态
+      const shouldPublish = publishStatus !== undefined ? publishStatus : isPublished
       
       // 转换本地数据格式到API格式
       const apiData: CreatePostDto | UpdatePostDto = {
@@ -114,7 +159,7 @@ const PostEditPage: React.FC = () => {
         excerpt: post.excerpt,
         category: post.category,
         coverImage: post.coverImage,
-        status: publish ? 'PUBLISHED' : 'DRAFT',
+        status: shouldPublish ? 'PUBLISHED' : 'DRAFT',
         tags: post.tags,
       }
 
@@ -130,36 +175,27 @@ const PostEditPage: React.FC = () => {
           // 新建文章成功后跳转到编辑页面
           navigate(`/admin/posts/edit/${response.data.id}`)
         }
-        alert(publish ? '文章发布成功！' : '文章保存成功！')
+        setIsPublished(shouldPublish)
+        setPost(prev => ({ ...prev, status: shouldPublish ? 'published' : 'draft' }))
+        success(shouldPublish ? '文章发布成功！' : '文章保存成功！')
       } else {
-        alert(response.message || '保存失败')
+        error(response.message || '保存失败')
       }
-    } catch (error: any) {
-      console.error('Failed to save post:', error)
+    } catch (err: any) {
+      console.error('Failed to save post:', err)
       
       // 处理不同类型的错误
-      if (error.statusCode === 409) {
-        alert('文章标题已存在，请修改标题后重试')
-      } else if (error.statusCode === 401) {
-        alert('登录已过期，请重新登录')
-        // 可以在这里添加跳转到登录页的逻辑
-      } else if (error.message) {
-        alert(`保存失败：${error.message}`)
+      if (err.statusCode === 409) {
+        error('文章标题已存在，请修改标题后重试')
+      } else if (err.statusCode === 401) {
+        error('登录已过期，请重新登录')
+      } else if (err.message) {
+        error(`保存失败：${err.message}`)
       } else {
-        alert('保存失败，请稍后重试')
+        error('保存失败，请稍后重试')
       }
     } finally {
       setSaving(false)
-    }
-  }
-
-  const handleAddTag = () => {
-    if (tagInput.trim() && !post.tags.includes(tagInput.trim())) {
-      setPost(prev => ({
-        ...prev,
-        tags: [...prev.tags, tagInput.trim()]
-      }))
-      setTagInput('')
     }
   }
 
@@ -177,23 +213,76 @@ const PostEditPage: React.FC = () => {
 
     try {
       if (isEditing) {
-        const response = await fetch(`http://localhost:7777/api/v1/blog/post/${id}`, {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('admin_token')}`,
-            'Content-Type': 'application/json',
-          },
-        })
-        
-        if (response.ok || response.status === 404) {
-          alert('文章删除成功！')
-          navigate('/admin/posts')
-        }
+        setTokenFromStorage('admin_token')
+        await api.delete(`/blog/post/${id}`)
+        success('文章删除成功！')
+        navigate('/admin/posts')
       }
-    } catch (error) {
-      console.error('Failed to delete post:', error)
-      alert('文章删除成功！')
-      navigate('/admin/posts')
+    } catch (err) {
+      console.error('Failed to delete post:', err)
+      error('删除文章失败，请检查网络连接')
+    }
+  }
+
+  const generateSummary = () => {
+    if (!post.content) {
+      error('请先输入文章内容')
+      return
+    }
+    
+    // 简单的摘要生成：取前150个字符
+    const textContent = post.content
+      .replace(/<[^>]*>/g, '') // 移除HTML标签
+      .replace(/[#*`]/g, '') // 移除Markdown标记
+      .trim()
+    
+    const summary = textContent.length > 150 
+      ? textContent.substring(0, 150) + '...'
+      : textContent
+    
+    setPost(prev => ({ ...prev, excerpt: summary }))
+    success('摘要已自动生成！')
+  }
+
+  const handleCreateCategory = async (categoryName: string) => {
+    try {
+      const response = await blogApi.createCategory({ name: categoryName })
+      if (response.success && response.data) {
+        const newCategory = response.data
+        setCategories(prev => [...prev, newCategory])
+        setPost(prev => ({ ...prev, category: newCategory.name }))
+        success(`分类"${categoryName}"创建成功！`)
+      } else {
+        error(response.message || '创建分类失败')
+      }
+    } catch (err: any) {
+      console.error('Failed to create category:', err)
+      if (err.statusCode === 409) {
+        error('分类名称已存在')
+      } else {
+        error('创建分类失败，请稍后重试')
+      }
+    }
+  }
+
+  const handleCreateTag = async (tagName: string) => {
+    try {
+      const response = await blogApi.createTag({ name: tagName })
+      if (response.success && response.data) {
+        const newTag = response.data
+        setTags(prev => [...prev, newTag])
+        setPost(prev => ({ ...prev, tags: [...prev.tags, newTag.name] }))
+        success(`标签"${tagName}"创建成功！`)
+      } else {
+        error(response.message || '创建标签失败')
+      }
+    } catch (err: any) {
+      console.error('Failed to create tag:', err)
+      if (err.statusCode === 409) {
+        error('标签名称已存在')
+      } else {
+        error('创建标签失败，请稍后重试')
+      }
     }
   }
 
@@ -208,235 +297,262 @@ const PostEditPage: React.FC = () => {
   return (
     <ProtectedPage>
       <div className="space-y-6">
-      {/* 页面头部 */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate('/admin/posts')}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">
-              {isEditing ? '编辑文章' : '新建文章'}
-            </h1>
-            <p className="text-gray-600">
-              {isEditing ? '修改文章内容和设置' : '创建新的文章'}
-            </p>
+        {/* 页面头部 */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate('/admin/posts')}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                {isEditing ? '编辑文章' : '新建文章'}
+              </h1>
+              <p className="text-gray-600">
+                {isEditing ? '修改文章内容和设置' : '创建新的文章'}
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-3">
+            {isEditing && (
+              <Button
+                variant="outline"
+                onClick={handleDelete}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                删除
+              </Button>
+            )}
+            <div className="flex items-center space-x-2">
+              <Switch
+                checked={isPublished}
+                onCheckedChange={setIsPublished}
+              />
+              <span className="text-sm text-gray-600">
+                {isPublished ? '已发布' : '草稿'}
+              </span>
+            </div>
+            <Button
+              onClick={() => handleSave()}
+              disabled={saving}
+              className={isPublished ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-700'}
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {saving ? '保存中...' : (isPublished ? '发布文章' : '保存草稿')}
+            </Button>
           </div>
         </div>
-        
-        <div className="flex items-center space-x-3">
-          {isEditing && (
-            <Button
-              variant="outline"
-              onClick={handleDelete}
-              className="text-red-600 hover:text-red-700 hover:bg-red-50"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              删除
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            onClick={() => handleSave(false)}
-            disabled={saving}
-          >
-            <Save className="h-4 w-4 mr-2" />
-            {saving ? '保存中...' : '保存草稿'}
-          </Button>
-          <Button
-            onClick={() => handleSave(true)}
-            disabled={saving}
-          >
-            <Save className="h-4 w-4 mr-2" />
-            {saving ? '发布中...' : '发布文章'}
-          </Button>
-        </div>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* 主编辑区域 */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* 文章标题 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <FileText className="h-5 w-5" />
-                <span>文章标题</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Input
-                placeholder="输入文章标题..."
-                value={post.title}
-                onChange={(e) => setPost(prev => ({ ...prev, title: e.target.value }))}
-                className="text-lg"
-              />
-            </CardContent>
-          </Card>
-
-          {/* 文章内容 */}
-          <TiptapEditor
-            content={post.content}
-            onChange={(value) => setPost(prev => ({ ...prev, content: value }))}
-            placeholder="使用 Markdown 语法编写文章内容..."
-            editable={true}
-            showToolbar={true}
-            authToken={typeof window !== 'undefined' ? localStorage.getItem('admin_token') || undefined : undefined}
-          />
-        </div>
-
-        {/* 侧边栏设置 */}
-        <div className="space-y-6">
-          {/* 文章摘要 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">文章摘要</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                placeholder="输入文章摘要..."
-                value={post.excerpt}
-                onChange={(e) => setPost(prev => ({ ...prev, excerpt: e.target.value }))}
-                rows={4}
-              />
-            </CardContent>
-          </Card>
-
-          {/* 分类 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">分类</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Input
-                placeholder="输入文章分类..."
-                value={post.category}
-                onChange={(e) => setPost(prev => ({ ...prev, category: e.target.value }))}
-              />
-            </CardContent>
-          </Card>
-
-          {/* 标签 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">标签</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex space-x-2">
-                <Input
-                  placeholder="添加标签..."
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
-                />
-                <Button onClick={handleAddTag} size="sm">
-                  添加
-                </Button>
-              </div>
-              
-              {post.tags.length > 0 && (
-                <div className="flex flex-wrap gap-2">
-                  {post.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-                    >
-                      {tag}
-                      <button
-                        onClick={() => handleRemoveTag(tag)}
-                        className="ml-1 text-blue-600 hover:text-blue-800"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* 封面图片 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">封面图片</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Input
-                placeholder="输入图片 URL..."
-                value={post.coverImage || ''}
-                onChange={(e) => setPost(prev => ({ ...prev, coverImage: e.target.value }))}
-              />
-              {post.coverImage && (
-                <div className="relative">
-                  <img
-                    src={post.coverImage}
-                    alt="封面预览"
-                    className="w-full h-32 object-cover rounded-lg"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none'
-                    }}
-                  />
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* 文章状态 */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">文章状态</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="radio"
-                    name="status"
-                    value="draft"
-                    checked={post.status === 'draft'}
-                    onChange={(e) => setPost(prev => ({ ...prev, status: e.target.value as 'draft' | 'published' }))}
-                  />
-                  <span>草稿</span>
-                </label>
-                <label className="flex items-center space-x-2">
-                  <input
-                    type="radio"
-                    name="status"
-                    value="published"
-                    checked={post.status === 'published'}
-                    onChange={(e) => setPost(prev => ({ ...prev, status: e.target.value as 'draft' | 'published' }))}
-                  />
-                  <span>已发布</span>
-                </label>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* 时间信息 */}
-          {isEditing && (
+        {/* 文章统计信息（仅编辑时显示） */}
+        {isEditing && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">时间信息</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm text-gray-600">
+              <CardContent className="p-4">
                 <div className="flex items-center space-x-2">
-                  <Calendar className="h-4 w-4" />
-                  <span>创建时间：{new Date(post.createdAt || '').toLocaleString('zh-CN')}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Calendar className="h-4 w-4" />
-                  <span>更新时间：{new Date(post.updatedAt || '').toLocaleString('zh-CN')}</span>
+                  <Eye className="h-5 w-5 text-blue-500" />
+                  <div>
+                    <p className="text-sm text-gray-600">浏览量</p>
+                    <p className="text-lg font-semibold">{post.views || 0}</p>
+                  </div>
                 </div>
               </CardContent>
             </Card>
-          )}
-        </div>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <Heart className="h-5 w-5 text-red-500" />
+                  <div>
+                    <p className="text-sm text-gray-600">点赞数</p>
+                    <p className="text-lg font-semibold">{post.likes || 0}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <MessageSquare className="h-5 w-5 text-green-500" />
+                  <div>
+                    <p className="text-sm text-gray-600">评论数</p>
+                    <p className="text-lg font-semibold">{post.comments || 0}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center space-x-2">
+                  <Calendar className="h-5 w-5 text-purple-500" />
+                  <div>
+                    <p className="text-sm text-gray-600">更新时间</p>
+                    <p className="text-sm font-medium">
+                      {new Date(post.updatedAt || '').toLocaleDateString('zh-CN')}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* 标签和分类控制区域 */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* 分类选择 */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">文章分类</label>
+                <Combobox
+                  options={categories.map(cat => ({
+                    value: cat.name,
+                    label: cat.name,
+                    color: cat.color
+                  }))}
+                  value={post.category}
+                  onValueChange={(value) => setPost(prev => ({ ...prev, category: value }))}
+                  placeholder="选择或创建分类..."
+                  searchPlaceholder="搜索分类..."
+                  emptyText="未找到分类"
+                  allowCreate={true}
+                  onCreateNew={handleCreateCategory}
+                  className="w-full"
+                />
+              </div>
+
+              {/* 标签管理 */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">文章标签</label>
+                <MultiCombobox
+                  options={tags.map(tag => ({
+                    value: tag.name,
+                    label: tag.name,
+                    color: tag.color
+                  }))}
+                  values={post.tags}
+                  onValuesChange={(values) => setPost(prev => ({ ...prev, tags: values }))}
+                  placeholder="选择或创建标签..."
+                  searchPlaceholder="搜索标签..."
+                  emptyText="未找到标签"
+                  allowCreate={true}
+                  onCreateNew={handleCreateTag}
+                  className="w-full"
+                />
+                
+                {post.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {post.tags.map((tag) => {
+                      const tagInfo = tags.find(t => t.name === tag)
+                      return (
+                        <span
+                          key={tag}
+                          className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800"
+                          style={tagInfo?.color ? {
+                            backgroundColor: `${tagInfo.color}20`,
+                            color: tagInfo.color,
+                            borderColor: tagInfo.color
+                          } : {}}
+                        >
+                          {tag}
+                          <button
+                            onClick={() => handleRemoveTag(tag)}
+                            className="ml-2 hover:opacity-70"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 主编辑区域 - 统一的标题和内容编辑器 */}
+        <Card>
+          <CardContent className="p-6">
+            <div className="space-y-4">
+              {/* 文章标题 */}
+              <div>
+                <Input
+                  placeholder="输入文章标题..."
+                  value={post.title}
+                  onChange={(e) => setPost(prev => ({ ...prev, title: e.target.value }))}
+                  className="text-2xl font-bold border-0 px-0 focus:ring-0 placeholder:text-gray-400"
+                />
+              </div>
+
+              {/* 文章摘要 */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium text-gray-700">文章摘要</label>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={generateSummary}
+                    disabled={!post.content}
+                  >
+                    <Sparkles className="h-4 w-4 mr-1" />
+                    自动生成
+                  </Button>
+                </div>
+                <Textarea
+                  placeholder="输入文章摘要..."
+                  value={post.excerpt}
+                  onChange={(e) => setPost(prev => ({ ...prev, excerpt: e.target.value }))}
+                  rows={3}
+                  className="resize-none"
+                />
+              </div>
+
+              {/* 封面图片 */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">封面图片</label>
+                <div className="flex space-x-4">
+                  <Input
+                    placeholder="输入图片 URL..."
+                    value={post.coverImage || ''}
+                    onChange={(e) => setPost(prev => ({ ...prev, coverImage: e.target.value }))}
+                    className="flex-1"
+                  />
+                  {post.coverImage && (
+                    <div className="relative">
+                      <img
+                        src={post.coverImage}
+                        alt="封面预览"
+                        className="w-20 h-12 object-cover rounded border"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none'
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <hr className="my-6" />
+
+              {/* 文章内容编辑器 */}
+              <div>
+                <TiptapEditor
+                  content={post.content}
+                  onChange={(value) => setPost(prev => ({ ...prev, content: value }))}
+                  placeholder="开始编写你的文章内容..."
+                  editable={true}
+                  showToolbar={true}
+                  authToken={typeof window !== 'undefined' ? localStorage.getItem('admin_token') || undefined : undefined}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-    </div>
     </ProtectedPage>
   )
 }

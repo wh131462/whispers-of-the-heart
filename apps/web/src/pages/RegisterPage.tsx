@@ -6,6 +6,7 @@ import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { useAuthStore } from '../stores/useAuthStore'
 import { Eye, EyeOff, Mail, User, Lock, ArrowLeft } from 'lucide-react'
+import { api } from '@whispers/utils'
 
 const RegisterPage: React.FC = () => {
   const navigate = useNavigate()
@@ -54,26 +55,18 @@ const RegisterPage: React.FC = () => {
     try {
       setLoading(true)
       
-      const response = await fetch('http://localhost:7777/api/v1/auth/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username: formData.username,
-          email: formData.email,
-          password: formData.password,
-        }),
+      const response = await api.post('/auth/register', {
+        username: formData.username,
+        email: formData.email,
+        password: formData.password,
       })
 
-      const data = await response.json()
-
-      if (response.ok && data.success) {
+      if (response.data?.success) {
         // 注册成功后自动登录
         await login(formData.email, formData.password)
         navigate('/')
       } else {
-        setError(data.message || '注册失败，请重试')
+        setError(response.data?.message || '注册失败，请重试')
       }
     } catch (error) {
       console.error('Registration error:', error)

@@ -1,28 +1,34 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { 
-  Upload, 
-  Folder, 
-  FolderPlus, 
-  File, 
-  Image, 
-  Video, 
-  FileText, 
-  Music, 
+import {
+  Upload,
+  Folder,
+  FolderPlus,
+  FolderOpen,
+  File,
+  Image,
+  Video,
+  FileText,
+  Music,
   Archive,
-  Trash2, 
-  Eye, 
-  Download, 
-  Search, 
+  Trash2,
+  Eye,
+  Download,
+  Search,
   ChevronRight,
   RefreshCw,
   Edit,
-  Move
+  Move,
+  Home,
+  Globe,
+  Shield
 } from 'lucide-react'
+import { api, setTokenFromStorage } from '@whispers/utils'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Modal } from '../components/modals/Modal'
+import { SimpleTooltip } from '../components/ui/tooltip'
 import { 
   ContextMenu, 
   ContextMenuContent, 
@@ -43,6 +49,7 @@ import {
 import { FilePreviewModal, FilePreviewList } from '@whispers/ui'
 import ProtectedPage from '../components/ProtectedPage'
 import { useToastContext } from '../contexts/ToastContext'
+import { useAuthStore } from '../stores/useAuthStore'
 
 interface Folder {
   id: string
@@ -51,9 +58,15 @@ interface Folder {
   parentId?: string
   description?: string
   isSystem: boolean
+  isPublic: boolean
+  ownerId?: string
   createdAt: string
   updatedAt: string
   children?: Folder[]
+  owner?: {
+    id: string
+    username: string
+  }
   _count: {
     files: number
   }
@@ -87,7 +100,9 @@ interface FileItem {
 }
 
 const FileManagementPage: React.FC = () => {
-  const [folders, setFolders] = useState<Folder[]>([])
+  const { user } = useAuthStore()
+  const [folders, setFolders] = useState<Folder[]>([])  // 所有文件夹（用于选择器）
+  const [currentFolders, setCurrentFolders] = useState<Folder[]>([])  //  当前目录下的文件夹
   const [files, setFiles] = useState<FileItem[]>([])
   const [currentFolder, setCurrentFolder] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -116,7 +131,7 @@ const FileManagementPage: React.FC = () => {
 
   // 上传文件表单
   const [uploadData, setUploadData] = useState({
-    folderId: 'root',
+    folderId: currentFolder || 'root',
     description: '',
     tags: '',
     isPublic: true
@@ -126,87 +141,311 @@ const FileManagementPage: React.FC = () => {
 
   useEffect(() => {
     fetchFolders()
+    fetchCurrentFolders()
     fetchFiles()
   }, [currentFolder])
 
+  // 当currentFolder改变时，更新上传表单的默认文件夹
+  useEffect(() => {
+    console.log('currentFolder changed:', currentFolder)
+    console.log('folders:', folders)
+    setUploadData(prev => ({
+      ...prev,
+      folderId: currentFolder || 'root'
+    }))
+  }, [currentFolder, folders])
+
+  // 判断文件夹类型
+  const getFolderType = (folder: Folder) => {
+    if (folder.isPublic || folder.path === '/public') {
+      return 'public'
+    }
+    if (user && folder.path === `/${user.id}`) {
+      return 'user-root'
+    }
+    if (folder.path.startsWith(`/${user?.id}/`) || folder.ownerId === user?.id) {
+      return 'user-subfolder'
+    }
+    return 'other'
+  }
+
+  // 获取文件夹显示图标
+  const getFolderIcon = (folder: Folder) => {
+    const type = getFolderType(folder)
+
+    switch (type) {
+      case 'public':
+        return <Globe className="h-8 w-8 text-green-500" />
+      case 'user-root':
+        return <Home className="h-8 w-8 text-blue-500" />
+      default:
+        return <Folder className="h-8 w-8 text-gray-500" />
+    }
+  }
+
+  // 获取文件夹样式
+  const getFolderStyle = (folder: Folder) => {
+    const type = getFolderType(folder)
+
+    switch (type) {
+      case 'public':
+        return 'border-green-200 bg-green-50 hover:bg-green-100'
+      case 'user-root':
+        return 'border-blue-200 bg-blue-50 hover:bg-blue-100'
+      default:
+        return 'border-gray-200 bg-white hover:bg-gray-50'
+    }
+  }
+
+  // 检查是否有权限管理公共文件夹
+  const canManagePublicFolder = () => {
+    return user?.role === 'ADMIN' || user?.role === 'EDITOR'
+  }
+
+  // 检查是否有权限访问文件夹
+  const canAccessFolder = (folder: Folder) => {
+    const type = getFolderType(folder)
+    if (type === 'public') {
+      return true // 所有人都可以查看公共文件夹，但管理需要权限
+    }
+    if (type === 'user-root' || type === 'user-subfolder') {
+      return user && (folder.path.startsWith(`/${user.id}`) || folder.ownerId === user.id)
+    }
+    return user?.role === 'ADMIN' // 管理员可以访问所有文件夹
+  }
+
+  // 检查是否有权限管理文件夹（修改、删除、上传）
+  const canManageFolder = (folder: Folder) => {
+    const type = getFolderType(folder)
+    if (type === 'public') {
+      return canManagePublicFolder()
+    }
+    if (type === 'user-root' || type === 'user-subfolder') {
+      return user && (folder.path.startsWith(`/${user.id}`) || folder.ownerId === user.id)
+    }
+    return user?.role === 'ADMIN'
+  }
+
+  // 检查是否可以在当前文件夹创建内容
+  const canCreateInCurrentFolder = () => {
+    if (!user) return false
+    
+    // 如果没有选择文件夹，用户总是可以在自己的根目录创建
+    if (!currentFolder) {
+      return true
+    }
+    
+    // 查找当前文件夹对象
+    const currentFolderObj = [...folders, ...currentFolders].find(f => f.id === currentFolder)
+    
+    // 如果找不到文件夹对象，但有currentFolder，说明可能是刚导航到的文件夹，允许创建
+    if (!currentFolderObj) {
+      return true
+    }
+    
+    // 检查是否有权限管理当前文件夹
+    return canManageFolder(currentFolderObj)
+  }
+
+  //  构建文件夹树结构（显示有权限的文件夹，公共和用户文件夹一起展示）
+  const buildFolderTree = (folders: Folder[]): Folder[] => {
+    const folderMap = new Map<string, Folder & { children: Folder[] }>()
+    const rootFolders: (Folder & { children: Folder[] })[] = []
+
+    // 初始化所有文件夹
+    folders.forEach(folder => {
+      // 过滤掉无权限访问的文件夹
+      if (!canAccessFolder(folder)) {
+        return
+      }
+
+      folderMap.set(folder.id, { ...folder, children: [] })
+    })
+
+    // 构建树结构
+    folders.forEach(folder => {
+      if (!folderMap.has(folder.id)) return
+
+      const folderWithChildren = folderMap.get(folder.id)!
+      if (folder.parentId && folderMap.has(folder.parentId)) {
+        folderMap.get(folder.parentId)!.children.push(folderWithChildren)
+      } else {
+        rootFolders.push(folderWithChildren)
+      }
+    })
+
+    return rootFolders
+  }
+
+  // 渲染文件夹选项（递归）- 树状结构
+  const renderFolderTreeOptions = (folders: Folder[], level = 0, parentPrefix = ''): React.ReactElement[] => {
+    return folders.map((folder, index) => {
+      const type = getFolderType(folder)
+      const canManage = canManageFolder(folder)
+
+      // 只显示可以管理的文件夹（可以上传文件）
+      if (!canManage) return null
+
+      const isLastItem = index === folders.length - 1
+      const hasChildren = folder.children && folder.children.length > 0
+      
+      let prefix = ''
+      if (level > 0) {
+        const connector = isLastItem ? '└── ' : '├── '
+        prefix = parentPrefix + connector
+      }
+
+      const childPrefix = level > 0 ? parentPrefix + (isLastItem ? '    ' : '│   ') : ''
+
+      return (
+        <React.Fragment key={folder.id}>
+          <SelectItem value={folder.id} className="font-mono text-sm hover:bg-blue-50">
+            <div className="flex items-center min-w-0">
+              {level > 0 && (
+                <span className="text-gray-400 mr-1 shrink-0" style={{ fontFamily: 'monospace' }}>
+                  {prefix}
+                </span>
+              )}
+              <div className="flex items-center min-w-0">
+                {type === 'public' ? '🌐' : type === 'user-root' ? '🏠' : '📁'}
+                <span className="ml-2 truncate">{folder.name}</span>
+                {type === 'public' && <span className="text-green-600 ml-2 text-xs shrink-0">(公共)</span>}
+                {type === 'user-root' && <span className="text-blue-600 ml-2 text-xs shrink-0">(我的)</span>}
+                {folder.owner && folder.owner.id !== user?.id && (
+                  <span className="text-purple-600 ml-2 text-xs shrink-0">[{folder.owner.username}]</span>
+                )}
+                {hasChildren && (
+                  <span className="text-gray-400 ml-2 text-xs shrink-0">
+                    ({folder.children?.length || 0} 项)
+                  </span>
+                )}
+              </div>
+            </div>
+          </SelectItem>
+          {hasChildren && folder.children && renderFolderTreeOptions(folder.children, level + 1, childPrefix)}
+        </React.Fragment>
+      )
+    }).filter(Boolean) as React.ReactElement[]
+  }
+
+  // 获取展开的文件夹树（包含所有子目录）
+  const getExpandedFolderTree = (): Folder[] => {
+    const expandFolder = (folder: Folder): Folder[] => {
+      const result: Folder[] = [folder]
+      if (folder.children && folder.children.length > 0) {
+        folder.children.forEach(child => {
+          result.push(...expandFolder(child))
+        })
+      }
+      return result
+    }
+
+    const tree = buildFolderTree(folders)
+    const expanded: Folder[] = []
+    tree.forEach(rootFolder => {
+      expanded.push(...expandFolder(rootFolder))
+    })
+    
+    return expanded
+  }
+
   const fetchFolders = async () => {
     try {
-      const token = localStorage.getItem('admin_token')
-      const response = await fetch(`http://localhost:7777/api/v1/file-management/folders?parentId=${currentFolder || ''}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+      setTokenFromStorage('admin_token')
+      // 获取文件夹树状结构（用于上传表单的选择器）
+      const treeResponse = await api.get(`/file-management/folders/tree`)
+
+      if (treeResponse.data?.success && treeResponse.data?.data && Array.isArray(treeResponse.data.data)) {
+        // 扁平化树状数据以便使用
+        const flattenTree = (folders: Folder[]): Folder[] => {
+          const result: Folder[] = []
+          folders.forEach(folder => {
+            result.push(folder)
+            if (folder.children && folder.children.length > 0) {
+              result.push(...flattenTree(folder.children))
+            }
+          })
+          return result
         }
-      })
-      
-      if (response.ok) {
-        const result = await response.json()
-        if (result.success) {
-          setFolders(result.data)
-        }
+        
+        const flatFolders = flattenTree(treeResponse.data.data)
+        setFolders(flatFolders)
+        console.log('Fetched folder tree:', treeResponse.data.data)
+        console.log('Flattened folders:', flatFolders)
+      } else {
+        setFolders([])
       }
     } catch (err) {
       console.error('Failed to fetch folders:', err)
+      setFolders([])
+    }
+  }
+
+  //  获取当前目录下的文件夹（用于文件列表显示）
+  const fetchCurrentFolders = async () => {
+    try {
+      setTokenFromStorage('admin_token')
+      // 获取当前目录下的文件夹
+      const response = await api.get(`/file-management/folders`, {
+        params: { parentId: currentFolder || '' }
+      })
+
+      if (response.data?.success && response.data?.data && Array.isArray(response.data.data)) {
+        // 过滤出有权限访问的文件夹
+        const accessibleFolders = response.data.data.filter(canAccessFolder)
+        setCurrentFolders(accessibleFolders)
+        console.log('Current folder children:', accessibleFolders)
+      } else {
+        setCurrentFolders([])
+      }
+    } catch (err) {
+      console.error('Failed to fetch current folders:', err)
+      setCurrentFolders([])
     }
   }
 
   const fetchFiles = async () => {
     try {
       setLoading(true)
-      const token = localStorage.getItem('admin_token')
-      const params = new URLSearchParams()
-      if (currentFolder) params.append('folderId', currentFolder)
-      if (searchTerm) params.append('search', searchTerm)
+      setTokenFromStorage('admin_token')
       
-      const response = await fetch(`http://localhost:7777/api/v1/file-management/files?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
+      const params: Record<string, string> = {}
+      if (currentFolder) params.folderId = currentFolder
+      if (searchTerm) params.search = searchTerm
       
-      if (response.ok) {
-        const result = await response.json()
-        if (result.success) {
-          setFiles(result.data.files)
-        }
+      const response = await api.get('/file-management/files', { params })
+      
+      if (response.data?.success && response.data?.data?.files) {
+        setFiles(response.data.data.files)
+      } else {
+        setFiles([])
       }
     } catch (err) {
       console.error('Failed to fetch files:', err)
+      setFiles([])
     } finally {
       setLoading(false)
     }
   }
 
-  // 刷新所有数据
+  //  刷新所有数据
   const refreshData = async () => {
-    await Promise.all([fetchFolders(), fetchFiles()])
+    await Promise.all([fetchFolders(), fetchCurrentFolders(), fetchFiles()])
   }
 
   // 删除文件夹
   const deleteFolder = async (folderId: string) => {
     try {
-      const token = localStorage.getItem('admin_token')
-      const response = await fetch(`http://localhost:7777/api/v1/file-management/folders/${folderId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (response.ok) {
-        const result = await response.json()
-        if (result.success) {
-          success('文件夹删除成功')
-          await refreshData()
-        } else {
-          error(result.message)
-        }
+      setTokenFromStorage('admin_token')
+      const response = await api.delete(`/file-management/folders/${folderId}`)
+      if (response.data?.success) {
+        success('文件夹删除成功')
+        await refreshData()
       } else {
-        error('删除文件夹失败')
+        error(response.data?.message || '删除文件夹失败')
       }
     } catch (err) {
+      console.error('Delete folder error:', err)
       error('删除文件夹失败')
     }
   }
@@ -214,27 +453,16 @@ const FileManagementPage: React.FC = () => {
   // 删除文件
   const deleteFile = async (fileId: string) => {
     try {
-      const token = localStorage.getItem('admin_token')
-      const response = await fetch(`http://localhost:7777/api/v1/file-management/files/${fileId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
-      if (response.ok) {
-        const result = await response.json()
-        if (result.success) {
-          success('文件删除成功')
-          await refreshData()
-        } else {
-          error(result.message)
-        }
+      setTokenFromStorage('admin_token')
+      const response = await api.delete(`/file-management/files/${fileId}`)
+      if (response.data?.success) {
+        success('文件删除成功')
+        await refreshData()
       } else {
-        error('删除文件失败')
+        error(response.data?.message || '删除文件失败')
       }
     } catch (err) {
+      console.error('Delete file error:', err)
       error('删除文件失败')
     }
   }
@@ -242,28 +470,16 @@ const FileManagementPage: React.FC = () => {
   // 重命名文件夹
   const renameFolder = async (folderId: string, name: string, description: string) => {
     try {
-      const token = localStorage.getItem('admin_token')
-      const response = await fetch(`http://localhost:7777/api/v1/file-management/folders/${folderId}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ name, description })
-      })
-
-      if (response.ok) {
-        const result = await response.json()
-        if (result.success) {
-          success('文件夹重命名成功')
-          await refreshData()
-        } else {
-          error(result.message)
-        }
+      setTokenFromStorage('admin_token')
+      const response = await api.put(`/file-management/folders/${folderId}`, { name, description })
+      if (response.data?.success) {
+        success('文件夹重命名成功')
+        await refreshData()
       } else {
-        error('重命名文件夹失败')
+        error(response.data?.message || '重命名文件夹失败')
       }
     } catch (err) {
+      console.error('Rename folder error:', err)
       error('重命名文件夹失败')
     }
   }
@@ -271,28 +487,16 @@ const FileManagementPage: React.FC = () => {
   // 重命名文件
   const renameFile = async (fileId: string, name: string, description: string) => {
     try {
-      const token = localStorage.getItem('admin_token')
-      const response = await fetch(`http://localhost:7777/api/v1/file-management/files/${fileId}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ originalName: name, description })
-      })
-
-      if (response.ok) {
-        const result = await response.json()
-        if (result.success) {
-          success('文件重命名成功')
-          await refreshData()
-        } else {
-          error(result.message)
-        }
+      setTokenFromStorage('admin_token')
+      const response = await api.put(`/file-management/files/${fileId}`, { originalName: name, description })
+      if (response.data?.success) {
+        success('文件重命名成功')
+        await refreshData()
       } else {
-        error('重命名文件失败')
+        error(response.data?.message || '重命名文件失败')
       }
     } catch (err) {
+      console.error('Rename file error:', err)
       error('重命名文件失败')
     }
   }
@@ -300,59 +504,39 @@ const FileManagementPage: React.FC = () => {
   // 移动文件
   const moveFile = async (fileId: string, targetFolderId: string) => {
     try {
-      const token = localStorage.getItem('admin_token')
-      const response = await fetch(`http://localhost:7777/api/v1/file-management/files/${fileId}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ folderId: targetFolderId === 'root' ? '' : targetFolderId })
+      setTokenFromStorage('admin_token')
+      const response = await api.put(`/file-management/files/${fileId}`, { 
+        folderId: targetFolderId === 'root' ? '' : targetFolderId 
       })
-
-      if (response.ok) {
-        const result = await response.json()
-        if (result.success) {
-          success('文件移动成功')
-          await refreshData()
-        } else {
-          error(result.message)
-        }
+      if (response.data?.success) {
+        success('文件移动成功')
+        await refreshData()
       } else {
-        error('移动文件失败')
+        error(response.data?.message || '移动文件失败')
       }
     } catch (err) {
+      console.error('Move file error:', err)
       error('移动文件失败')
     }
   }
 
   const createFolder = async () => {
     try {
-      const token = localStorage.getItem('admin_token')
-      const response = await fetch('http://localhost:7777/api/v1/file-management/folders', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          ...newFolder,
-          parentId: currentFolder
-        })
+      setTokenFromStorage('admin_token')
+      const response = await api.post('/file-management/folders', {
+        ...newFolder,
+        parentId: currentFolder
       })
-      
-      if (response.ok) {
-        const result = await response.json()
-        if (result.success) {
-          success('文件夹创建成功')
-          setShowFolderModal(false)
-          setNewFolder({ name: '', description: '' })
-          await refreshData()
-        } else {
-          error(result.message)
-        }
+      if (response.data?.success) {
+        success('文件夹创建成功')
+        setShowFolderModal(false)
+        setNewFolder({ name: '', description: '' })
+        await refreshData()
+      } else {
+        error(response.data?.message || '创建文件夹失败')
       }
     } catch (err) {
+      console.error('Create folder error:', err)
       error('创建文件夹失败')
     }
   }
@@ -363,7 +547,8 @@ const FileManagementPage: React.FC = () => {
       return
     }
 
-    if (!uploadData.folderId) {
+    // folderId可以为空，表示上传到根目录
+    if (uploadData.folderId !== 'root' && !uploadData.folderId) {
       error('请选择目标文件夹')
       return
     }
@@ -373,40 +558,39 @@ const FileManagementPage: React.FC = () => {
       const formData = new FormData()
       formData.append('file', selectedFile)
       formData.append('folderId', uploadData.folderId === 'root' ? '' : uploadData.folderId)
-      formData.append('description', uploadData.description)
       
-      // 处理 tags 为数组格式
-      const tagsArray = uploadData.tags 
+      // 处理 tags 为数组格式（可选）
+      const tagsArray = uploadData.tags && uploadData.tags.trim()
         ? uploadData.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
         : []
       formData.append('tags', JSON.stringify(tagsArray))
+
+      // 处理描述（可选）
+      if (uploadData.description && uploadData.description.trim()) {
+        formData.append('description', uploadData.description.trim())
+      }
       
       formData.append('isPublic', uploadData.isPublic.toString())
 
-      const token = localStorage.getItem('admin_token')
-      const response = await fetch('http://localhost:7777/api/v1/file-management/files/upload', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      })
+      setTokenFromStorage('admin_token')
+      const response = await api.post('/file-management/files/upload', formData)
       
-      if (response.ok) {
-        const result = await response.json()
-        if (result.success) {
-          success('文件上传成功')
-          setShowUploadModal(false)
-          setUploadData({ folderId: 'root', description: '', tags: '', isPublic: true })
-          setSelectedFile(null)
-          await refreshData()
-        } else {
-          error(result.message)
-        }
+      if (response.data?.success) {
+        success('文件上传成功')
+        setShowUploadModal(false)
+        setUploadData({
+          folderId: currentFolder || 'root',
+          description: '',
+          tags: '',
+          isPublic: true
+        })
+        setSelectedFile(null)
+        await refreshData()
       } else {
-        error('文件上传失败')
+        error(response.data?.message || '文件上传失败')
       }
     } catch (err) {
+      console.error('Upload file error:', err)
       error('文件上传失败')
     } finally {
       setUploading(false)
@@ -484,9 +668,26 @@ const FileManagementPage: React.FC = () => {
   }
 
 
+  //  导航到文件夹，修复面包屑路径重复问题
   const navigateToFolder = (folder: Folder) => {
+    // 检查是否有权限访问该文件夹
+    if (!canAccessFolder(folder)) {
+      alert('您没有权限访问此文件夹')
+      return
+    }
+
     setCurrentFolder(folder.id)
-    setFolderPath(prev => [...prev, folder])
+    // 避免重复添加相同的文件夹到路径中
+    setFolderPath(prev => {
+      const existingIndex = prev.findIndex(f => f.id === folder.id)
+      if (existingIndex !== -1) {
+        // 如果文件夹已在路径中，截取到该位置（向前导航）
+        return prev.slice(0, existingIndex + 1)
+      } else {
+        // 如果是新文件夹，添加到路径末尾
+        return [...prev, folder]
+      }
+    })
   }
 
 
@@ -523,23 +724,30 @@ const FileManagementPage: React.FC = () => {
         {/* 页面头部 */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">文件管理</h1>
+            <div className="flex items-center space-x-3">
+              <h1 className="text-3xl font-bold text-gray-900">文件管理</h1>
+              <SimpleTooltip
+                content={
+                  <div className="space-y-1 text-xs">
+                    <div className="flex items-center space-x-2">
+                      <span>🌐 <strong>公共目录</strong> - 需编辑权限</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span>🏠 <strong>个人目录</strong> - 仅本人可管理</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span>🛡️ <strong>管理员</strong> - 管理所有文件夹</span>
+                    </div>
+                  </div>
+                }
+                className="max-w-xs"
+              >
+                <div className="cursor-help">
+                  <Shield className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                </div>
+              </SimpleTooltip>
+            </div>
             <p className="text-gray-600">管理文件和文件夹</p>
-          </div>
-          <div className="flex space-x-2">
-            <Button
-              onClick={() => setShowFolderModal(true)}
-              variant="outline"
-            >
-              <FolderPlus className="h-4 w-4 mr-2" />
-              新建文件夹
-            </Button>
-            <Button
-              onClick={() => setShowUploadModal(true)}
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              上传文件
-            </Button>
           </div>
         </div>
 
@@ -571,6 +779,7 @@ const FileManagementPage: React.FC = () => {
           ))}
         </div>
 
+
         {/* 搜索栏 */}
         <div className="flex items-center space-x-4">
           <div className="relative flex-1 max-w-md">
@@ -592,90 +801,54 @@ const FileManagementPage: React.FC = () => {
           </Button>
         </div>
 
-        {/* 文件夹列表 */}
-        {folders.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Folder className="h-5 w-5 mr-2" />
-                文件夹
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {folders.map((folder) => (
-                  <ContextMenu key={folder.id}>
-                    <ContextMenuTrigger asChild>
-                      <div
-                        onClick={() => navigateToFolder(folder)}
-                        className="p-4 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
-                      >
-                        <div className="flex items-center space-x-3">
-                          <Folder className="h-8 w-8 text-blue-500" />
-                          <div className="flex-1 min-w-0">
-                            <h3 className="text-sm font-medium text-gray-900 truncate">
-                              {folder.name}
-                            </h3>
-                            <p className="text-xs text-gray-500">
-                              {folder._count.files} 个文件
-                            </p>
-                            {folder.description && (
-                              <p className="text-xs text-gray-400 mt-1">
-                                {folder.description}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </ContextMenuTrigger>
-                    <ContextMenuContent>
-                      <ContextMenuItem onClick={() => navigateToFolder(folder)}>
-                        <Eye className="mr-2 h-4 w-4" />
-                        打开
-                      </ContextMenuItem>
-                      <ContextMenuItem onClick={() => handleEdit(folder)}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        重命名
-                      </ContextMenuItem>
-                      <ContextMenuSeparator />
-                      <ContextMenuItem 
-                        onClick={() => handleDeleteConfirm(folder)}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        删除
-                      </ContextMenuItem>
-                    </ContextMenuContent>
-                  </ContextMenu>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* 文件列表 */}
+        {/* 文件资源管理器 - 统一显示文件夹和文件 */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center">
-                <File className="h-5 w-5 mr-2" />
-                文件
+                <FolderOpen className="h-5 w-5 mr-2" />
+                文件资源管理器
+                {currentFolder && (
+                  <span className="ml-2 text-sm text-gray-500">
+                    ({currentFolders.length + files.length} 项)
+                  </span>
+                )}
               </div>
               <div className="flex items-center space-x-2">
                 <Button
-                  variant={viewMode === 'list' ? 'default' : 'outline'}
+                  onClick={() => setShowFolderModal(true)}
+                  variant="outline"
                   size="sm"
-                  onClick={() => setViewMode('list')}
+                  disabled={!canCreateInCurrentFolder()}
                 >
-                  列表
+                  <FolderPlus className="h-4 w-4 mr-2" />
+                  新建文件夹
                 </Button>
                 <Button
-                  variant={viewMode === 'grid' ? 'default' : 'outline'}
+                  onClick={() => setShowUploadModal(true)}
                   size="sm"
-                  onClick={() => setViewMode('grid')}
+                  disabled={!canCreateInCurrentFolder()}
                 >
-                  网格
+                  <Upload className="h-4 w-4 mr-2" />
+                  上传文件
                 </Button>
+                <div className="border-l pl-2 ml-2">
+                  <Button
+                    variant={viewMode === 'list' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setViewMode('list')}
+                  >
+                    列表
+                  </Button>
+                  <Button
+                    variant={viewMode === 'grid' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setViewMode('grid')}
+                    className="ml-1"
+                  >
+                    网格
+                  </Button>
+                </div>
               </div>
             </CardTitle>
           </CardHeader>
@@ -684,132 +857,326 @@ const FileManagementPage: React.FC = () => {
               <div className="flex items-center justify-center h-32">
                 <div className="text-gray-500">加载中...</div>
               </div>
-            ) : files.length === 0 ? (
-              <div className="flex items-center justify-center h-32">
-                <div className="text-gray-500">暂无文件</div>
+            ) : currentFolders.length === 0 && files.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-gray-500">
+                <FolderOpen className="h-12 w-12 mb-4 text-gray-300" />
+                <div className="text-center">
+                  <p className="text-lg font-medium">此文件夹为空</p>
+                  <p className="text-sm mt-1">您可以上传文件或创建新文件夹</p>
+                </div>
               </div>
-            ) : viewMode === 'grid' ? (
-              <FilePreviewList
-                files={files.map(file => ({
-                  id: file.id,
-                  name: file.originalName,
-                  url: file.url,
-                  type: file.mimeType,
-                  size: file.size,
-                  originalName: file.originalName
-                }))}
-                columns={4}
-                showFileName={true}
-                showFileSize={true}
-                onFileClick={(file) => {
-                  const originalFile = files.find(f => f.id === file.id)
-                  if (originalFile) {
-                    handlePreviewFile(originalFile)
-                  }
-                }}
-              />
             ) : (
-              <div className="space-y-2">
-                {files.map((file) => (
-                  <ContextMenu key={file.id}>
-                    <ContextMenuTrigger asChild>
-                      <div className="flex items-center space-x-4 p-3 border rounded-lg hover:bg-gray-50">
-                        <div className="flex-shrink-0">
-                          {file.thumbnail ? (
-                            <img
-                              src={file.thumbnail}
-                              alt={file.alt}
-                              className="h-10 w-10 object-cover rounded"
-                            />
-                          ) : (
-                            getFileIcon(file.mimeType)
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-medium text-gray-900 truncate">
-                            {file.originalName}
-                          </h4>
-                          <p className="text-xs text-gray-500">
-                            {formatFileSize(file.size)} • {formatDate(file.createdAt)}
-                          </p>
-                          {file.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              {file.tags.slice(0, 3).map((tag, index) => (
-                                <span
-                                  key={index}
-                                  className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-800"
-                                >
-                                  {tag}
-                                </span>
-                              ))}
+              <div>
+                {/* 统一显示文件夹和文件 */}
+                {viewMode === 'grid' ? (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+                    {/* 文件夹优先显示 */}
+                    {currentFolders.map((folder) => (
+                      <ContextMenu key={`folder-${folder.id}`}>
+                        <ContextMenuTrigger asChild>
+                          <div
+                            onClick={() => navigateToFolder(folder)}
+                            className={`p-3 border rounded-lg cursor-pointer transition-colors hover:bg-gray-50 ${getFolderStyle(folder)}`}
+                          >
+                            <div className="text-center">
+                              <div className="flex justify-center mb-2">
+                                {getFolderIcon(folder)}
+                              </div>
+                              <h3 className="text-sm font-medium text-gray-900 truncate">
+                                {folder.name}
+                                {getFolderType(folder) === 'public' && (
+                                  <Shield className="inline h-3 w-3 ml-1 text-green-600" />
+                                )}
+                              </h3>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {folder._count.files} 个文件
+                              </p>
                             </div>
+                          </div>
+                        </ContextMenuTrigger>
+                        <ContextMenuContent>
+                          <ContextMenuItem onClick={() => navigateToFolder(folder)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            打开文件夹
+                          </ContextMenuItem>
+                          
+                          {canManageFolder(folder) && (
+                            <>
+                              <ContextMenuItem onClick={() => setShowUploadModal(true)}>
+                                <Upload className="mr-2 h-4 w-4" />
+                                上传文件
+                              </ContextMenuItem>
+                              <ContextMenuItem onClick={() => setShowFolderModal(true)}>
+                                <FolderPlus className="mr-2 h-4 w-4" />
+                                新建文件夹
+                              </ContextMenuItem>
+                              <ContextMenuSeparator />
+                              <ContextMenuItem onClick={() => handleEdit(folder)}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                {folder.isSystem ? '编辑描述' : '重命名'}
+                              </ContextMenuItem>
+                            </>
                           )}
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handlePreviewFile(file)}
+                          
+                          {canManageFolder(folder) && !folder.isSystem && (
+                            <>
+                              <ContextMenuSeparator />
+                              <ContextMenuItem 
+                                onClick={() => handleDeleteConfirm(folder)}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                删除
+                              </ContextMenuItem>
+                            </>
+                          )}
+                          
+                          {getFolderType(folder) === 'public' && !canManagePublicFolder() && (
+                            <>
+                              <ContextMenuSeparator />
+                              <ContextMenuItem disabled className="text-gray-400">
+                                <Shield className="mr-2 h-4 w-4" />
+                                需要管理员权限
+                              </ContextMenuItem>
+                            </>
+                          )}
+                        </ContextMenuContent>
+                      </ContextMenu>
+                    ))}
+
+                    {/* 文件网格显示 */}
+                    <FilePreviewList
+                      files={files.map(file => ({
+                        id: file.id,
+                        name: file.originalName,
+                        url: file.url,
+                        type: file.mimeType,
+                        size: file.size,
+                        originalName: file.originalName
+                      }))}
+                      columns={1} // 设置为1，让它自适应网格
+                      showFileName={true}
+                      showFileSize={true}
+                      onFileClick={(file) => {
+                        const originalFile = files.find(f => f.id === file.id)
+                        if (originalFile) {
+                          handlePreviewFile(originalFile)
+                        }
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {/* 文件夹列表显示 */}
+                    {currentFolders.map((folder) => (
+                      <ContextMenu key={`folder-${folder.id}`}>
+                        <ContextMenuTrigger asChild>
+                          <div
+                            onClick={() => navigateToFolder(folder)}
+                            className={`flex items-center space-x-3 p-3 border rounded-lg cursor-pointer transition-colors hover:bg-gray-50 ${getFolderStyle(folder)}`}
                           >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              const link = document.createElement('a')
-                              link.href = file.url
-                              link.download = file.originalName
-                              link.click()
-                            }}
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
+                            {getFolderIcon(folder)}
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-sm font-medium text-gray-900 truncate">
+                                {folder.name}
+                                {getFolderType(folder) === 'public' && (
+                                  <Shield className="inline h-3 w-3 ml-1 text-green-600" />
+                                )}
+                              </h3>
+                              <div className="flex items-center space-x-2 text-xs text-gray-500">
+                                <span>{folder._count.files} 个文件</span>
+                                <span>•</span>
+                                <span>文件夹</span>
+                                <span>•</span>
+                                <span>{formatDate(folder.updatedAt)}</span>
+                                {getFolderType(folder) === 'public' && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="text-green-600">公共</span>
+                                  </>
+                                )}
+                                {folder.owner && folder.owner.id !== user?.id && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="text-purple-600">{folder.owner.username}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </ContextMenuTrigger>
+                        <ContextMenuContent>
+                          <ContextMenuItem onClick={() => navigateToFolder(folder)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            打开文件夹
+                          </ContextMenuItem>
+                          
+                          {canManageFolder(folder) && (
+                            <>
+                              <ContextMenuItem onClick={() => setShowUploadModal(true)}>
+                                <Upload className="mr-2 h-4 w-4" />
+                                上传文件
+                              </ContextMenuItem>
+                              <ContextMenuItem onClick={() => setShowFolderModal(true)}>
+                                <FolderPlus className="mr-2 h-4 w-4" />
+                                新建文件夹
+                              </ContextMenuItem>
+                              <ContextMenuSeparator />
+                              <ContextMenuItem onClick={() => handleEdit(folder)}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                {folder.isSystem ? '编辑描述' : '重命名'}
+                              </ContextMenuItem>
+                            </>
+                          )}
+                          
+                          {canManageFolder(folder) && !folder.isSystem && (
+                            <>
+                              <ContextMenuSeparator />
+                              <ContextMenuItem 
+                                onClick={() => handleDeleteConfirm(folder)}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                删除
+                              </ContextMenuItem>
+                            </>
+                          )}
+                          
+                          {getFolderType(folder) === 'public' && !canManagePublicFolder() && (
+                            <>
+                              <ContextMenuSeparator />
+                              <ContextMenuItem disabled className="text-gray-400">
+                                <Shield className="mr-2 h-4 w-4" />
+                                需要管理员权限
+                              </ContextMenuItem>
+                            </>
+                          )}
+                        </ContextMenuContent>
+                      </ContextMenu>
+                    ))}
+
+                    {/* 文件列表显示 */}
+                    {files.map((file) => (
+                      <ContextMenu key={`file-${file.id}`}>
+                        <ContextMenuTrigger asChild>
+                          <div className="flex items-center space-x-4 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                            <div className="flex-shrink-0">
+                              {file.thumbnail ? (
+                                <img
+                                  src={file.thumbnail}
+                                  alt={file.alt}
+                                  className="h-10 w-10 object-cover rounded"
+                                />
+                              ) : (
+                                getFileIcon(file.mimeType)
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-sm font-medium text-gray-900 truncate">
+                                {file.originalName}
+                              </h4>
+                              <div className="flex items-center space-x-2 text-xs text-gray-500">
+                                <span>{formatFileSize(file.size)}</span>
+                                <span>•</span>
+                                <span>文件</span>
+                                <span>•</span>
+                                <span>{formatDate(file.createdAt)}</span>
+                                <span>•</span>
+                                <span>{file.uploader.username}</span>
+                                {file.isPublic && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="text-green-600">公开</span>
+                                  </>
+                                )}
+                              </div>
+                              {file.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {file.tags.slice(0, 3).map((tag, index) => (
+                                    <span
+                                      key={index}
+                                      className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-800"
+                                    >
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handlePreviewFile(file)
+                                }}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  const link = document.createElement('a')
+                                  link.href = file.url
+                                  link.download = file.originalName
+                                  link.click()
+                                }}
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleDeleteConfirm(file)
+                                }}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </ContextMenuTrigger>
+                        <ContextMenuContent>
+                          <ContextMenuItem onClick={() => handlePreviewFile(file)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            预览
+                          </ContextMenuItem>
+                          <ContextMenuItem onClick={() => {
+                            const link = document.createElement('a')
+                            link.href = file.url
+                            link.download = file.originalName
+                            link.click()
+                          }}>
+                            <Download className="mr-2 h-4 w-4" />
+                            下载
+                          </ContextMenuItem>
+                          <ContextMenuSeparator />
+                          <ContextMenuItem onClick={() => handleEdit(file)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            重命名
+                          </ContextMenuItem>
+                          <ContextMenuItem onClick={() => handleMove(file)}>
+                            <Move className="mr-2 h-4 w-4" />
+                            移动
+                          </ContextMenuItem>
+                          <ContextMenuSeparator />
+                          <ContextMenuItem 
                             onClick={() => handleDeleteConfirm(file)}
-                            className="text-red-600 hover:text-red-700"
+                            className="text-red-600"
                           >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </ContextMenuTrigger>
-                    <ContextMenuContent>
-                      <ContextMenuItem onClick={() => handlePreviewFile(file)}>
-                        <Eye className="mr-2 h-4 w-4" />
-                        预览
-                      </ContextMenuItem>
-                      <ContextMenuItem onClick={() => {
-                        const link = document.createElement('a')
-                        link.href = file.url
-                        link.download = file.originalName
-                        link.click()
-                      }}>
-                        <Download className="mr-2 h-4 w-4" />
-                        下载
-                      </ContextMenuItem>
-                      <ContextMenuSeparator />
-                      <ContextMenuItem onClick={() => handleEdit(file)}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        重命名
-                      </ContextMenuItem>
-                      <ContextMenuItem onClick={() => handleMove(file)}>
-                        <Move className="mr-2 h-4 w-4" />
-                        移动
-                      </ContextMenuItem>
-                      <ContextMenuSeparator />
-                      <ContextMenuItem 
-                        onClick={() => handleDeleteConfirm(file)}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        删除
-                      </ContextMenuItem>
-                    </ContextMenuContent>
-                  </ContextMenu>
-                ))}
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            删除
+                          </ContextMenuItem>
+                        </ContextMenuContent>
+                      </ContextMenu>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
@@ -865,7 +1232,12 @@ const FileManagementPage: React.FC = () => {
           onClose={() => {
             setShowUploadModal(false)
             setSelectedFile(null)
-            setUploadData({ folderId: 'root', description: '', tags: '', isPublic: true })
+            setUploadData({
+              folderId: currentFolder || 'root',
+              description: '',
+              tags: '',
+              isPublic: true
+            })
           }}
           title="上传文件"
         >
@@ -899,24 +1271,55 @@ const FileManagementPage: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 目标文件夹
               </label>
-              <Select
-                value={uploadData.folderId}
-                onValueChange={(value) => setUploadData(prev => ({ ...prev, folderId: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="选择文件夹" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="root">选择文件夹</SelectItem>
-                  {folders
-                    .filter(folder => folder.id && folder.id.trim() !== '')
-                    .map((folder) => (
-                      <SelectItem key={folder.id} value={folder.id}>
-                        {folder.name}
+                <Select
+                  value={uploadData.folderId}
+                  onValueChange={(value) => {
+                    console.log('Select value changed:', value)
+                    setUploadData(prev => ({ ...prev, folderId: value }))
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择文件夹">
+                      {(() => {
+                        if (uploadData.folderId === 'root') return '📁 根目录'
+                        if (uploadData.folderId === 'public') return '🌐 公共目录'
+                        
+                        const expandedFolders = getExpandedFolderTree()
+                        const selectedFolder = expandedFolders.find(f => f.id === uploadData.folderId)
+                        if (selectedFolder) {
+                          const type = getFolderType(selectedFolder)
+                          const icon = type === 'public' ? '🌐' : type === 'user-root' ? '🏠' : '📁'
+                          return `${icon} ${selectedFolder.name}`
+                        }
+                        
+                        return uploadData.folderId ? `文件夹 ${uploadData.folderId}` : '选择文件夹'
+                      })()}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent className="max-h-80 overflow-y-auto">
+                    <div className="text-xs text-gray-500 px-3 py-2 border-b bg-gray-50">
+                      <div className="flex items-center justify-between">
+                        <span>📂 选择目标文件夹</span>
+                        <span>{(() => {
+                          const managableFolders = getExpandedFolderTree().filter(f => canManageFolder(f))
+                          return `${managableFolders.length + (canManagePublicFolder() ? 1 : 0)} 个可选`
+                        })()}</span>
+                      </div>
+                      <div className="mt-1 text-gray-400">
+                        树状结构 • 仅显示可管理的文件夹
+                      </div>
+                    </div>
+                    {canManagePublicFolder() && (
+                      <SelectItem value="public" className="font-mono text-sm hover:bg-green-50 border-b border-green-100">
+                        <div className="flex items-center">
+                          🌐<span className="ml-2 font-medium">公共目录</span>
+                          <span className="text-green-600 ml-2 text-xs">(共享)</span>
+                        </div>
                       </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
+                    )}
+                    {Array.isArray(folders) && renderFolderTreeOptions(buildFolderTree(folders))}
+                  </SelectContent>
+                </Select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1054,17 +1457,51 @@ const FileManagementPage: React.FC = () => {
                 onValueChange={(value) => setMoveData(prev => ({ ...prev, targetFolderId: value }))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="选择目标文件夹" />
+                  <SelectValue placeholder="选择目标文件夹">
+                    {(() => {
+                      if (moveData.targetFolderId === 'root') return '📁 根目录'
+                      if (moveData.targetFolderId === 'public') return '🌐 公共目录'
+                      
+                      const expandedFolders = getExpandedFolderTree()
+                      const selectedFolder = expandedFolders.find(f => f.id === moveData.targetFolderId)
+                      if (selectedFolder) {
+                        const type = getFolderType(selectedFolder)
+                        const icon = type === 'public' ? '🌐' : type === 'user-root' ? '🏠' : '📁'
+                        return `${icon} ${selectedFolder.name}`
+                      }
+                      
+                      return '选择目标文件夹'
+                    })()}
+                  </SelectValue>
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="root">根目录</SelectItem>
-                  {folders
-                    .filter(folder => folder.id && folder.id.trim() !== '')
-                    .map((folder) => (
-                      <SelectItem key={folder.id} value={folder.id}>
-                        {folder.name}
-                      </SelectItem>
-                    ))}
+                <SelectContent className="max-h-80 overflow-y-auto">
+                  <div className="text-xs text-gray-500 px-3 py-2 border-b bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <span>📁 移动到目标文件夹</span>
+                      <span>{(() => {
+                        const managableFolders = getExpandedFolderTree().filter(f => canManageFolder(f))
+                        return `${managableFolders.length + 1 + (canManagePublicFolder() ? 1 : 0)} 个可选`
+                      })()}</span>
+                    </div>
+                    <div className="mt-1 text-gray-400">
+                      选择文件的新位置
+                    </div>
+                  </div>
+                  <SelectItem value="root" className="font-mono text-sm hover:bg-blue-50 border-b border-blue-100">
+                    <div className="flex items-center">
+                      📁<span className="ml-2 font-medium">用户根目录</span>
+                      <span className="text-blue-600 ml-2 text-xs">(默认)</span>
+                    </div>
+                  </SelectItem>
+                  {canManagePublicFolder() && (
+                    <SelectItem value="public" className="font-mono text-sm hover:bg-green-50 border-b border-green-100">
+                      <div className="flex items-center">
+                        🌐<span className="ml-2 font-medium">公共目录</span>
+                        <span className="text-green-600 ml-2 text-xs">(共享)</span>
+                      </div>
+                    </SelectItem>
+                  )}
+                  {Array.isArray(folders) && renderFolderTreeOptions(buildFolderTree(folders))}
                 </SelectContent>
               </Select>
             </div>

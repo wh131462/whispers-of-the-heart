@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react'
-import { Upload, Image, Video, FileText, Trash2, Edit, Eye, Download, Search, Filter } from 'lucide-react'
+import { Upload, Image, Video, FileText, Trash2, Edit, Eye, Download, Search } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import ProtectedPage from '../components/ProtectedPage'

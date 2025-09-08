@@ -4,6 +4,8 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import PostManagementPage from './pages/PostManagementPage'
 import PostEditPage from './pages/PostEditPage'
+import CategoryManagementPage from './pages/CategoryManagementPage'
+import TagManagementPage from './pages/TagManagementPage'
 import CommentManagementPage from './pages/CommentManagementPage'
 import UserManagementPage from './pages/UserManagementPage'
 import FileManagementPage from './pages/FileManagementPage'
@@ -31,6 +33,8 @@ function App() {
             <Route path="posts" element={<PostManagementPage />} />
             <Route path="posts/new" element={<PostEditPage />} />
             <Route path="posts/edit/:id" element={<PostEditPage />} />
+            <Route path="categories" element={<CategoryManagementPage />} />
+            <Route path="tags" element={<TagManagementPage />} />
             <Route path="comments" element={<CommentManagementPage />} />
             <Route path="users" element={<UserManagementPage />} />
             <Route path="files" element={<FileManagementPage />} />
@@ -38,7 +42,7 @@ function App() {
           </Route>
           
           {/* 默认重定向 */}
-          <Route path="/" element={<Navigate to="/admin/login" replace />} />
+          <Route path="/" element={<Navigate to="/admin/" replace />} />
           <Route path="*" element={<Navigate to="/admin/login" replace />} />
         </Routes>
       </Router>

@@ -4,25 +4,21 @@ import { Card, CardContent } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
+import { Switch } from '../components/ui/switch'
+import { DataTable } from '../components/tables/DataTable'
 import ProtectedPage from '../components/ProtectedPage'
 import { 
   Plus, 
   Search, 
   Edit, 
   Trash2, 
-  Eye, 
   FileText,
   Calendar,
-  Tag,
   Filter,
-  X,
   AlertCircle,
   RefreshCw
 } from 'lucide-react'
-import { blogApi, type Post } from '@whispers/utils'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import rehypeHighlight from 'rehype-highlight'
+import { blogApi, type Post, api, setTokenFromStorage } from '@whispers/utils'
 import { useToastContext } from '../contexts/ToastContext'
 
 // 错误边界组件
@@ -81,8 +77,6 @@ const PostManagementPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'published'>('all')
   const [categoryFilter, setCategoryFilter] = useState('all')
-  const [previewPost, setPreviewPost] = useState<Post | null>(null)
-  const [showPreview, setShowPreview] = useState(false)
 
   // 输入验证函数
   const validateInput = (input: any, type: 'string' | 'number' | 'array'): boolean => {
@@ -216,43 +210,42 @@ const PostManagementPage: React.FC = () => {
     }
 
     try {
-      const token = localStorage.getItem('admin_token')
-      if (!token) {
-        error('请先登录')
-        return
-      }
-
-      const response = await fetch(`http://localhost:7777/api/v1/blog/post/${encodeURIComponent(postId)}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      })
-      
-      if (response.ok || response.status === 404) {
-        setPosts(prev => prev.filter(post => post.id !== postId))
-        success('文章删除成功！')
-      } else {
-        const errorText = await response.text()
-        console.error('Delete failed:', response.status, errorText)
-        error(`删除文章失败: ${response.status}`)
-      }
+      setTokenFromStorage('admin_token')
+      await api.delete(`/blog/post/${encodeURIComponent(postId)}`)
+      setPosts(prev => prev.filter(post => post.id !== postId))
+      success('文章删除成功！')
     } catch (err) {
       console.error('Failed to delete post:', err)
       error('删除文章失败，请检查网络连接')
     }
   }
 
-  const handlePreview = (post: Post) => {
-    setPreviewPost(post)
-    setShowPreview(true)
+  const handleToggleStatus = async (postId: string, currentStatus: string) => {
+    if (!validateInput(postId, 'string')) {
+      error('无效的文章ID')
+      return
+    }
+
+    const newStatus = currentStatus === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED'
+    
+    try {
+      setTokenFromStorage('admin_token')
+      const response = await api.patch(`/blog/post/${encodeURIComponent(postId)}`, {
+        status: newStatus
+      })
+      
+      if (response.data) {
+        setPosts(prev => prev.map(post => 
+          post.id === postId ? { ...post, status: newStatus } : post
+        ))
+        success(`文章已${newStatus === 'PUBLISHED' ? '发布' : '设为草稿'}！`)
+      }
+    } catch (err) {
+      console.error('Failed to toggle status:', err)
+      error('状态切换失败，请检查网络连接')
+    }
   }
 
-  const closePreview = () => {
-    setShowPreview(false)
-    setPreviewPost(null)
-  }
 
   const filteredPosts = posts.filter(post => {
     const matchesSearch = post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -265,20 +258,6 @@ const PostManagementPage: React.FC = () => {
     return matchesSearch && matchesStatus && matchesCategory
   })
 
-  const getStatusBadge = (status: string) => {
-    if (status === 'PUBLISHED') {
-      return (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-          已发布
-        </span>
-      )
-    }
-    return (
-      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-        草稿
-      </span>
-    )
-  }
 
   // 错误显示组件
   const ErrorDisplay = () => (
@@ -438,125 +417,141 @@ const PostManagementPage: React.FC = () => {
       </Card>
 
       {/* 文章列表 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredPosts.map((post) => {
-          // 安全性检查：确保文章数据有效
-          if (!validatePost(post)) {
-            console.warn('Invalid post data:', post)
-            return null
-          }
-          
-          return (
-          <Card key={post.id} className="hover:shadow-lg transition-shadow">
-            {/* 封面图片 */}
-            {post.coverImage && (
-              <div className="relative h-48 overflow-hidden rounded-t-lg">
-                <img
-                  src={post.coverImage}
-                  alt={post.title}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none'
-                  }}
-                />
-                <div className="absolute top-2 right-2">
-                  {getStatusBadge(post.status)}
-                </div>
-              </div>
-            )}
-
-            <CardContent className="p-6">
-              {/* 文章标题 */}
-              <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
-                {post.title}
-              </h3>
-
-              {/* 文章摘要 */}
-              <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                {post.excerpt || '暂无摘要'}
-              </p>
-
-              {/* 分类和标签 */}
-              <div className="mb-4">
-                <div className="flex items-center space-x-2 mb-2">
-                  <span className="text-xs text-gray-500">分类：</span>
-                  <span className="text-xs font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                    {post.category}
+      <Card>
+        <CardContent className="p-0">
+          <DataTable
+            data={filteredPosts}
+            columns={[
+              {
+                key: 'title',
+                title: '标题',
+                render: (post: Post) => (
+                  <div className="max-w-xs">
+                    <div className="font-medium text-gray-900 truncate">
+                      {post.title}
+                    </div>
+                    {post.coverImage && (
+                      <div className="mt-1">
+                        <img
+                          src={post.coverImage}
+                          alt=""
+                          className="w-16 h-10 object-cover rounded"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none'
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                )
+              },
+              {
+                key: 'excerpt',
+                title: '摘要',
+                render: (post: Post) => (
+                  <div className="max-w-sm text-sm text-gray-600 line-clamp-2">
+                    {post.excerpt || '暂无摘要'}
+                  </div>
+                )
+              },
+              {
+                key: 'category',
+                title: '分类',
+                render: (post: Post) => (
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    {post.category || '未分类'}
                   </span>
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {(post.tags || []).slice(0, 3).map((tag: string, index: number) => (
-                    <span
-                      key={index}
-                      className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded"
+                )
+              },
+              {
+                key: 'tags',
+                title: '标签',
+                render: (post: Post) => (
+                  <div className="flex flex-wrap gap-1 max-w-xs">
+                    {(post.tags || []).slice(0, 2).map((tag: string, index: number) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                    {(post.tags || []).length > 2 && (
+                      <span className="text-xs text-gray-500">
+                        +{(post.tags || []).length - 2}
+                      </span>
+                    )}
+                  </div>
+                )
+              },
+              {
+                key: 'createdAt',
+                title: '发布时间',
+                render: (post: Post) => (
+                  <div className="text-sm text-gray-600">
+                    <div className="flex items-center space-x-1">
+                      <Calendar className="h-3 w-3" />
+                      <span>{new Date(post.createdAt).toLocaleDateString('zh-CN')}</span>
+                    </div>
+                  </div>
+                )
+              },
+              {
+                key: 'updatedAt',
+                title: '更新时间',
+                render: (post: Post) => (
+                  <div className="text-sm text-gray-600">
+                    <div className="flex items-center space-x-1">
+                      <Calendar className="h-3 w-3" />
+                      <span>{new Date(post.updatedAt).toLocaleDateString('zh-CN')}</span>
+                    </div>
+                  </div>
+                )
+              },
+              {
+                key: 'status',
+                title: '发布状态',
+                render: (post: Post) => (
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      checked={post.status === 'PUBLISHED'}
+                      onCheckedChange={() => handleToggleStatus(post.id, post.status)}
+                    />
+                    <span className="text-sm text-gray-600">
+                      {post.status === 'PUBLISHED' ? '已发布' : '草稿'}
+                    </span>
+                  </div>
+                )
+              },
+              {
+                key: 'actions',
+                title: '操作',
+                render: (post: Post) => (
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate(`/admin/posts/edit/${post.id}`)}
                     >
-                      {tag}
-                    </span>
-                  ))}
-                  {(post.tags || []).length > 3 && (
-                    <span className="text-xs text-gray-500">
-                      +{(post.tags || []).length - 3}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* 统计信息 */}
-              <div className="flex items-center justify-between text-xs text-gray-500 mb-4">
-                <div className="flex items-center space-x-4">
-                  <span className="flex items-center space-x-1">
-                    <Eye className="h-3 w-3" />
-                    <span>{post.views}</span>
-                  </span>
-                  <span className="flex items-center space-x-1">
-                    <FileText className="h-3 w-3" />
-                    <span>{post.likes}</span>
-                  </span>
-                  <span className="flex items-center space-x-1">
-                    <Tag className="h-3 w-3" />
-                    <span>{post.comments}</span>
-                  </span>
-                </div>
-                <span className="flex items-center space-x-1">
-                  <Calendar className="h-3 w-3" />
-                  <span>{new Date(post.createdAt).toLocaleDateString('zh-CN')}</span>
-                </span>
-              </div>
-
-              {/* 操作按钮 */}
-              <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate(`/admin/posts/edit/${post.id}`)}
-                  className="flex-1"
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  编辑
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handlePreview(post)}
-                  className="flex-1"
-                >
-                  <Eye className="h-4 w-4 mr-2" />
-                  预览
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDelete(post.id)}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-          )
-        })}
-      </div>
+                      <Edit className="h-4 w-4 mr-1" />
+                      编辑
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDelete(post.id)}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )
+              }
+            ]}
+            pageSize={10}
+          />
+        </CardContent>
+      </Card>
 
       {/* 空状态 */}
       {filteredPosts.length === 0 && (
@@ -585,96 +580,6 @@ const PostManagementPage: React.FC = () => {
         </Card>
       )}
 
-      {/* 预览模态框 */}
-      {showPreview && previewPost && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
-            {/* 模态框头部 */}
-            <div className="flex items-center justify-between p-6 border-b">
-              <h2 className="text-xl font-semibold">文章预览</h2>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={closePreview}
-                className="h-8 w-8 p-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            {/* 模态框内容 */}
-            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-              {/* 文章标题 */}
-              <h1 className="text-3xl font-bold mb-4">{previewPost.title}</h1>
-              
-              {/* 文章元信息 */}
-              <div className="flex items-center space-x-4 text-sm text-muted-foreground mb-6">
-                <div className="flex items-center space-x-1">
-                  <Calendar className="h-4 w-4" />
-                  <span>{new Date(previewPost.createdAt).toLocaleDateString()}</span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <FileText className="h-4 w-4" />
-                  <span>{previewPost.status === 'PUBLISHED' ? '已发布' : '草稿'}</span>
-                </div>
-                {previewPost.category && (
-                  <div className="flex items-center space-x-1">
-                    <Tag className="h-4 w-4" />
-                    <span>{previewPost.category}</span>
-                  </div>
-                )}
-              </div>
-              
-              {/* 文章摘要 */}
-              {previewPost.excerpt && (
-                <div className="bg-muted p-4 rounded-lg mb-6">
-                  <p className="text-muted-foreground italic">{previewPost.excerpt}</p>
-                </div>
-              )}
-              
-              {/* 文章内容 */}
-              <div className="prose prose-sm max-w-none">
-                <ReactMarkdown 
-                  remarkPlugins={[remarkGfm]}
-                  rehypePlugins={[rehypeHighlight]}
-                >
-                  {previewPost.content || '*暂无内容*'}
-                </ReactMarkdown>
-              </div>
-              
-              {/* 标签 */}
-              {previewPost.tags && previewPost.tags.length > 0 && (
-                <div className="mt-6 pt-6 border-t">
-                  <div className="flex flex-wrap gap-2">
-                    {previewPost.tags.map((tag: string) => (
-                      <span
-                        key={tag}
-                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary"
-                      >
-                        <Tag className="h-3 w-3 mr-1" />
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            {/* 模态框底部 */}
-            <div className="flex items-center justify-end space-x-2 p-6 border-t bg-muted/50">
-              <Button variant="outline" onClick={closePreview}>
-                关闭
-              </Button>
-              <Button onClick={() => {
-                closePreview()
-                navigate(`/admin/posts/edit/${previewPost.id}`)
-              }}>
-                编辑文章
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
     </ProtectedPage>
     </ErrorBoundary>

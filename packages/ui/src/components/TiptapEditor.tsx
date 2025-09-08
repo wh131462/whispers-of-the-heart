@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from './ui/input'
 import { Button } from './ui/button'
 import StarterKit from '@tiptap/starter-kit'
-// import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
+import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight'
 import Image from '@tiptap/extension-image'
 import Link from '@tiptap/extension-link'
 import { Table } from '@tiptap/extension-table'
@@ -26,12 +26,164 @@ import { Subscript } from '@tiptap/extension-subscript'
 import { Superscript } from '@tiptap/extension-superscript'
 import { FontFamily } from '@tiptap/extension-font-family'
 import { Typography } from '@tiptap/extension-typography'
-// import { createLowlight } from 'lowlight'
+import { Mathematics } from '@tiptap/extension-mathematics'
+import { Mention } from '@tiptap/extension-mention'
+import { Gapcursor } from '@tiptap/extension-gapcursor'
+import { createLowlight } from 'lowlight'
 import { cn } from '../lib/utils'
 import './TiptapEditor.css'
 
+// 导入Markdown序列化器
+import { defaultMarkdownSerializer, defaultMarkdownParser, MarkdownParser } from 'prosemirror-markdown'
+import { marked } from 'marked'
+
 // 导入语法高亮样式
 import 'highlight.js/styles/github.css'
+
+// 配置marked选项
+marked.setOptions({
+  breaks: true, // 支持换行符
+  gfm: true,    // 支持GitHub风格Markdown
+})
+
+// 创建 lowlight 实例
+const lowlight = createLowlight()
+
+// 导入常用语言
+import javascript from 'highlight.js/lib/languages/javascript'
+import typescript from 'highlight.js/lib/languages/typescript'
+import python from 'highlight.js/lib/languages/python'
+import java from 'highlight.js/lib/languages/java'
+import cpp from 'highlight.js/lib/languages/cpp'
+import css from 'highlight.js/lib/languages/css'
+import html from 'highlight.js/lib/languages/xml'
+import json from 'highlight.js/lib/languages/json'
+import markdown from 'highlight.js/lib/languages/markdown'
+import bash from 'highlight.js/lib/languages/bash'
+
+// 注册语言
+lowlight.register('javascript', javascript)
+lowlight.register('typescript', typescript)
+lowlight.register('python', python)
+lowlight.register('java', java)
+lowlight.register('cpp', cpp)
+lowlight.register('css', css)
+lowlight.register('html', html)
+lowlight.register('json', json)
+lowlight.register('markdown', markdown)
+lowlight.register('bash', bash)
+
+// 将编辑器内容转换为Markdown格式的函数
+const getMarkdownFromEditor = (editor: any): string => {
+  if (!editor) return ''
+  
+  try {
+    const doc = editor.state.doc
+    return defaultMarkdownSerializer.serialize(doc)
+  } catch (error) {
+    console.warn('Failed to serialize to markdown, falling back to HTML:', error)
+    return editor.getHTML()
+  }
+}
+
+// 检查内容是否为Markdown格式
+const isMarkdownContent = (content: string): boolean => {
+  if (!content || content.trim() === '') return false
+  
+  // 如果包含HTML标签但不包含Markdown语法，可能是HTML
+  const hasHtmlTags = /<[^>]+>/.test(content)
+  const hasMarkdownSyntax = [
+    /^#{1,6}\s/m,           // 标题
+    /\*\*.*?\*\*/,          // 粗体
+    /\*.*?\*/,              // 斜体
+    /~~.*?~~/,              // 删除线
+    /`.*?`/,                // 行内代码
+    /```[\s\S]*?```/,       // 代码块
+    /^\s*[-*+]\s/m,         // 无序列表
+    /^\s*\d+\.\s/m,         // 有序列表
+    /^\s*>\s/m,             // 引用
+    /^\s*\|.*\|/m,          // 表格
+    /^\s*-{3,}/m,           // 分割线
+    /\[.*?\]\(.*?\)/,       // 链接
+    /!\[.*?\]\(.*?\)/,      // 图片
+    /^\s*- \[[x ]\]/m,      // 任务列表
+    /\^.*?\^/,              // 上标
+    /~.*?~/,                // 下标
+  ].some(regex => regex.test(content))
+  
+  // 如果有Markdown语法，认为是Markdown
+  if (hasMarkdownSyntax) return true
+  
+  // 如果只有HTML标签没有Markdown语法，认为是HTML
+  if (hasHtmlTags && !hasMarkdownSyntax) return false
+  
+  // 其他情况，如果不包含HTML标签，认为可能是纯文本Markdown
+  return !hasHtmlTags
+}
+
+// 将Markdown内容转换为HTML，然后让TipTap处理
+const parseMarkdownContent = async (markdown: string): Promise<string> => {
+  if (!markdown || !isMarkdownContent(markdown)) return markdown
+  
+  try {
+    // 使用marked库进行更专业的Markdown解析
+    const html = await marked.parse(markdown)
+    return html
+  } catch (error) {
+    console.warn('Failed to parse markdown with marked:', error)
+    // 降级到简单的转换
+    try {
+      let html = markdown
+        // 代码块 (必须在行内代码之前处理)
+        .replace(/```(\w+)?\n?([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+        // 标题 (从大到小处理)
+        .replace(/^###### (.*$)/gm, '<h6>$1</h6>')
+        .replace(/^##### (.*$)/gm, '<h5>$1</h5>')
+        .replace(/^#### (.*$)/gm, '<h4>$1</h4>')
+        .replace(/^### (.*$)/gm, '<h3>$1</h3>')
+        .replace(/^## (.*$)/gm, '<h2>$1</h2>')
+        .replace(/^# (.*$)/gm, '<h1>$1</h1>')
+        // 引用块
+        .replace(/^> (.*$)/gm, '<blockquote>$1</blockquote>')
+        // 水平分割线
+        .replace(/^---+$/gm, '<hr>')
+        // 粗体和斜体 (先处理粗体，再处理斜体)
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*([^*\n]+)\*/g, '<em>$1</em>')
+        // 删除线
+        .replace(/~~(.*?)~~/g, '<s>$1</s>')
+        // 行内代码
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        // 链接
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+        // 图片
+        .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" />')
+        // 任务列表
+        .replace(/^- \[x\] (.+)$/gm, '<ul><li><input type="checkbox" checked disabled> $1</li></ul>')
+        .replace(/^- \[ \] (.+)$/gm, '<ul><li><input type="checkbox" disabled> $1</li></ul>')
+        // 无序列表
+        .replace(/^[\s]*[-*+] (.+)$/gm, '<ul><li>$1</li></ul>')
+        // 有序列表
+        .replace(/^[\s]*\d+\. (.+)$/gm, '<ol><li>$1</li></ol>')
+        // 合并连续的列表项
+        .replace(/<\/ul>\s*<ul>/g, '')
+        .replace(/<\/ol>\s*<ol>/g, '')
+        // 段落处理
+        .replace(/\n\s*\n/g, '</p><p>')
+        .replace(/\n/g, '<br>')
+      
+      // 包装在段落中
+      if (html && !html.startsWith('<')) {
+        html = '<p>' + html + '</p>'
+      }
+      
+      return html
+    } catch (fallbackError) {
+      console.warn('Fallback parsing also failed:', fallbackError)
+      return markdown
+    }
+  }
+}
 
 // 创建 lowlight 实例
 // const lowlight = createLowlight()
@@ -66,7 +218,7 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        // codeBlock: false, // 使用默认的代码块
+        codeBlock: false, // 使用CodeBlockLowlight替代
         heading: {
           levels: [1, 2, 3, 4, 5, 6],
         },
@@ -75,9 +227,10 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
         underline: false,
         strike: false,
       }),
-      // CodeBlockLowlight.configure({
-      //   lowlight,
-      // }),
+      CodeBlockLowlight.configure({
+        lowlight,
+        defaultLanguage: 'plaintext',
+      }),
       Image.configure({
         HTMLAttributes: {
           class: 'tiptap-image',
@@ -121,12 +274,20 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
         types: ['textStyle'],
       }),
       Typography,
+      Mathematics,
+      Gapcursor,
+      // Mention.configure({
+      //   HTMLAttributes: {
+      //     class: 'mention',
+      //   },
+      // }),
     ],
     content,
     editable,
     onUpdate: ({ editor }) => {
       if (!isUpdatingFromProps.current) {
-        onChange?.(editor.getHTML())
+        const markdown = getMarkdownFromEditor(editor)
+        onChange?.(markdown)
       }
     },
     editorProps: {
@@ -138,13 +299,26 @@ const TiptapEditor: React.FC<TiptapEditorProps> = ({
 
   // 当 content 变化时更新编辑器内容（避免在用户编辑时重置）
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
+    if (editor && content !== getMarkdownFromEditor(editor)) {
       isUpdatingFromProps.current = true
-      editor.commands.setContent(content)
-      // 使用 setTimeout 确保 setContent 完成后再重置标志
-      setTimeout(() => {
-        isUpdatingFromProps.current = false
-      }, 0)
+      
+      // 异步解析Markdown内容
+      const updateContent = async () => {
+        try {
+          const parsedContent = await parseMarkdownContent(content)
+          editor.commands.setContent(parsedContent)
+        } catch (error) {
+          console.warn('Failed to parse content:', error)
+          editor.commands.setContent(content)
+        }
+        
+        // 使用 setTimeout 确保 setContent 完成后再重置标志
+        setTimeout(() => {
+          isUpdatingFromProps.current = false
+        }, 0)
+      }
+      
+      updateContent()
     }
   }, [content, editor])
 

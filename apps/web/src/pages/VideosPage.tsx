@@ -3,6 +3,7 @@ import { Play, Clock, Eye, Heart } from 'lucide-react'
 import { DEFAULT_VIDEO_COVER } from '../constants/images'
 import VideoPlayer from '../components/VideoPlayer'
 import { FilePreviewModal } from '@whispers/ui'
+import { api } from '@whispers/utils'
 
 interface Video {
   id: string
@@ -29,10 +30,9 @@ const VideosPage: React.FC = () => {
     // 模拟从API获取视频数据
     const fetchVideos = async () => {
       try {
-        const response = await fetch('http://localhost:7777/api/v1/videos')
-        if (response.ok) {
-          const data = await response.json()
-          setVideos(data.data?.items || [])
+        const response = await api.get('/videos')
+        if (response.data?.items) {
+          setVideos(response.data.items)
         } else {
           // 使用模拟数据
           setVideos([

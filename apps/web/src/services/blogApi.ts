@@ -1,6 +1,5 @@
 import { useAuthStore } from '../stores/useAuthStore'
-
-const API_BASE_URL = 'http://localhost:7777/api/v1'
+import { api, setAuthToken, removeAuthToken } from '@whispers/utils'
 
 export interface LikeResponse {
   liked: boolean
@@ -30,84 +29,47 @@ export interface FavoritesListResponse {
 }
 
 export class BlogApiService {
-  private getAuthHeaders() {
+  private setAuthIfAvailable() {
     const { accessToken } = useAuthStore.getState()
-    return {
-      'Content-Type': 'application/json',
-      ...(accessToken && { Authorization: `Bearer ${accessToken}` }),
+    if (accessToken) {
+      setAuthToken(accessToken)
+    } else {
+      removeAuthToken()
     }
   }
 
   // 点赞相关方法
   async toggleLike(postId: string): Promise<LikeResponse> {
-    const response = await fetch(`${API_BASE_URL}/blog/post/${postId}/like`, {
-      method: 'POST',
-      headers: this.getAuthHeaders(),
-    })
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-    }
-
-    const data = await response.json()
-    return data.data
+    this.setAuthIfAvailable()
+    const response = await api.post(`/blog/post/${postId}/like`)
+    return response.data.data
   }
 
   async getLikeStatus(postId: string): Promise<LikeStatusResponse> {
-    const response = await fetch(`${API_BASE_URL}/blog/post/${postId}/like-status`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    })
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-    }
-
-    const data = await response.json()
-    return data.data
+    this.setAuthIfAvailable()
+    const response = await api.get(`/blog/post/${postId}/like-status`)
+    return response.data.data
   }
 
   // 收藏相关方法
   async toggleFavorite(postId: string): Promise<FavoriteResponse> {
-    const response = await fetch(`${API_BASE_URL}/blog/post/${postId}/favorite`, {
-      method: 'POST',
-      headers: this.getAuthHeaders(),
-    })
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-    }
-
-    const data = await response.json()
-    return data.data
+    this.setAuthIfAvailable()
+    const response = await api.post(`/blog/post/${postId}/favorite`)
+    return response.data.data
   }
 
   async getFavoriteStatus(postId: string): Promise<FavoriteStatusResponse> {
-    const response = await fetch(`${API_BASE_URL}/blog/post/${postId}/favorite-status`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    })
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-    }
-
-    const data = await response.json()
-    return data.data
+    this.setAuthIfAvailable()
+    const response = await api.get(`/blog/post/${postId}/favorite-status`)
+    return response.data.data
   }
 
   async getUserFavorites(page = 1, limit = 10): Promise<FavoritesListResponse> {
-    const response = await fetch(`${API_BASE_URL}/blog/user/favorites?page=${page}&limit=${limit}`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
+    this.setAuthIfAvailable()
+    const response = await api.get('/blog/user/favorites', {
+      params: { page, limit }
     })
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-    }
-
-    const data = await response.json()
-    return data.data
+    return response.data.data
   }
 
   // 分享相关方法

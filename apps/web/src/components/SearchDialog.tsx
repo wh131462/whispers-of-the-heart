@@ -3,7 +3,7 @@ import { Search, X, FileText, Video, Music, ArrowRight } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { cn } from '../lib/utils'
-import { blogApi } from '@whispers/utils'
+import { api } from '@whispers/utils'
 
 interface SearchResult {
   id: string
@@ -43,23 +43,18 @@ const SearchDialog: React.FC<SearchDialogProps> = ({ isOpen, onClose }) => {
     setIsLoading(true)
     try {
       // 调用实际的搜索API
-      const response = await fetch(`http://localhost:7777/api/v1/blog?search=${encodeURIComponent(searchQuery)}`)
-      if (response.ok) {
-        const result = await response.json()
-        if (result.success && result.data && result.data.items) {
-          // 转换API数据格式为SearchResult格式
-          const searchResults: SearchResult[] = result.data.items.map((post: any) => ({
-            id: post.id,
-            title: post.title,
-            type: 'post' as const,
-            excerpt: post.excerpt || '',
-            slug: post.slug,
-            publishedAt: post.publishedAt || post.createdAt
-          }))
-          setResults(searchResults)
-        } else {
-          setResults([])
-        }
+      const response = await api.get('/blog', { params: { search: searchQuery } })
+      if (response.data?.items) {
+        // 转换API数据格式为SearchResult格式
+        const searchResults: SearchResult[] = response.data.items.map((post: any) => ({
+          id: post.id,
+          title: post.title,
+          type: 'post' as const,
+          excerpt: post.excerpt || '',
+          slug: post.slug,
+          publishedAt: post.publishedAt || post.createdAt
+        }))
+        setResults(searchResults)
       } else {
         setResults([])
       }

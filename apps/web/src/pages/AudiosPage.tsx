@@ -3,6 +3,7 @@ import { Play, Heart, Music, User, Eye } from 'lucide-react'
 import { DEFAULT_AUDIO_COVER } from '../constants/images'
 import AudioPlayer from '../components/AudioPlayer'
 import { FilePreviewModal } from '@whispers/ui'
+import { api } from '@whispers/utils'
 
 interface AudioTrack {
   id: string
@@ -30,10 +31,9 @@ const AudiosPage: React.FC = () => {
     // 模拟从API获取音频数据
     const fetchTracks = async () => {
       try {
-        const response = await fetch('http://localhost:7777/api/v1/audios')
-        if (response.ok) {
-          const data = await response.json()
-          setTracks(data.data?.items || [])
+        const response = await api.get('/audios')
+        if (response.data?.items) {
+          setTracks(response.data.items)
         } else {
           // 使用模拟数据
           setTracks([

@@ -16,10 +16,12 @@ async function bootstrap() {
   // 配置Express信任代理，以便正确获取客户端IP
   app.set('trust proxy', true);
   
-  // 创建uploads目录
-  const uploadsDir = join(__dirname, '..', 'uploads');
+  // 创建uploads目录 - 使用process.cwd()确保路径正确
+  const uploadsDir = join(process.cwd(), 'uploads');
+  console.log('📁 Uploads directory:', uploadsDir);
   if (!existsSync(uploadsDir)) {
     mkdirSync(uploadsDir, { recursive: true });
+    console.log('✅ Created uploads directory');
   }
   
   // 启用 CORS
@@ -32,12 +34,12 @@ async function bootstrap() {
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ extended: true, limit: '50mb' }));
 
-  // 设置静态文件服务
+  // 设置静态文件服务 - 必须在全局前缀之前设置
   app.useStaticAssets(uploadsDir, {
     prefix: '/uploads/',
   });
 
-  // 设置全局前缀
+  // 设置全局前缀 - 静态文件服务不受此影响
   app.setGlobalPrefix('api/v1');
 
   // 全局验证管道 - 暂时禁用严格验证

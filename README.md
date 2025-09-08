@@ -39,13 +39,15 @@ pnpm install
 ### 开发模式
 
 ```bash
+# 启动容器 数据库服务
+sh start-blog-system.sh
 # 启动所有应用的开发服务器
 pnpm dev
 
 # 启动特定应用
-pnpm dev --filter=web
-pnpm dev --filter=admin
-pnpm dev --filter=api
+pnpm dev:web
+pnpm dev:admin
+pnpm dev:api
 ```
 
 ### 构建项目

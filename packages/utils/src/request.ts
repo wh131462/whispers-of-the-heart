@@ -13,6 +13,7 @@ export interface RequestOptions {
   body?: any
   timeout?: number
   signal?: AbortSignal
+  params?: Record<string, any>
 }
 
 // 响应接口
@@ -32,30 +33,68 @@ export interface ApiError {
   data?: any
 }
 
-// 获取API基础URL
-function getApiBaseUrl(): string {
+// 环境变量接口
+export interface EnvConfig {
+  VITE_API_URL?: string
+  VITE_WEB_URL?: string
+  VITE_ADMIN_URL?: string
+  NODE_ENV?: string
+}
+
+// 获取环境变量
+function getEnv(): EnvConfig {
   // 前端环境 (浏览器)
   if (typeof window !== 'undefined') {
     try {
-      // 开发环境
-      if ((import.meta as any)?.env?.DEV) {
-        return (import.meta as any).env.VITE_API_URL || 'http://localhost:7777'
-      }
-      // 生产环境
-      return (import.meta as any).env.VITE_API_URL || 'https://api.whispers.local'
+      return (import.meta as any)?.env || {}
     } catch (error) {
-      // 如果import.meta不可用，使用默认值
-      return 'http://localhost:7777'
+      return {}
     }
   }
   
   // 后端环境 (Node.js)
   if (typeof process !== 'undefined') {
-    return process.env.API_URL || 'http://localhost:7777'
+    return process.env as EnvConfig
   }
   
-  // 默认值
-  return 'http://localhost:7777'
+  return {}
+}
+
+// 获取API基础URL
+function getApiBaseUrl(): string {
+  const env = getEnv()
+  
+  // 优先使用环境变量配置的API URL
+  if (env.VITE_API_URL) {
+    return env.VITE_API_URL
+  }
+  
+  // 如果没有配置，根据环境判断
+  const isDev = env.NODE_ENV === 'development' || 
+                (typeof window !== 'undefined' && env.NODE_ENV !== 'production')
+  
+  if (isDev) {
+    return 'http://localhost:7777'
+  }
+  
+  return 'https://api.whispers.local'
+}
+
+// 获取完整URL（支持相对路径和绝对路径）
+export function getFullUrl(url: string, baseUrl?: string): string {
+  // 如果是完整的URL（包含协议），直接返回
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url
+  }
+
+  // 如果是相对路径，拼接基础URL
+  const base = baseUrl || getApiBaseUrl()
+
+  // 确保URL以/开头，base不以/结尾
+  const cleanBase = base.replace(/\/$/, '')
+  const cleanUrl = url.startsWith('/') ? url : `/${url}`
+  const apiAttr = "/api/v1";// 中缀补充
+  return `${cleanBase}${apiAttr}${cleanUrl}`
 }
 
 // 默认配置
@@ -101,10 +140,25 @@ export class ApiClient {
     url: string,
     options: RequestOptions = {}
   ): Promise<ApiResponse<T>> {
-    const { method = 'GET', headers = {}, body, timeout, signal } = options
-    
-    // 构建完整 URL
-    const fullUrl = this.config.baseURL ? `${this.config.baseURL}${url}` : url
+    const { method = 'GET', headers = {}, body, timeout, signal, params } = options
+
+    // 处理查询参数
+    let finalUrl = url
+    if (params && Object.keys(params).length > 0) {
+      const searchParams = new URLSearchParams()
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, String(value))
+        }
+      })
+      const queryString = searchParams.toString()
+      if (queryString) {
+        finalUrl += (finalUrl.includes('?') ? '&' : '?') + queryString
+      }
+    }
+
+    // 构建完整 URL - 支持完整URL和相对路径
+    const fullUrl = getFullUrl(finalUrl, this.config.baseURL)
     
     // 合并请求头
     const requestHeaders = {
@@ -315,5 +369,37 @@ export const request = async <T = any>(
       success: false,
       error: error instanceof Error ? error.message : '请求失败',
     }
+  }
+}
+
+// 设置全局API客户端的认证token
+export const setAuthToken = (token: string) => {
+  apiClient.setAuthToken(token)
+}
+
+// 移除全局API客户端的认证token
+export const removeAuthToken = () => {
+  apiClient.removeAuthToken()
+}
+
+// 从localStorage设置token
+export const setTokenFromStorage = (storageKey: string = 'auth_token') => {
+  apiClient.setTokenFromStorage(storageKey)
+}
+
+// 创建新的API客户端实例
+export const createApiClient = (config?: RequestConfig) => {
+  return new ApiClient(config)
+}
+
+// 获取环境信息的工具函数
+export const getEnvironment = () => {
+  const env = getEnv()
+  return {
+    isProduction: env.NODE_ENV === 'production',
+    isDevelopment: env.NODE_ENV === 'development',
+    apiUrl: env.VITE_API_URL,
+    webUrl: env.VITE_WEB_URL,
+    adminUrl: env.VITE_ADMIN_URL,
   }
 }

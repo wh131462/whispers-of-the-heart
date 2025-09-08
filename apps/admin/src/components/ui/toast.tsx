@@ -12,7 +12,6 @@ export interface ToastProps {
 }
 
 const Toast: React.FC<ToastProps> = ({
-  id,
   title,
   description,
   type = 'info',

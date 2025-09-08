@@ -55,7 +55,7 @@ interface CommentListResponse {
 const CommentManagementPage: React.FC = () => {
   const { success, error, warning, info } = useToastContext()
   const [comments, setComments] = useState<Comment[]>([])
-  const [loading, setLoading] = useState(true)
+  const [, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
@@ -63,7 +63,7 @@ const CommentManagementPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedRows, setSelectedRows] = useState<Comment[]>([])
   const [totalPages, setTotalPages] = useState(1)
-  const [total, setTotal] = useState(0)
+  const [, setTotal] = useState(0)
 
   // 获取评论列表
   const fetchComments = async () => {
@@ -75,7 +75,7 @@ const CommentManagementPage: React.FC = () => {
         return
       }
 
-      const response = await request<CommentListResponse>(`/api/v1/comments`, {
+      const response = await request<CommentListResponse>(`/comments`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -194,7 +194,7 @@ const CommentManagementPage: React.FC = () => {
         return
       }
 
-      const response = await request(`/api/v1/comments/${commentId}/approve`, {
+      const response = await request(`/comments/${commentId}/approve`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -225,7 +225,7 @@ const CommentManagementPage: React.FC = () => {
         return
       }
 
-      const response = await request(`/api/v1/comments/${commentId}/reject`, {
+      const response = await request(`/comments/${commentId}/reject`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -257,7 +257,7 @@ const CommentManagementPage: React.FC = () => {
         return
       }
 
-      const response = await request(`/api/v1/comments/${commentId}`, {
+      const response = await request(`/comments/${commentId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -297,7 +297,7 @@ const CommentManagementPage: React.FC = () => {
       const commentIds = selectedRows.map(comment => comment.id)
       console.log('批量审批请求参数:', { commentIds })
       
-      const response = await request(`/api/v1/comments/batch-approve`, {
+      const response = await request(`/comments/batch-approve`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -350,7 +350,7 @@ const CommentManagementPage: React.FC = () => {
       const commentIds = selectedRows.map(comment => comment.id)
       console.log('批量拒绝请求参数:', { commentIds })
       
-      const response = await request(`/api/v1/comments/batch-reject`, {
+      const response = await request(`/comments/batch-reject`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -403,7 +403,7 @@ const CommentManagementPage: React.FC = () => {
       // 逐个删除评论
       let successCount = 0
       for (const comment of selectedRows) {
-        const response = await request(`/api/v1/comments/${comment.id}`, {
+        const response = await request(`/comments/${comment.id}`, {
           method: 'DELETE',
           headers: {
             'Authorization': `Bearer ${token}`,

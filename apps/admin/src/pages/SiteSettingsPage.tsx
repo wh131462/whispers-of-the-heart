@@ -5,7 +5,7 @@ import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Textarea } from '../components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
-import { Switch } from '../components/ui/switch'
+// import { Switch } from '../components/ui/switch'
 import ProtectedPage from '../components/ProtectedPage'
 import { Separator } from '../components/ui/separator'
 import { request } from '@whispers/utils'
@@ -73,7 +73,7 @@ const SiteSettingsPage: React.FC = () => {
   // 获取站点配置
   const fetchSiteConfig = async () => {
     try {
-      const response = await request<SiteConfig>('/api/v1/site-config', {
+      const response = await request<SiteConfig>('/site-config', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -99,7 +99,7 @@ const SiteSettingsPage: React.FC = () => {
         return
       }
 
-      const response = await request(`/api/v1/site-config/${config.id || ''}`, {
+      const response = await request(`/site-config/${config.id || ''}`, {
         method: config.id ? 'PATCH' : 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

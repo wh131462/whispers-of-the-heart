@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { api } from '@whispers/utils'
 
 interface User {
   id: string
@@ -42,29 +43,20 @@ const useAuthStore = create<AuthStore>()(
         try {
           set({ isLoading: true })
           
-          const response = await fetch('http://localhost:7777/api/v1/auth/login', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ email, password }),
-          })
-
-          if (response.ok) {
-            const data = await response.json()
-            if (data.success) {
-                          set({
-              user: data.data.user,
-              accessToken: data.data.accessToken,
-              refreshToken: data.data.refreshToken,
+          const response = await api.post('/auth/login', { email, password })
+          
+          if (response.data?.success) {
+            set({
+              user: response.data.data.user,
+              accessToken: response.data.data.accessToken,
+              refreshToken: response.data.data.refreshToken,
               isAuthenticated: true,
               isLoading: false,
             })
             
             // 同时存储到admin项目的token key，实现共享
-            localStorage.setItem('admin_token', data.data.accessToken)
-              return true
-            }
+            localStorage.setItem('admin_token', response.data.data.accessToken)
+            return true
           }
           
           set({ isLoading: false })
@@ -96,28 +88,19 @@ const useAuthStore = create<AuthStore>()(
         if (!refreshToken) return false
 
         try {
-          const response = await fetch('http://localhost:7777/api/v1/auth/refresh', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ refreshToken }),
-          })
-
-          if (response.ok) {
-            const data = await response.json()
-            if (data.success) {
-              set({
-                user: data.data.user,
-                accessToken: data.data.accessToken,
-                refreshToken: data.data.refreshToken,
-                isAuthenticated: true,
-              })
-              
-              // 同时更新admin项目的token
-              localStorage.setItem('admin_token', data.data.accessToken)
-              return true
-            }
+          const response = await api.post('/auth/refresh', { refreshToken })
+          
+          if (response.data?.success) {
+            set({
+              user: response.data.data.user,
+              accessToken: response.data.data.accessToken,
+              refreshToken: response.data.data.refreshToken,
+              isAuthenticated: true,
+            })
+            
+            // 同时更新admin项目的token
+            localStorage.setItem('admin_token', response.data.data.accessToken)
+            return true
           }
           
           // 刷新失败，清除认证状态
