@@ -49,7 +49,13 @@ export class FileManagementService {
 
   // 文件夹管理
   async createFolder(createFolderDto: CreateFolderDto, userId: string, userRole: string = 'USER') {
-    const { name, parentId, description } = createFolderDto;
+    const { name, description } = createFolderDto;
+    let { parentId } = createFolderDto;
+    
+    // 验证用户ID
+    if (!userId || userId === 'undefined') {
+      throw new BadRequestException('Invalid user ID');
+    }
     
     // 权限检查
     const hasPermission = await this.checkCreateFolderPermission(parentId, userId, userRole);
@@ -58,7 +64,7 @@ export class FileManagementService {
     }
 
     let path: string;
-    let ownerId: string;
+    let ownerId: string | null;
     let parentFolder: any = null;
 
     if (parentId) {
@@ -68,14 +74,60 @@ export class FileManagementService {
       if (!parentFolder) {
         throw new NotFoundException('Parent folder not found');
       }
+
+      // 确保父级文件夹有有效的路径
+      if (!parentFolder.path || parentFolder.path === 'undefined' || parentFolder.path === '/undefined') {
+        throw new BadRequestException('Parent folder has invalid path');
+      }
+
       path = `${parentFolder.path}/${name}`;
-      
-      // 继承父文件夹的所有者
-      ownerId = parentFolder.ownerId || userId;
+
+      // 公共目录下的文件夹不设置个人所有者
+      if (parentFolder.isPublic) {
+        ownerId = null; // 公共目录下的内容没有个人所有者
+      } else {
+        ownerId = parentFolder.ownerId || userId;
+      }
     } else {
-      // 在用户根目录创建
+      // 在用户根目录创建 - 确保用户根目录存在
+      let userRootFolder = await this.prisma.folder.findFirst({
+        where: { 
+          path: `/${userId}`,
+          ownerId: userId 
+        }
+      });
+      
+      if (!userRootFolder) {
+        // 用户根目录不存在，需要先创建
+        console.log(`用户根目录不存在，为用户 ${userId} 创建根目录`);
+        const user = await this.prisma.user.findUnique({
+          where: { id: userId },
+          select: { username: true }
+        });
+        
+        if (!user) {
+          throw new NotFoundException('用户不存在');
+        }
+        
+        await this.initSystemFoldersService.ensureUserRootFolder(userId, user.username);
+        
+        // 重新获取创建的用户根目录
+        userRootFolder = await this.prisma.folder.findFirst({
+          where: { 
+            path: `/${userId}`,
+            ownerId: userId 
+          }
+        });
+        
+        if (!userRootFolder) {
+          throw new Error('无法创建或找到用户根目录');
+        }
+      }
+      
       path = `/${userId}/${name}`;
       ownerId = userId;
+      // 关键修复：设置正确的parentId
+      parentId = userRootFolder.id;
     }
 
     // 检查路径是否已存在
@@ -115,21 +167,48 @@ export class FileManagementService {
   }
 
   async getFolders(userId: string, userRole: string = 'USER', parentId?: string) {
-    // 构建查询条件
-    const where: any = {
-      parentId: parentId || null
-    };
+    console.log(`📁 个人空间getFolders - userId: ${userId}, parentId: ${parentId || 'user-root'}`);
+    
+    if (!userId) {
+      throw new BadRequestException('用户ID是必需的');
+    }
 
-    // 非管理员只能看到自己有权限的文件夹
-    if (userRole !== 'ADMIN') {
-      where.OR = [
-        // 公共文件夹（所有人可见）
-        { isPublic: true },
-        // 用户自己的文件夹
-        { ownerId: userId },
-        // 用户目录下的文件夹
-        { path: { startsWith: `/${userId}` } }
-      ];
+    let where: any;
+
+    if (!parentId) {
+      // 个人空间根目录：显示用户自己的文件夹 + 公共目录入口
+      const userRootFolder = await this.prisma.folder.findFirst({
+        where: { 
+          path: `/${userId}`,
+          ownerId: userId 
+        }
+      });
+
+      where = {
+        OR: [
+          // 用户根目录下的直接子文件夹
+          {
+            parentId: userRootFolder?.id || null,
+            ownerId: userId,
+            path: { startsWith: `/${userId}/` }
+          },
+          // 公共目录（只在根目录显示）
+          {
+            path: '/public',
+            isPublic: true
+          }
+        ]
+      };
+    } else {
+      // 子目录：只显示当前目录下用户有权限的内容
+      where = {
+        parentId: parentId,
+        OR: [
+          { isPublic: true },
+          { ownerId: userId },
+          { path: { startsWith: `/${userId}/` } }
+        ]
+      };
     }
 
     return this.prisma.folder.findMany({
@@ -158,20 +237,23 @@ export class FileManagementService {
   }
 
   async getFolderTree(userId: string, userRole: string = 'USER') {
-    // 构建查询条件
-    const where: any = {};
-
-    // 非管理员只能看到自己有权限的文件夹
-    if (userRole !== 'ADMIN') {
-      where.OR = [
-        // 公共文件夹（所有人可见）
-        { isPublic: true },
-        // 用户自己的文件夹
-        { ownerId: userId },
-        // 用户目录下的文件夹
-        { path: { startsWith: `/${userId}` } }
-      ];
+    console.log(`🌳 个人空间文件夹树 - userId: ${userId}, role: ${userRole}`);
+    
+    if (!userId) {
+      throw new BadRequestException('用户ID是必需的');
     }
+
+    // 个人空间模式：只获取用户自己的文件夹 + 公共文件夹
+    const where: any = {
+      OR: [
+        // 用户自己拥有的文件夹（包括用户根目录）
+        { ownerId: userId },
+        // 用户目录下的文件夹（路径匹配）
+        { path: { startsWith: `/${userId}` } },
+        // 公共文件夹（完整的公共目录树）
+        { isPublic: true }
+      ]
+    };
 
     const allFolders = await this.prisma.folder.findMany({
       where,
@@ -197,6 +279,70 @@ export class FileManagementService {
       ]
     });
 
+    // 构建树形结构，但要特殊处理根目录
+    const buildPersonalTree = (): any[] => {
+      const result: any[] = [];
+      
+      // 1. 添加用户根目录下的直接子文件夹
+      const userRootFolder = allFolders.find(f => f.path === `/${userId}` && f.ownerId === userId);
+      if (userRootFolder) {
+        const userSubfolders = allFolders.filter(f => f.parentId === userRootFolder.id);
+        result.push(...userSubfolders.map(folder => ({
+          ...folder,
+          children: this.buildTreeRecursive(allFolders, folder.id)
+        })));
+      }
+      
+      // 2. 添加公共目录（只添加根公共目录）
+      const publicRootFolder = allFolders.find(f => f.path === '/public' && f.isPublic);
+      if (publicRootFolder) {
+        result.push({
+          ...publicRootFolder,
+          children: this.buildTreeRecursive(allFolders, publicRootFolder.id)
+        });
+      }
+      
+      return result;
+    };
+
+    return buildPersonalTree();
+  }
+
+  // 辅助方法：递归构建树形结构
+  private buildTreeRecursive(folders: any[], parentId: string): any[] {
+    return folders
+      .filter(folder => folder.parentId === parentId)
+      .map(folder => ({
+        ...folder,
+        children: this.buildTreeRecursive(folders, folder.id)
+      }));
+  }
+
+  // 管理模式：获取所有文件夹的树状结构（仅管理员）
+  async getManagementFolderTree() {
+    const allFolders = await this.prisma.folder.findMany({
+      include: {
+        parent: true,
+        children: true,
+        owner: {
+          select: {
+            id: true,
+            username: true
+          }
+        },
+        _count: {
+          select: {
+            files: true
+          }
+        }
+      },
+      orderBy: [
+        { isPublic: 'desc' }, // 公共文件夹优先
+        { isSystem: 'desc' }, // 系统文件夹优先
+        { path: 'asc' } // 按路径排序，确保用户目录有序
+      ]
+    });
+
     // 构建树形结构
     const buildTree = (folders: any[], parentId: string | null = null): any[] => {
       return folders
@@ -208,6 +354,35 @@ export class FileManagementService {
     };
 
     return buildTree(allFolders);
+  }
+
+  // 管理模式：获取当前目录下的文件夹（仅管理员）
+  async getManagementFolders(parentId?: string) {
+    return this.prisma.folder.findMany({
+      where: {
+        parentId: parentId || null
+      },
+      include: {
+        parent: true,
+        children: true,
+        owner: {
+          select: {
+            id: true,
+            username: true
+          }
+        },
+        _count: {
+          select: {
+            files: true
+          }
+        }
+      },
+      orderBy: [
+        { isPublic: 'desc' }, // 公共文件夹优先
+        { isSystem: 'desc' }, // 系统文件夹优先
+        { name: 'asc' }
+      ]
+    });
   }
 
   async updateFolder(id: string, updateFolderDto: UpdateFolderDto, userId: string, userRole: string = 'USER') {
@@ -289,8 +464,22 @@ export class FileManagementService {
   async uploadFile(uploadFileDto: UploadFileDto, userId: string, userRole: string = 'USER', file: any) {
     const { folderId, description, tags, isPublic } = uploadFileDto;
 
-    // 确保用户根目录存在
-    await this.initSystemFoldersService.ensureUserRootFolder(userId, `user-${userId}`);
+    // 验证用户ID
+    if (!userId || userId === 'undefined' || userId === 'null') {
+      throw new BadRequestException('Invalid user ID');
+    }
+
+    // 确保用户根目录存在 - 获取真实用户名
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { username: true }
+    });
+    
+    if (user) {
+      await this.initSystemFoldersService.ensureUserRootFolder(userId, user.username);
+    } else {
+      throw new NotFoundException('用户不存在');
+    }
 
     let folder;
     let fileDir;
@@ -336,37 +525,66 @@ export class FileManagementService {
       });
       
       if (!folder) {
-        throw new NotFoundException('用户根目录不存在');
+        // 用户根目录不存在，尝试创建
+        console.log(`用户根目录不存在，为用户 ${userId} 创建根目录`);
+        try {
+          await this.initSystemFoldersService.ensureUserRootFolder(userId, user.username);
+          // 重新查找
+          folder = await this.prisma.folder.findFirst({
+            where: { path: `/${userId}`, ownerId: userId }
+          });
+          if (!folder) {
+            throw new NotFoundException('无法创建用户根目录');
+          }
+        } catch (error) {
+          console.error('创建用户根目录失败:', error);
+          throw new NotFoundException('用户根目录不存在且无法创建');
+        }
       }
 
       folderPath = `/${userId}`;
     }
 
-    // 生成唯一文件名
-    const timestamp = Date.now();
-    const filename = `${timestamp}-${file.originalname}`;
-    relativePath = `${folderPath}${folderPath === '/' ? '' : '/'}${filename}`;
-
-    // 确保文件夹存在
+    // 使用multer已经生成的文件名
+    const filename = file.filename; // multer已经生成了唯一文件名
+    console.log('使用multer生成的文件名:', filename);
+    console.log('multer保存的文件路径:', file.path);
+    
+    // 确保目标文件夹存在
     const uploadsDir = join(process.cwd(), 'uploads');
     fileDir = join(uploadsDir, folderPath);
     if (!existsSync(fileDir)) {
       mkdirSync(fileDir, { recursive: true });
     }
 
-    // 文件已经被multer保存到磁盘，我们只需要移动或重命名它
+    // 计算最终文件路径
     const finalFilePath = join(fileDir, filename);
+    console.log('最终文件路径:', finalFilePath);
     
     // 如果multer保存的文件路径与目标路径不同，则移动文件
     if (file.path && file.path !== finalFilePath) {
       const fs = require('fs');
+      console.log(`移动文件: ${file.path} -> ${finalFilePath}`);
+      
       // 确保目标目录存在
       if (!existsSync(fileDir)) {
         mkdirSync(fileDir, { recursive: true });
       }
+      
+      // 检查源文件是否存在
+      if (!existsSync(file.path)) {
+        throw new Error(`源文件不存在: ${file.path}`);
+      }
+      
       // 移动文件到正确位置
       fs.renameSync(file.path, finalFilePath);
+      console.log('文件移动成功');
+    } else {
+      console.log('文件已在正确位置，无需移动');
     }
+    
+    // 生成相对路径用于URL
+    relativePath = `${folderPath}${folderPath === '/' ? '' : '/'}${filename}`;
     
     // 生成完整的URL - 确保路径正确并进行URL编码
     const apiUrl = this.configService.get('API_URL', 'http://localhost:7777');
@@ -431,9 +649,16 @@ export class FileManagementService {
     const skip = (page - 1) * limit;
     
     const where: any = {};
+    
+    // 重要：明确处理folderId参数
     if (folderId) {
+      // 如果指定了folderId，只返回该文件夹中的文件
       where.folderId = folderId;
+    } else {
+      // 如果没有指定folderId，只返回根目录的文件（folderId为null的文件）
+      where.folderId = null;
     }
+    
     if (search) {
       where.OR = [
         { originalName: { contains: search, mode: 'insensitive' } },
@@ -441,7 +666,6 @@ export class FileManagementService {
         { tags: { has: search } }
       ];
     }
-
     const [files, total] = await Promise.all([
       this.prisma.file.findMany({
         where,
@@ -491,6 +715,264 @@ export class FileManagementService {
       throw new NotFoundException('File not found');
     }
     return file;
+  }
+
+  // 新方法：获取目录内容（文件夹 + 文件）- 个人空间模式
+  async getDirectoryContent(
+    folderId?: string,
+    userId?: string,
+    userRole = 'USER',
+    search?: string,
+    page = 1,
+    limit = 20
+  ) {
+    console.log(`🔍 个人空间模式 - folderId: ${folderId || 'user-root'}, userId: ${userId}, role: ${userRole}`);
+
+    if (!userId) {
+      throw new BadRequestException('用户ID是必需的');
+    }
+
+    let folderWhere: any;
+    let currentFolder: any = null;
+
+    if (!folderId) {
+      // 个人空间根目录：显示用户自己的文件夹 + 公共目录入口
+      console.log('📁 获取个人空间根目录内容');
+      
+      // 确保用户根目录存在
+      const userRootFolder = await this.prisma.folder.findFirst({
+        where: { 
+          path: `/${userId}`,
+          ownerId: userId 
+        }
+      });
+
+      folderWhere = {
+        OR: [
+          // 用户根目录下的直接子文件夹
+          {
+            parentId: userRootFolder?.id || null,
+            ownerId: userId,
+            path: { startsWith: `/${userId}/` }
+          },
+          // 公共目录（只在根目录显示）
+          {
+            path: '/public',
+            isPublic: true
+          }
+        ]
+      };
+    } else {
+      // 子目录：只显示当前目录下的内容
+      currentFolder = await this.prisma.folder.findUnique({
+        where: { id: folderId }
+      });
+
+      if (!currentFolder) {
+        throw new NotFoundException('文件夹不存在');
+      }
+
+      // 检查权限：用户只能访问自己的文件夹或公共文件夹
+      const canAccess = currentFolder.isPublic || 
+                       currentFolder.ownerId === userId || 
+                       currentFolder.path.startsWith(`/${userId}/`) ||
+                       currentFolder.path.startsWith('/public/');
+
+      if (!canAccess) {
+        throw new ForbiddenException('没有权限访问此文件夹');
+      }
+
+      // 获取当前文件夹的子文件夹
+      folderWhere = {
+        parentId: folderId,
+        OR: [
+          { isPublic: true },
+          { ownerId: userId },
+          { path: { startsWith: `/${userId}/` } }
+        ]
+      };
+    }
+
+    const folders = await this.prisma.folder.findMany({
+      where: folderWhere,
+      include: {
+        owner: {
+          select: { id: true, username: true }
+        },
+        _count: {
+          select: { files: true }
+        }
+      },
+      orderBy: [
+        { isPublic: 'desc' }, // 公共文件夹优先
+        { name: 'asc' }
+      ]
+    });
+
+    // 获取文件
+    const filesResult = await this.getFiles(folderId, page, limit, search);
+
+    console.log(`📂 个人空间内容 - 文件夹: ${folders.length}, 文件: ${filesResult.files.length}`);
+
+    return {
+      folders,
+      files: filesResult.files,
+      pagination: {
+        total: filesResult.total,
+        page: filesResult.page,
+        limit: filesResult.limit,
+        totalPages: filesResult.totalPages
+      }
+    };
+  }
+
+  // 新方法：获取管理模式目录内容
+  async getManagementDirectoryContent(
+    folderId?: string,
+    search?: string,
+    page = 1,
+    limit = 20
+  ) {
+    console.log(`🔧 管理模式 - folderId: ${folderId || 'management-root'}`);
+
+    let folderWhere: any;
+
+    if (!folderId) {
+      // 管理模式根目录：显示所有用户根目录 + 公共目录
+      console.log('📁 获取管理模式根目录内容');
+      
+      // 获取所有用户根目录
+      const allUserRoots = await this.prisma.folder.findMany({
+        where: {
+          parentId: null,
+          ownerId: { not: null },
+          isPublic: false,
+          path: { not: '/public' }
+        },
+        select: { id: true }
+      });
+
+      const userRootIds = allUserRoots.map(f => f.id);
+
+      folderWhere = {
+        OR: [
+          // 所有用户的根目录
+          {
+            id: { in: userRootIds }
+          },
+          // 公共目录根目录
+          {
+            path: '/public',
+            isPublic: true
+          }
+        ]
+      };
+    } else {
+      // 子目录：显示当前目录下的所有内容
+      folderWhere = {
+        parentId: folderId
+      };
+    }
+
+    const folders = await this.prisma.folder.findMany({
+      where: folderWhere,
+      include: {
+        owner: {
+          select: { id: true, username: true }
+        },
+        _count: {
+          select: { files: true }
+        }
+      },
+      orderBy: [
+        { isPublic: 'desc' }, // 公共文件夹优先
+        { isSystem: 'desc' }, // 系统文件夹优先
+        { name: 'asc' }
+      ]
+    });
+
+    // 获取文件（管理模式：使用特殊逻辑）
+    const filesResult = await this.getManagementFiles(folderId, page, limit, search);
+
+    console.log(`🔧 管理模式内容 - 文件夹: ${folders.length}, 文件: ${filesResult.files.length}`);
+
+    return {
+      folders,
+      files: filesResult.files,
+      pagination: {
+        total: filesResult.total,
+        page: filesResult.page,
+        limit: filesResult.limit,
+        totalPages: filesResult.totalPages
+      }
+    };
+  }
+
+  // 管理模式专用的文件获取方法
+  private async getManagementFiles(folderId?: string, page = 1, limit = 20, search?: string) {
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    // 管理模式下的文件过滤逻辑
+    if (folderId) {
+      // 如果指定了文件夹ID，返回该文件夹中的文件
+      where.folderId = folderId;
+    } else {
+      // 管理模式根目录不显示任何文件，只显示用户目录结构
+      // 返回空结果
+      console.log(`🔧 管理模式根目录，不显示文件，只显示用户目录结构`);
+
+      return {
+        files: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0
+      };
+    }
+
+    if (search) {
+      where.OR = [
+        { originalName: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { tags: { has: search } }
+      ];
+    }
+
+    console.log(`🔧 管理模式文件查询条件:`, JSON.stringify(where, null, 2));
+
+    const [files, total] = await Promise.all([
+      this.prisma.file.findMany({
+        where,
+        skip,
+        take: limit,
+        include: {
+          folder: true,
+          uploader: {
+            select: {
+              id: true,
+              username: true,
+              avatar: true
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      }),
+      this.prisma.file.count({ where })
+    ]);
+
+    console.log(`🔧 管理模式文件结果: ${files.length} 个文件, 总数: ${total}`);
+
+    return {
+      files,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    };
   }
 
   async updateFile(id: string, updateFileDto: UpdateFileDto) {
