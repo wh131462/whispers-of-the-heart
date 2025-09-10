@@ -20,12 +20,14 @@ import {
   Move,
   Home,
   Globe,
-  Shield
+  Shield,
+  Users
 } from 'lucide-react'
 import { api, setTokenFromStorage } from '@whispers/utils'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select'
+import { SelectItem } from '../components/ui/select'
+import FileManagerTreeSelect from '../components/FileManagerTreeSelect'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Modal } from '../components/modals/Modal'
 import { SimpleTooltip } from '../components/ui/tooltip'
@@ -120,6 +122,19 @@ const FileManagementPage: React.FC = () => {
   const [editData, setEditData] = useState({ name: '', description: '' })
   const [moveData, setMoveData] = useState({ targetFolderId: 'root' })
   const [deleteType, setDeleteType] = useState<'folder' | 'file' | null>(null)
+  // 管理模式相关状态
+  const [isManagementMode, setIsManagementMode] = useState(false)  // 是否为管理模式
+  const [allUsers, setAllUsers] = useState<any[]>([])  // 所有用户列表
+  // 保存个人空间状态
+  const [personalSpaceState, setPersonalSpaceState] = useState<{
+    currentFolder: string | null
+    folderPath: Folder[]
+    searchTerm: string
+  }>({
+    currentFolder: null,
+    folderPath: [],
+    searchTerm: ''
+  })
   const fileInputRef = useRef<HTMLInputElement>(null)
   const { success, error } = useToastContext()
 
@@ -141,9 +156,14 @@ const FileManagementPage: React.FC = () => {
 
   useEffect(() => {
     fetchFolders()
-    fetchCurrentFolders()
-    fetchFiles()
-  }, [currentFolder])
+    fetchDirectoryContent()
+  }, [currentFolder, isManagementMode])
+
+  // 当切换管理模式时的后续处理（主要逻辑已移至toggleManagementMode）
+  useEffect(() => {
+    // 这里只处理一些需要在模式切换后执行的操作
+    // 主要的状态切换逻辑已经在toggleManagementMode中处理
+  }, [isManagementMode])
 
   // 当currentFolder改变时，更新上传表单的默认文件夹
   useEffect(() => {
@@ -173,13 +193,31 @@ const FileManagementPage: React.FC = () => {
   const getFolderIcon = (folder: Folder) => {
     const type = getFolderType(folder)
 
-    switch (type) {
-      case 'public':
-        return <Globe className="h-8 w-8 text-green-500" />
-      case 'user-root':
-        return <Home className="h-8 w-8 text-blue-500" />
-      default:
-        return <Folder className="h-8 w-8 text-gray-500" />
+    if (isManagementMode) {
+      // 管理模式下的图标显示
+      switch (type) {
+        case 'public':
+          return <Globe className="h-8 w-8 text-green-500" />
+        case 'user-root':
+          return (
+            <div className="relative">
+              <Home className="h-8 w-8 text-blue-500" />
+              <Shield className="h-3 w-3 text-purple-500 absolute -top-1 -right-1" />
+            </div>
+          )
+        default:
+          return <Folder className="h-8 w-8 text-gray-500" />
+      }
+    } else {
+      // 默认模式下的图标显示
+      switch (type) {
+        case 'public':
+          return <Globe className="h-8 w-8 text-green-500" />
+        case 'user-root':
+          return <Home className="h-8 w-8 text-blue-500" />
+        default:
+          return <Folder className="h-8 w-8 text-gray-500" />
+      }
     }
   }
 
@@ -187,14 +225,38 @@ const FileManagementPage: React.FC = () => {
   const getFolderStyle = (folder: Folder) => {
     const type = getFolderType(folder)
 
-    switch (type) {
-      case 'public':
-        return 'border-green-200 bg-green-50 hover:bg-green-100'
-      case 'user-root':
-        return 'border-blue-200 bg-blue-50 hover:bg-blue-100'
-      default:
-        return 'border-gray-200 bg-white hover:bg-gray-50'
+    if (isManagementMode) {
+      switch (type) {
+        case 'public':
+          return 'border-green-200 bg-green-50 hover:bg-green-100'
+        case 'user-root':
+          return 'border-purple-200 bg-purple-50 hover:bg-purple-100'
+        default:
+          return 'border-gray-200 bg-white hover:bg-gray-50'
+      }
+    } else {
+      switch (type) {
+        case 'public':
+          return 'border-green-200 bg-green-50 hover:bg-green-100'
+        case 'user-root':
+          return 'border-blue-200 bg-blue-50 hover:bg-blue-100'
+        default:
+          return 'border-gray-200 bg-white hover:bg-gray-50'
+      }
     }
+  }
+
+  // 获取用户信息（在管理模式下使用）
+  const getUserInfo = (folder: Folder) => {
+    if (!isManagementMode) return null
+    
+    // 从路径中提取用户ID
+    const pathMatch = folder.path.match(/^\/([a-f0-9-]{36})/)
+    if (!pathMatch) return null
+    
+    const userId = pathMatch[1]
+    const user = allUsers.find(u => u.id === userId)
+    return user || { id: userId, username: '未知用户' }
   }
 
   // 检查是否有权限管理公共文件夹
@@ -203,15 +265,15 @@ const FileManagementPage: React.FC = () => {
   }
 
   // 检查是否有权限访问文件夹
-  const canAccessFolder = (folder: Folder) => {
+  const canAccessFolder = (folder: Folder): boolean => {
     const type = getFolderType(folder)
     if (type === 'public') {
       return true // 所有人都可以查看公共文件夹，但管理需要权限
     }
     if (type === 'user-root' || type === 'user-subfolder') {
-      return user && (folder.path.startsWith(`/${user.id}`) || folder.ownerId === user.id)
+      return Boolean(user && (folder.path.startsWith(`/${user.id}`) || folder.ownerId === user.id))
     }
-    return user?.role === 'ADMIN' // 管理员可以访问所有文件夹
+    return user?.role === 'ADMIN' || false // 管理员可以访问所有文件夹
   }
 
   // 检查是否有权限管理文件夹（修改、删除、上传）
@@ -230,6 +292,11 @@ const FileManagementPage: React.FC = () => {
   const canCreateInCurrentFolder = () => {
     if (!user) return false
     
+    // 管理模式下，管理员可以在任何地方创建
+    if (isManagementMode && user.role === 'ADMIN') {
+      return true
+    }
+    
     // 如果没有选择文件夹，用户总是可以在自己的根目录创建
     if (!currentFolder) {
       return true
@@ -247,35 +314,6 @@ const FileManagementPage: React.FC = () => {
     return canManageFolder(currentFolderObj)
   }
 
-  //  构建文件夹树结构（显示有权限的文件夹，公共和用户文件夹一起展示）
-  const buildFolderTree = (folders: Folder[]): Folder[] => {
-    const folderMap = new Map<string, Folder & { children: Folder[] }>()
-    const rootFolders: (Folder & { children: Folder[] })[] = []
-
-    // 初始化所有文件夹
-    folders.forEach(folder => {
-      // 过滤掉无权限访问的文件夹
-      if (!canAccessFolder(folder)) {
-        return
-      }
-
-      folderMap.set(folder.id, { ...folder, children: [] })
-    })
-
-    // 构建树结构
-    folders.forEach(folder => {
-      if (!folderMap.has(folder.id)) return
-
-      const folderWithChildren = folderMap.get(folder.id)!
-      if (folder.parentId && folderMap.has(folder.parentId)) {
-        folderMap.get(folder.parentId)!.children.push(folderWithChildren)
-      } else {
-        rootFolders.push(folderWithChildren)
-      }
-    })
-
-    return rootFolders
-  }
 
   // 渲染文件夹选项（递归）- 树状结构
   const renderFolderTreeOptions = (folders: Folder[], level = 0, parentPrefix = ''): React.ReactElement[] => {
@@ -307,7 +345,7 @@ const FileManagementPage: React.FC = () => {
                 </span>
               )}
               <div className="flex items-center min-w-0">
-                {type === 'public' ? '🌐' : type === 'user-root' ? '🏠' : '📁'}
+                {type === 'public' ? <Globe className="h-4 w-4 text-green-500" /> : type === 'user-root' ? <Home className="h-4 w-4 text-blue-500" /> : <Folder className="h-4 w-4 text-gray-500" />}
                 <span className="ml-2 truncate">{folder.name}</span>
                 {type === 'public' && <span className="text-green-600 ml-2 text-xs shrink-0">(公共)</span>}
                 {type === 'user-root' && <span className="text-blue-600 ml-2 text-xs shrink-0">(我的)</span>}
@@ -328,32 +366,74 @@ const FileManagementPage: React.FC = () => {
     }).filter(Boolean) as React.ReactElement[]
   }
 
-  // 获取展开的文件夹树（包含所有子目录）
-  const getExpandedFolderTree = (): Folder[] => {
-    const expandFolder = (folder: Folder): Folder[] => {
-      const result: Folder[] = [folder]
-      if (folder.children && folder.children.length > 0) {
-        folder.children.forEach(child => {
-          result.push(...expandFolder(child))
-        })
-      }
-      return result
-    }
 
-    const tree = buildFolderTree(folders)
-    const expanded: Folder[] = []
-    tree.forEach(rootFolder => {
-      expanded.push(...expandFolder(rootFolder))
-    })
-    
-    return expanded
+
+  // 获取所有用户数据
+  const fetchAllUsers = async () => {
+    try {
+      setTokenFromStorage('admin_token')
+      const response = await api.get('/user')
+      if (response.data?.success && response.data?.data) {
+        setAllUsers(response.data.data)
+      } else {
+        setAllUsers([])
+      }
+    } catch (err) {
+      console.error('Failed to fetch users:', err)
+      setAllUsers([])
+    }
+  }
+
+  // 切换管理模式
+  const toggleManagementMode = () => {
+    if (user?.role === 'ADMIN') {
+      if (!isManagementMode) {
+        // 进入管理模式：保存当前个人空间状态
+        console.log('进入管理模式，保存个人空间状态')
+        setPersonalSpaceState({
+          currentFolder: currentFolder,
+          folderPath: folderPath,
+          searchTerm: searchTerm
+        })
+        // 获取用户数据
+        fetchAllUsers()
+        // 重置到管理模式根目录
+        setCurrentFolder(null)
+        setFolderPath([])
+        setSearchTerm('')  // 清空搜索
+        // 切换模式
+        setIsManagementMode(true)
+        // 用户提示
+        success('已进入管理模式，个人空间状态已保存')
+      } else {
+        // 退出管理模式：恢复个人空间状态
+        console.log('退出管理模式，恢复个人空间状态', personalSpaceState)
+        setCurrentFolder(personalSpaceState.currentFolder)
+        setFolderPath(personalSpaceState.folderPath)
+        setSearchTerm(personalSpaceState.searchTerm)  // 恢复搜索状态
+        // 清空用户数据
+        setAllUsers([])
+        // 切换模式
+        setIsManagementMode(false)
+        // 用户提示
+        const folderInfo = personalSpaceState.folderPath.length > 0 
+          ? `，已回到：${personalSpaceState.folderPath[personalSpaceState.folderPath.length - 1]?.name || '个人空间'}`
+          : '，已回到个人空间根目录'
+        success(`已退出管理模式${folderInfo}`)
+      }
+    }
   }
 
   const fetchFolders = async () => {
     try {
       setTokenFromStorage('admin_token')
-      // 获取文件夹树状结构（用于上传表单的选择器）
-      const treeResponse = await api.get(`/file-management/folders/tree`)
+      
+      // 根据模式选择不同的API端点
+      const endpoint = isManagementMode 
+        ? '/file-management/folders/management-tree'
+        : '/file-management/folders/tree'
+      
+      const treeResponse = await api.get(endpoint)
 
       if (treeResponse.data?.success && treeResponse.data?.data && Array.isArray(treeResponse.data.data)) {
         // 扁平化树状数据以便使用
@@ -370,7 +450,7 @@ const FileManagementPage: React.FC = () => {
         
         const flatFolders = flattenTree(treeResponse.data.data)
         setFolders(flatFolders)
-        console.log('Fetched folder tree:', treeResponse.data.data)
+        console.log(`Fetched ${isManagementMode ? 'management' : 'user'} folder tree:`, treeResponse.data.data)
         console.log('Flattened folders:', flatFolders)
       } else {
         setFolders([])
@@ -381,30 +461,8 @@ const FileManagementPage: React.FC = () => {
     }
   }
 
-  //  获取当前目录下的文件夹（用于文件列表显示）
-  const fetchCurrentFolders = async () => {
-    try {
-      setTokenFromStorage('admin_token')
-      // 获取当前目录下的文件夹
-      const response = await api.get(`/file-management/folders`, {
-        params: { parentId: currentFolder || '' }
-      })
-
-      if (response.data?.success && response.data?.data && Array.isArray(response.data.data)) {
-        // 过滤出有权限访问的文件夹
-        const accessibleFolders = response.data.data.filter(canAccessFolder)
-        setCurrentFolders(accessibleFolders)
-        console.log('Current folder children:', accessibleFolders)
-      } else {
-        setCurrentFolders([])
-      }
-    } catch (err) {
-      console.error('Failed to fetch current folders:', err)
-      setCurrentFolders([])
-    }
-  }
-
-  const fetchFiles = async () => {
+  // 新的统一方法：获取目录内容（文件夹 + 文件）
+  const fetchDirectoryContent = async () => {
     try {
       setLoading(true)
       setTokenFromStorage('admin_token')
@@ -413,15 +471,40 @@ const FileManagementPage: React.FC = () => {
       if (currentFolder) params.folderId = currentFolder
       if (searchTerm) params.search = searchTerm
       
-      const response = await api.get('/file-management/files', { params })
+      // 根据模式选择不同的API端点
+      const endpoint = isManagementMode 
+        ? '/file-management/directory/management-content'
+        : '/file-management/directory/content'
       
-      if (response.data?.success && response.data?.data?.files) {
-        setFiles(response.data.data.files)
+      console.log(`获取目录内容 - 模式: ${isManagementMode ? '管理' : '普通'}, 文件夹: ${currentFolder || '根目录'}`)
+      
+      const response = await api.get(endpoint, { params })
+      
+      if (response.data?.success && response.data?.data) {
+        const { folders, files } = response.data.data
+        
+        // 设置文件夹数据
+        if (folders && Array.isArray(folders)) {
+          setCurrentFolders(folders)
+          console.log(`加载文件夹: ${folders.length} 个`)
+        } else {
+          setCurrentFolders([])
+        }
+        
+        // 设置文件数据
+        if (files && Array.isArray(files)) {
+          setFiles(files)
+          console.log(`📄 加载文件: ${files.length} 个`)
+        } else {
+          setFiles([])
+        }
       } else {
+        setCurrentFolders([])
         setFiles([])
       }
     } catch (err) {
-      console.error('Failed to fetch files:', err)
+      console.error('获取目录内容失败:', err)
+      setCurrentFolders([])
       setFiles([])
     } finally {
       setLoading(false)
@@ -430,7 +513,7 @@ const FileManagementPage: React.FC = () => {
 
   //  刷新所有数据
   const refreshData = async () => {
-    await Promise.all([fetchFolders(), fetchCurrentFolders(), fetchFiles()])
+    await Promise.all([fetchFolders(), fetchDirectoryContent()])
   }
 
   // 删除文件夹
@@ -725,19 +808,60 @@ const FileManagementPage: React.FC = () => {
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center space-x-3">
-              <h1 className="text-3xl font-bold text-gray-900">文件管理</h1>
+              <h1 className="text-3xl font-bold text-gray-900">
+                文件管理
+                {isManagementMode && (
+                  <span className="ml-3 text-lg text-purple-600 font-medium">
+                    (管理模式)
+                  </span>
+                )}
+              </h1>
               <SimpleTooltip
                 content={
                   <div className="space-y-1 text-xs">
-                    <div className="flex items-center space-x-2">
-                      <span>🌐 <strong>公共目录</strong> - 需编辑权限</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span>🏠 <strong>个人目录</strong> - 仅本人可管理</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span>🛡️ <strong>管理员</strong> - 管理所有文件夹</span>
-                    </div>
+                    {isManagementMode ? (
+                      <>
+                        <div className="flex items-center space-x-2">
+                          <span className="flex items-center">
+                            <Globe className="h-4 w-4 text-green-500 mr-2" />
+                            <strong>公共目录</strong> - 全站共享文件
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="flex items-center">
+                            <Users className="h-4 w-4 text-purple-500 mr-2" />
+                            <strong>用户空间</strong> - 所有用户的文件夹
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="flex items-center">
+                            <Shield className="h-4 w-4 text-amber-500 mr-2" />
+                            <strong>管理权限</strong> - 可管理所有用户文件
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center space-x-2">
+                          <span className="flex items-center">
+                            <Home className="h-4 w-4 text-blue-500 mr-2" />
+                            <strong>我的文件夹</strong> - 个人文件管理
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="flex items-center">
+                            <Globe className="h-4 w-4 text-green-500 mr-2" />
+                            <strong>公共目录</strong> - 需编辑权限
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="flex items-center">
+                            <Shield className="h-4 w-4 text-amber-500 mr-2" />
+                            <strong>管理员</strong> - 点击"管理"切换模式
+                          </span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 }
                 className="max-w-xs"
@@ -747,21 +871,45 @@ const FileManagementPage: React.FC = () => {
                 </div>
               </SimpleTooltip>
             </div>
-            <p className="text-gray-600">管理文件和文件夹</p>
+            <p className="text-gray-600">
+              {isManagementMode ? '管理所有用户的文件和文件夹' : '管理文件和文件夹'}
+            </p>
           </div>
+          
+          {/* 管理员管理按钮 */}
+          {user?.role === 'ADMIN' && (
+            <div className="flex items-center space-x-2">
+              <Button
+                onClick={toggleManagementMode}
+                variant={isManagementMode ? 'default' : 'outline'}
+                size="sm"
+                className={isManagementMode ? 'bg-purple-600 hover:bg-purple-700' : ''}
+              >
+                <Shield className="h-4 w-4 mr-2" />
+                {isManagementMode ? '退出管理' : '管理'}
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* 面包屑导航 */}
         <div className="flex items-center space-x-2 text-sm text-gray-600">
-          <button
-            onClick={() => {
-              setCurrentFolder(null)
-              setFolderPath([])
-            }}
-            className="hover:text-gray-900"
-          >
-            根目录
-          </button>
+          <div className="flex items-center space-x-2">
+            {isManagementMode ? (
+              <Shield className="h-4 w-4 text-purple-500" />
+            ) : (
+              <Home className="h-4 w-4 text-blue-500" />
+            )}
+            <button
+              onClick={() => {
+                setCurrentFolder(null)
+                setFolderPath([])
+              }}
+              className="hover:text-gray-900 font-medium"
+            >
+              {isManagementMode ? '用户空间' : '我的工作区'}
+            </button>
+          </div>
           {folderPath.map((folder, index) => (
             <React.Fragment key={folder.id}>
               <ChevronRight className="h-4 w-4" />
@@ -888,6 +1036,11 @@ const FileManagementPage: React.FC = () => {
                                   <Shield className="inline h-3 w-3 ml-1 text-green-600" />
                                 )}
                               </h3>
+                              {isManagementMode && getUserInfo(folder) && (
+                                <p className="text-xs text-purple-600 font-medium mt-1">
+                                  {getUserInfo(folder)?.username}
+                                </p>
+                              )}
                               <p className="text-xs text-gray-500 mt-1">
                                 {folder._count.files} 个文件
                               </p>
@@ -995,7 +1148,13 @@ const FileManagementPage: React.FC = () => {
                                     <span className="text-green-600">公共</span>
                                   </>
                                 )}
-                                {folder.owner && folder.owner.id !== user?.id && (
+                                {isManagementMode && getUserInfo(folder) && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="text-purple-600 font-medium">{getUserInfo(folder)?.username}</span>
+                                  </>
+                                )}
+                                {!isManagementMode && folder.owner && folder.owner.id !== user?.id && (
                                   <>
                                     <span>•</span>
                                     <span className="text-purple-600">{folder.owner.username}</span>
@@ -1271,55 +1430,21 @@ const FileManagementPage: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 目标文件夹
               </label>
-                <Select
-                  value={uploadData.folderId}
-                  onValueChange={(value) => {
-                    console.log('Select value changed:', value)
-                    setUploadData(prev => ({ ...prev, folderId: value }))
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择文件夹">
-                      {(() => {
-                        if (uploadData.folderId === 'root') return '📁 根目录'
-                        if (uploadData.folderId === 'public') return '🌐 公共目录'
-                        
-                        const expandedFolders = getExpandedFolderTree()
-                        const selectedFolder = expandedFolders.find(f => f.id === uploadData.folderId)
-                        if (selectedFolder) {
-                          const type = getFolderType(selectedFolder)
-                          const icon = type === 'public' ? '🌐' : type === 'user-root' ? '🏠' : '📁'
-                          return `${icon} ${selectedFolder.name}`
-                        }
-                        
-                        return uploadData.folderId ? `文件夹 ${uploadData.folderId}` : '选择文件夹'
-                      })()}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent className="max-h-80 overflow-y-auto">
-                    <div className="text-xs text-gray-500 px-3 py-2 border-b bg-gray-50">
-                      <div className="flex items-center justify-between">
-                        <span>📂 选择目标文件夹</span>
-                        <span>{(() => {
-                          const managableFolders = getExpandedFolderTree().filter(f => canManageFolder(f))
-                          return `${managableFolders.length + (canManagePublicFolder() ? 1 : 0)} 个可选`
-                        })()}</span>
-                      </div>
-                      <div className="mt-1 text-gray-400">
-                        树状结构 • 仅显示可管理的文件夹
-                      </div>
-                    </div>
-                    {canManagePublicFolder() && (
-                      <SelectItem value="public" className="font-mono text-sm hover:bg-green-50 border-b border-green-100">
-                        <div className="flex items-center">
-                          🌐<span className="ml-2 font-medium">公共目录</span>
-                          <span className="text-green-600 ml-2 text-xs">(共享)</span>
-                        </div>
-                      </SelectItem>
-                    )}
-                    {Array.isArray(folders) && renderFolderTreeOptions(buildFolderTree(folders))}
-                  </SelectContent>
-                </Select>
+              <FileManagerTreeSelect
+                folders={folders}
+                value={uploadData.folderId}
+                onValueChange={(value) => {
+                  console.log('TreeSelect value changed:', value)
+                  setUploadData(prev => ({ ...prev, folderId: value }))
+                }}
+                placeholder="选择目标文件夹"
+                user={user}
+                isManagementMode={isManagementMode}
+                showPublicOption={true}
+                showRootOption={true}
+                canManagePublicFolder={canManagePublicFolder}
+                canManageFolder={canManageFolder}
+              />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1452,58 +1577,18 @@ const FileManagementPage: React.FC = () => {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 目标文件夹
               </label>
-              <Select
+              <FileManagerTreeSelect
+                folders={folders}
                 value={moveData.targetFolderId}
                 onValueChange={(value) => setMoveData(prev => ({ ...prev, targetFolderId: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="选择目标文件夹">
-                    {(() => {
-                      if (moveData.targetFolderId === 'root') return '📁 根目录'
-                      if (moveData.targetFolderId === 'public') return '🌐 公共目录'
-                      
-                      const expandedFolders = getExpandedFolderTree()
-                      const selectedFolder = expandedFolders.find(f => f.id === moveData.targetFolderId)
-                      if (selectedFolder) {
-                        const type = getFolderType(selectedFolder)
-                        const icon = type === 'public' ? '🌐' : type === 'user-root' ? '🏠' : '📁'
-                        return `${icon} ${selectedFolder.name}`
-                      }
-                      
-                      return '选择目标文件夹'
-                    })()}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent className="max-h-80 overflow-y-auto">
-                  <div className="text-xs text-gray-500 px-3 py-2 border-b bg-gray-50">
-                    <div className="flex items-center justify-between">
-                      <span>📁 移动到目标文件夹</span>
-                      <span>{(() => {
-                        const managableFolders = getExpandedFolderTree().filter(f => canManageFolder(f))
-                        return `${managableFolders.length + 1 + (canManagePublicFolder() ? 1 : 0)} 个可选`
-                      })()}</span>
-                    </div>
-                    <div className="mt-1 text-gray-400">
-                      选择文件的新位置
-                    </div>
-                  </div>
-                  <SelectItem value="root" className="font-mono text-sm hover:bg-blue-50 border-b border-blue-100">
-                    <div className="flex items-center">
-                      📁<span className="ml-2 font-medium">用户根目录</span>
-                      <span className="text-blue-600 ml-2 text-xs">(默认)</span>
-                    </div>
-                  </SelectItem>
-                  {canManagePublicFolder() && (
-                    <SelectItem value="public" className="font-mono text-sm hover:bg-green-50 border-b border-green-100">
-                      <div className="flex items-center">
-                        🌐<span className="ml-2 font-medium">公共目录</span>
-                        <span className="text-green-600 ml-2 text-xs">(共享)</span>
-                      </div>
-                    </SelectItem>
-                  )}
-                  {Array.isArray(folders) && renderFolderTreeOptions(buildFolderTree(folders))}
-                </SelectContent>
-              </Select>
+                placeholder="选择目标文件夹"
+                user={user}
+                isManagementMode={isManagementMode}
+                showPublicOption={true}
+                showRootOption={true}
+                canManagePublicFolder={canManagePublicFolder}
+                canManageFolder={canManageFolder}
+              />
             </div>
             <div className="flex justify-end space-x-2">
               <Button

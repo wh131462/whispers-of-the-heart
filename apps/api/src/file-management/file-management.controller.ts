@@ -104,6 +104,60 @@ export class FileManagementController {
     }
   }
 
+  @Get('folders/management-tree')
+  async getManagementFolderTree(@Request() req) {
+    try {
+      // 只有管理员可以访问管理模式的文件夹树
+      if (req.user.role !== 'ADMIN') {
+        return {
+          success: false,
+          data: null,
+          message: 'Access denied: Admin privileges required'
+        };
+      }
+
+      const tree = await this.fileManagementService.getManagementFolderTree();
+      return {
+        success: true,
+        data: tree,
+        message: 'Management folder tree retrieved successfully'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        message: error.message || 'Failed to retrieve management folder tree'
+      };
+    }
+  }
+
+  @Get('folders/management')
+  async getManagementFolders(@Request() req, @Query('parentId') parentId?: string) {
+    try {
+      // 只有管理员可以访问管理模式的文件夹
+      if (req.user.role !== 'ADMIN') {
+        return {
+          success: false,
+          data: null,
+          message: 'Access denied: Admin privileges required'
+        };
+      }
+
+      const folders = await this.fileManagementService.getManagementFolders(parentId);
+      return {
+        success: true,
+        data: folders,
+        message: 'Management folders retrieved successfully'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        message: error.message || 'Failed to retrieve management folders'
+      };
+    }
+  }
+
   @Put('folders/:id')
   async updateFolder(@Param('id') id: string, @Body() updateFolderDto: UpdateFolderDto, @Request() req) {
     try {
@@ -259,7 +313,26 @@ export class FileManagementController {
         };
       }
 
-      const userId = req.user?.id || req.user?.sub;
+      // 添加调试信息和用户验证
+      console.log('User object:', req.user);
+      console.log('User object keys:', req.user ? Object.keys(req.user) : 'No user object');
+      console.log('req.user.id:', req.user?.id);
+      console.log('req.user.sub:', req.user?.sub);
+      console.log('User role:', req.user?.role);
+      
+      // 统一使用id字段，因为JWT策略现在返回id字段
+      const userId = req.user?.id;
+      console.log('Extracted userId:', userId);
+      console.log('userId type:', typeof userId);
+      console.log('userId value:', JSON.stringify(userId));
+      
+      if (!userId || userId === 'undefined' || userId === 'null') {
+        return {
+          success: false,
+          data: null,
+          message: 'User ID not found in request'
+        };
+      }
 
       const uploadedFile = await this.fileManagementService.uploadFile(
         uploadFileDto, 
@@ -318,6 +391,82 @@ export class FileManagementController {
         success: false,
         data: null,
         message: error.message || 'Failed to retrieve file'
+      };
+    }
+  }
+
+  @Get('directory/content')
+  async getDirectoryContent(
+    @Request() req,
+    @Query('folderId') folderId?: string,
+    @Query('search') search?: string,
+    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number
+  ) {
+    try {
+      console.log(`📂 获取目录内容请求 - folderId: ${folderId || 'root'}, 用户: ${req.user?.username}`);
+      
+      const result = await this.fileManagementService.getDirectoryContent(
+        folderId, 
+        req.user.id, 
+        req.user.role, 
+        search, 
+        page, 
+        limit
+      );
+      
+      return {
+        success: true,
+        data: result,
+        message: 'Directory content retrieved successfully'
+      };
+    } catch (error) {
+      console.error('获取目录内容失败:', error);
+      return {
+        success: false,
+        data: null,
+        message: error.message || 'Failed to retrieve directory content'
+      };
+    }
+  }
+
+  @Get('directory/management-content')
+  async getManagementDirectoryContent(
+    @Request() req,
+    @Query('folderId') folderId?: string,
+    @Query('search') search?: string,
+    @Query('page', new ParseIntPipe({ optional: true })) page?: number,
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number
+  ) {
+    try {
+      if (req.user.role !== 'ADMIN') {
+        return {
+          success: false,
+          data: null,
+          message: 'Access denied. Admin role required.'
+        };
+      }
+
+      console.log(`🔧 获取管理模式目录内容 - folderId: ${folderId || 'root'}`);
+      
+      const result = await this.fileManagementService.getManagementDirectoryContent(
+        folderId, 
+        search, 
+        page, 
+        limit
+      );
+      
+      return {
+        success: true,
+        data: result,
+        message: 'Management directory content retrieved successfully'
+      };
+    } catch (error) {
+      console.error('获取管理模式目录内容失败:', error);
+      return {
+        success: false,
+        data: null,
+        message: error.message || 'Failed to retrieve management directory content'
       };
     }
   }

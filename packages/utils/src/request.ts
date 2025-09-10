@@ -93,7 +93,13 @@ export function getFullUrl(url: string, baseUrl?: string): string {
   // 确保URL以/开头，base不以/结尾
   const cleanBase = base.replace(/\/$/, '')
   const cleanUrl = url.startsWith('/') ? url : `/${url}`
-  const apiAttr = "/api/v1";// 中缀补充
+
+  // 检查URL是否已经包含api/v1前缀，避免重复添加
+  if (cleanUrl.startsWith('/api/v1/')) {
+    return `${cleanBase}${cleanUrl}`
+  }
+
+  const apiAttr = "/api/v1";
   return `${cleanBase}${apiAttr}${cleanUrl}`
 }
 

@@ -49,24 +49,39 @@ export class InitSystemFoldersService implements OnModuleInit {
    * 确保用户根目录存在
    */
   async ensureUserRootFolder(userId: string, username: string) {
-    const userRootPath = `/${userId}`;
-    
-    const existingFolder = await this.prisma.folder.findFirst({
-      where: { path: userRootPath }
-    });
-
-    if (!existingFolder) {
-      await this.prisma.folder.create({
-        data: {
-          name: `${username}的文件`,
-          path: userRootPath,
-          description: `${username}的个人文件目录`,
-          isSystem: true,
-          isPublic: false,
-          ownerId: userId
-        }
+    try {
+      // 首先验证用户是否存在
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId }
       });
-      console.log(`✅ User root folder created for ${username} (${userId})`);
+
+      if (!user) {
+        console.warn(`⚠️ User with ID ${userId} not found, skipping folder creation`);
+        return;
+      }
+
+      const userRootPath = `/${userId}`;
+      
+      const existingFolder = await this.prisma.folder.findFirst({
+        where: { path: userRootPath }
+      });
+
+      if (!existingFolder) {
+        await this.prisma.folder.create({
+          data: {
+            name: `${username || user.username}的文件`,
+            path: userRootPath,
+            description: `${username || user.username}的个人文件目录`,
+            isSystem: true,
+            isPublic: false,
+            ownerId: userId
+          }
+        });
+        console.log(`✅ User root folder created for ${username || user.username} (${userId})`);
+      }
+    } catch (error) {
+      console.error(`❌ Error creating user root folder for ${userId}:`, error);
+      // 不要抛出错误，继续处理其他用户
     }
   }
 
