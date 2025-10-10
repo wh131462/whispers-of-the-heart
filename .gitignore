@@ -95,3 +95,5 @@ Thumbs.db
 # Turbo
 .turbo
 **/uploads
+.augment/**
+workspaceContext.md

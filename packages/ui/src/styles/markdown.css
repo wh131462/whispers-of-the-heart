@@ -1,0 +1,214 @@
+/* Markdown 内容样式 - 使用 !important 提高优先级以覆盖 Tailwind prose */
+.markdown-content {
+  line-height: 1.7 !important;
+  color: inherit !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+}
+
+/* 重置一些可能的冲突样式 */
+.markdown-content * {
+  max-width: 100% !important;
+}
+
+/* 标题 */
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  margin-top: 1.5em !important;
+  margin-bottom: 0.5em !important;
+  font-weight: 600 !important;
+  line-height: 1.25 !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+.markdown-content h1 {
+  font-size: 2em !important;
+  border-bottom: 2px solid hsl(var(--border)) !important;
+  padding-bottom: 0.3em !important;
+  margin-top: 0 !important;
+}
+
+.markdown-content h2 {
+  font-size: 1.5em !important;
+  border-bottom: 1px solid hsl(var(--border)) !important;
+  padding-bottom: 0.3em !important;
+}
+
+.markdown-content h3 {
+  font-size: 1.25em !important;
+}
+
+.markdown-content h4 {
+  font-size: 1em;
+}
+
+.markdown-content h5 {
+  font-size: 0.875em;
+}
+
+.markdown-content h6 {
+  font-size: 0.85em;
+  color: hsl(var(--muted-foreground));
+}
+
+/* 段落 */
+.markdown-content p {
+  margin-bottom: 1em !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+/* 列表 */
+.markdown-content ul,
+.markdown-content ol {
+  margin-bottom: 1em !important;
+  padding-left: 2em !important;
+}
+
+.markdown-content li {
+  margin-bottom: 0.25em !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+.markdown-content ul li {
+  list-style-type: disc !important;
+}
+
+.markdown-content ol li {
+  list-style-type: decimal !important;
+}
+
+/* 嵌套列表 */
+.markdown-content ul ul,
+.markdown-content ol ol,
+.markdown-content ul ol,
+.markdown-content ol ul {
+  margin-bottom: 0;
+  margin-top: 0.25em;
+}
+
+/* 引用块 */
+.markdown-content blockquote {
+  margin: 1em 0;
+  padding: 0 1em;
+  border-left: 4px solid hsl(var(--border));
+  background-color: hsl(var(--muted) / 0.3);
+  border-radius: 0 4px 4px 0;
+}
+
+.markdown-content blockquote p {
+  margin: 0.5em 0;
+  color: hsl(var(--muted-foreground));
+}
+
+/* 代码 */
+.markdown-content code {
+  background-color: hsl(var(--muted)) !important;
+  color: hsl(var(--foreground)) !important;
+  padding: 0.2em 0.4em !important;
+  border-radius: 4px !important;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, 'Courier New', monospace !important;
+  font-size: 0.85em !important;
+  font-weight: 500 !important;
+}
+
+.markdown-content pre {
+  background-color: hsl(var(--muted)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 6px !important;
+  padding: 1em !important;
+  margin: 1em 0 !important;
+  overflow-x: auto !important;
+  line-height: 1.45 !important;
+  position: relative !important;
+}
+
+.markdown-content pre code {
+  background-color: transparent !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  font-size: 0.875em !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+/* 表格 */
+.markdown-content table {
+  border-collapse: collapse;
+  margin: 1em 0;
+  width: 100%;
+}
+
+.markdown-content th,
+.markdown-content td {
+  border: 1px solid hsl(var(--border));
+  padding: 0.5em 1em;
+  text-align: left;
+}
+
+.markdown-content th {
+  background-color: hsl(var(--muted));
+  font-weight: 600;
+}
+
+.markdown-content tr:nth-child(even) {
+  background-color: hsl(var(--muted) / 0.3);
+}
+
+/* 水平分割线 */
+.markdown-content hr {
+  border: none;
+  border-top: 1px solid hsl(var(--border));
+  margin: 2em 0;
+}
+
+/* 链接 */
+.markdown-content a {
+  color: hsl(var(--primary));
+  text-decoration: none;
+}
+
+.markdown-content a:hover {
+  text-decoration: underline;
+}
+
+/* 图片 */
+.markdown-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 0.5em 0;
+}
+
+/* 强调文本 */
+.markdown-content strong {
+  font-weight: 600;
+}
+
+.markdown-content em {
+  font-style: italic;
+}
+
+/* 删除线 */
+.markdown-content del {
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+/* 任务列表 */
+.markdown-content input[type="checkbox"] {
+  margin-right: 0.5em;
+  accent-color: hsl(var(--primary));
+}
+
+/* 确保第一个元素没有上边距 */
+.markdown-content > *:first-child {
+  margin-top: 0;
+}
+
+/* 确保最后一个元素没有下边距 */
+.markdown-content > *:last-child {
+  margin-bottom: 0;
+}

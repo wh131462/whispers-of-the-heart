@@ -26,7 +26,9 @@
     "clean": "turbo run clean",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
     "test": "turbo run test",
-    
+
+    "predev": "turbo run build:packages",
+
     "dev:api": "turbo run dev --filter=api",
     "dev:web": "turbo run dev --filter=web",
     "dev:admin": "turbo run dev --filter=admin",
@@ -34,6 +36,13 @@
     "build:api": "turbo run build --filter=api",
     "build:web": "turbo run build --filter=web",
     "build:admin": "turbo run build --filter=admin",
+
+    "build:ui": "turbo run build --filter=ui",
+    "build:types": "turbo run build --filter=types",
+    "build:utils": "turbo run build --filter=utils",
+    "build:hooks": "turbo run build --filter=hooks",
+
+    "build:packages": "turbo run build --filter=packages/*",
     
     "start:api": "turbo run start --filter=api",
     "start:web": "turbo run start --filter=web",
@@ -43,7 +52,6 @@
     "dev:production": "cross-env NODE_ENV=production turbo run dev",
     "build:development": "cross-env NODE_ENV=development turbo run build",
     "build:production": "cross-env NODE_ENV=production turbo run build",
-    
         
     "env:dev": "cp configs/env.development .env",
     "env:prod": "cp configs/env.production .env",

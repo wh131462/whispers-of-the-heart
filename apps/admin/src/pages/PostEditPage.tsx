@@ -199,12 +199,12 @@ const PostEditPage: React.FC = () => {
     }
   }
 
-  const handleRemoveTag = (tagToRemove: string) => {
-    setPost(prev => ({
-      ...prev,
-      tags: prev.tags.filter(tag => tag !== tagToRemove)
-    }))
-  }
+  // const handleRemoveTag = (tagToRemove: string) => {
+  //   setPost(prev => ({
+  //     ...prev,
+  //     tags: prev.tags.filter(tag => tag !== tagToRemove)
+  //   }))
+  // }
 
   const handleDelete = async () => {
     if (!confirm('确定要删除这篇文章吗？此操作不可恢复。')) {
@@ -442,33 +442,6 @@ const PostEditPage: React.FC = () => {
                   onCreateNew={handleCreateTag}
                   className="w-full"
                 />
-                
-                {post.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {post.tags.map((tag) => {
-                      const tagInfo = tags.find(t => t.name === tag)
-                      return (
-                        <span
-                          key={tag}
-                          className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800"
-                          style={tagInfo?.color ? {
-                            backgroundColor: `${tagInfo.color}20`,
-                            color: tagInfo.color,
-                            borderColor: tagInfo.color
-                          } : {}}
-                        >
-                          {tag}
-                          <button
-                            onClick={() => handleRemoveTag(tag)}
-                            className="ml-2 hover:opacity-70"
-                          >
-                            ×
-                          </button>
-                        </span>
-                      )
-                    })}
-                  </div>
-                )}
               </div>
             </div>
           </CardContent>

@@ -386,10 +386,10 @@ const PostDetailPage: React.FC = () => {
       )}
 
       {/* 文章内容 */}
-      <div className="prose prose-lg max-w-none">
+      <div className="max-w-none">
         <MarkdownRenderer 
           content={post.content}
-          className="prose prose-lg max-w-none"
+          className="max-w-none"
         />
       </div>
 

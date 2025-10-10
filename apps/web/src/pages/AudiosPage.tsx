@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Play, Heart, Music, User, Eye } from 'lucide-react'
 import { DEFAULT_AUDIO_COVER } from '../constants/images'
-import AudioPlayer from '../components/AudioPlayer'
-import { FilePreviewModal } from '@whispers/ui'
+import { AudioPlayer, FilePreviewModal } from '@whispers/ui'
 import { api } from '@whispers/utils'
 
 interface AudioTrack {
@@ -171,9 +170,6 @@ const AudiosPage: React.FC = () => {
     setShowPlayer(false)
   }
 
-  const handleTrackChange = (_track: AudioTrack, index: number) => {
-    setCurrentTrackIndex(index)
-  }
 
   if (loading) {
     return (
@@ -205,11 +201,9 @@ const AudiosPage: React.FC = () => {
               关闭
             </button>
             <AudioPlayer
-              tracks={tracks}
-              currentTrackIndex={currentTrackIndex}
+              src={tracks[currentTrackIndex]?.src || ''}
+              title={tracks[currentTrackIndex]?.title || ''}
               autoPlay
-              showPlaylist
-              onTrackChange={handleTrackChange}
             />
           </div>
         </div>

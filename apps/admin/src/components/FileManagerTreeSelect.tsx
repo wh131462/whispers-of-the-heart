@@ -109,48 +109,19 @@ export const FileManagerTreeSelect: React.FC<FileManagerTreeSelectProps> = ({
     return name
   }
 
-  // 构建文件夹树结构
+  // 构建文件夹树结构 - 简化逻辑，直接使用传入的树状数据
   const buildFolderTree = (folders: FileManagerFolder[]): FileManagerFolder[] => {
-    const folderMap = new Map<string, FileManagerFolder & { children: FileManagerFolder[] }>()
-    const rootFolders: (FileManagerFolder & { children: FileManagerFolder[] })[] = []
+    // 如果传入的数据已经是树状结构，直接过滤可管理的文件夹
+    const filterManageableFolders = (folderList: FileManagerFolder[]): FileManagerFolder[] => {
+      return folderList
+        .filter(folder => canManageFolder(folder))
+        .map(folder => ({
+          ...folder,
+          children: folder.children ? filterManageableFolders(folder.children) : []
+        }))
+    }
 
-    // 初始化所有文件夹
-    folders.forEach(folder => {
-      if (canManageFolder(folder)) {
-        folderMap.set(folder.id, { ...folder, children: [] })
-      }
-    })
-
-    // 构建树结构
-    folders.forEach(folder => {
-      if (!canManageFolder(folder)) return
-      
-      const folderWithChildren = folderMap.get(folder.id)
-      if (!folderWithChildren) return
-
-      if (folder.children) {
-        folderWithChildren.children = folder.children.filter(child => canManageFolder(child))
-      }
-    })
-
-    // 找到根节点
-    folders.forEach(folder => {
-      if (!canManageFolder(folder)) return
-      
-      const folderWithChildren = folderMap.get(folder.id)
-      if (!folderWithChildren) return
-
-      // 判断是否为根级文件夹
-      const isRoot = !folder.path || folder.path === '/' || 
-                     folder.path.split('/').length <= 2 ||
-                     folder.path === '/public'
-      
-      if (isRoot) {
-        rootFolders.push(folderWithChildren)
-      }
-    })
-
-    return rootFolders
+    return filterManageableFolders(folders)
   }
 
   // 递归转换文件夹为TreeNode
@@ -170,16 +141,6 @@ export const FileManagerTreeSelect: React.FC<FileManagerTreeSelectProps> = ({
   const buildTreeData = (): TreeNode[] => {
     const nodes: TreeNode[] = []
     
-    // 添加根目录选项
-    if (showRootOption) {
-      nodes.push({
-        id: 'root',
-        name: '用户根目录',
-        icon: <Home className="h-4 w-4 text-blue-500" />,
-        children: []
-      })
-    }
-    
     // 构建文件夹树
     const tree = buildFolderTree(folders)
     const folderNodes = tree.map(convertFolderToTreeNode)
@@ -195,6 +156,18 @@ export const FileManagerTreeSelect: React.FC<FileManagerTreeSelectProps> = ({
         id: 'public',
         name: '公共目录',
         icon: <Globe className="h-4 w-4 text-green-500" />,
+        children: []
+      })
+    }
+    
+    // 添加根目录选项（如果API没有返回用户根目录）
+    if (showRootOption && !tree.some(folder => 
+      user && folder.path === `/${user.id}` && folder.ownerId === user.id
+    )) {
+      nodes.push({
+        id: 'root',
+        name: '用户根目录',
+        icon: <Home className="h-4 w-4 text-blue-500" />,
         children: []
       })
     }

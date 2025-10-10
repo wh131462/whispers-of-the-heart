@@ -29,11 +29,10 @@
   background-color: #000000 !important;
 }
 
-/* 重置所有子元素可能受到的外部样式影响 */
-.file-preview-modal * {
-  /* 防止继承外部的margin影响 */
-  margin-top: unset !important;
-  margin-bottom: unset !important;
+/* 重置所有子元素可能受到的外部样式影响 - 但保留flex容器的必要margin */
+.file-preview-modal > * {
+  /* 只重置直接子元素的margin */
+  margin: 0 !important;
 }
 
 /* 特别重置space-y等Tailwind工具类的影响 */
@@ -69,11 +68,33 @@
   margin: 0 !important;
 }
 
-/* 确保容器元素的重置 */
-.file-preview-modal div,
-.file-preview-modal section,
-.file-preview-modal article {
-  /* 只重置可能影响布局的margin，保留其他样式 */
-  margin-top: 0 !important;
-  margin-bottom: 0 !important;
+/* 确保滚动容器正常工作 */
+.file-preview-modal .flex-1 {
+  /* 确保flex-1能正常工作 */
+  min-height: 0 !important;
+}
+
+/* 确保预览内容容器的滚动 */
+.file-preview-modal .overflow-auto {
+  /* 强制启用滚动 */
+  overflow: auto !important;
+}
+
+/* 确保flex布局正常工作 */
+.file-preview-modal .flex {
+  display: flex !important;
+}
+
+.file-preview-modal .flex-col {
+  flex-direction: column !important;
+}
+
+.file-preview-modal .flex-1 {
+  flex: 1 1 0% !important;
+}
+
+/* 确保按钮可以正常点击 */
+.file-preview-modal button {
+  pointer-events: auto !important;
+  z-index: 10 !important;
 }

@@ -13,7 +13,6 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import ProfilePage from './pages/ProfilePage'
 import SettingsPage from './pages/SettingsPage'
-import EditorTest from './pages/EditorTest'
 import { ToastProvider } from './contexts/ToastContext'
 import './index.css'
 
@@ -56,7 +55,6 @@ function App() {
             <Route path="search" element={<SearchPage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="settings" element={<SettingsPage />} />
-            <Route path="editor-test" element={<EditorTest />} />
             <Route path="about" element={
               <div className="text-center py-12">
                 <h1 className="text-3xl font-bold mb-4">关于我们</h1>

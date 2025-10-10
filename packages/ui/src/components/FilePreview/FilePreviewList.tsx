@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { FilePreview, FilePreviewProps } from './FilePreview'
 import { FilePreviewModal } from './FilePreviewModal'
-import { cn } from '../lib/utils'
+import { cn } from '../../lib/utils'
 
 export interface FilePreviewListProps {
   files: FilePreviewProps['file'][]

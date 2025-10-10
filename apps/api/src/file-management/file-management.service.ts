@@ -283,14 +283,17 @@ export class FileManagementService {
     const buildPersonalTree = (): any[] => {
       const result: any[] = [];
       
-      // 1. 添加用户根目录下的直接子文件夹
+      // 1. 添加用户根目录（包含其子文件夹）
       const userRootFolder = allFolders.find(f => f.path === `/${userId}` && f.ownerId === userId);
       if (userRootFolder) {
         const userSubfolders = allFolders.filter(f => f.parentId === userRootFolder.id);
-        result.push(...userSubfolders.map(folder => ({
-          ...folder,
-          children: this.buildTreeRecursive(allFolders, folder.id)
-        })));
+        result.push({
+          ...userRootFolder,
+          children: userSubfolders.map(folder => ({
+            ...folder,
+            children: this.buildTreeRecursive(allFolders, folder.id)
+          }))
+        });
       }
       
       // 2. 添加公共目录（只添加根公共目录）

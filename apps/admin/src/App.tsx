@@ -10,6 +10,8 @@ import CommentManagementPage from './pages/CommentManagementPage'
 import UserManagementPage from './pages/UserManagementPage'
 import FileManagementPage from './pages/FileManagementPage'
 import SiteSettingsPage from './pages/SiteSettingsPage'
+import MarkdownTestPage from './pages/MarkdownTestPage'
+import FilePreviewTestPage from './pages/FilePreviewTestPage'
 import AuthGuard from './components/AuthGuard'
 import { ToastProvider } from './contexts/ToastContext'
 import './index.css'
@@ -39,6 +41,8 @@ function App() {
             <Route path="users" element={<UserManagementPage />} />
             <Route path="files" element={<FileManagementPage />} />
             <Route path="settings" element={<SiteSettingsPage />} />
+            <Route path="markdown-test" element={<MarkdownTestPage />} />
+            <Route path="file-preview-test" element={<FilePreviewTestPage />} />
           </Route>
           
           {/* 默认重定向 */}

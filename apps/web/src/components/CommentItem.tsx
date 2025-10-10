@@ -119,7 +119,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, onReplyAdded }) => {
               {/* 评论内容 - 支持Markdown */}
               <MarkdownRenderer 
                 content={comment.content}
-                className="prose prose-sm max-w-none"
+                className="max-w-none text-sm"
               />
 
               {/* 操作按钮 */}

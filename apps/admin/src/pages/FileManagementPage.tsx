@@ -48,7 +48,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '../components/ui/alert-dialog'
-import { FilePreviewModal, FilePreviewList } from '@whispers/ui'
+import { FilePreviewList, FilePreviewModal } from '@whispers/ui'
 import ProtectedPage from '../components/ProtectedPage'
 import { useToastContext } from '../contexts/ToastContext'
 import { useAuthStore } from '../stores/useAuthStore'
@@ -148,8 +148,7 @@ const FileManagementPage: React.FC = () => {
   const [uploadData, setUploadData] = useState({
     folderId: currentFolder || 'root',
     description: '',
-    tags: '',
-    isPublic: true
+    tags: ''
   })
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
@@ -165,15 +164,48 @@ const FileManagementPage: React.FC = () => {
     // 主要的状态切换逻辑已经在toggleManagementMode中处理
   }, [isManagementMode])
 
+  // 递归查找文件夹的辅助函数
+  const findFolderInTree = (folders: Folder[], folderId: string): Folder | null => {
+    for (const folder of folders) {
+      if (folder.id === folderId) {
+        return folder
+      }
+      if (folder.children && folder.children.length > 0) {
+        const found = findFolderInTree(folder.children, folderId)
+        if (found) return found
+      }
+    }
+    return null
+  }
+
+  // 检查文件夹是否存在且可管理的辅助函数
+  const isFolderManageable = (folderId: string): boolean => {
+    if (!folderId) return false
+    
+    // 在树状结构中查找
+    const folderInTree = findFolderInTree(folders, folderId)
+    // 在当前目录中查找
+    const folderInCurrent = currentFolders.find(f => f.id === folderId)
+    
+    const folder = folderInTree || folderInCurrent
+    return folder ? (canManageFolder(folder) || false) : false
+  }
+
   // 当currentFolder改变时，更新上传表单的默认文件夹
   useEffect(() => {
     console.log('currentFolder changed:', currentFolder)
     console.log('folders:', folders)
+    
+    // 确保当前文件夹ID有效且存在于文件夹列表中
+    const targetFolderId = currentFolder && isFolderManageable(currentFolder) 
+      ? currentFolder 
+      : 'root'
+    
     setUploadData(prev => ({
       ...prev,
-      folderId: currentFolder || 'root'
+      folderId: targetFolderId
     }))
-  }, [currentFolder, folders])
+  }, [currentFolder, folders, currentFolders])
 
   // 判断文件夹类型
   const getFolderType = (folder: Folder) => {
@@ -436,7 +468,11 @@ const FileManagementPage: React.FC = () => {
       const treeResponse = await api.get(endpoint)
 
       if (treeResponse.data?.success && treeResponse.data?.data && Array.isArray(treeResponse.data.data)) {
-        // 扁平化树状数据以便使用
+        // 保存原始树状数据供FileManagerTreeSelect使用
+        setFolders(treeResponse.data.data)
+        console.log(`Fetched ${isManagementMode ? 'management' : 'user'} folder tree:`, treeResponse.data.data)
+        
+        // 同时扁平化数据供其他用途使用（如果需要的话）
         const flattenTree = (folders: Folder[]): Folder[] => {
           const result: Folder[] = []
           folders.forEach(folder => {
@@ -449,8 +485,6 @@ const FileManagementPage: React.FC = () => {
         }
         
         const flatFolders = flattenTree(treeResponse.data.data)
-        setFolders(flatFolders)
-        console.log(`Fetched ${isManagementMode ? 'management' : 'user'} folder tree:`, treeResponse.data.data)
         console.log('Flattened folders:', flatFolders)
       } else {
         setFolders([])
@@ -653,7 +687,8 @@ const FileManagementPage: React.FC = () => {
         formData.append('description', uploadData.description.trim())
       }
       
-      formData.append('isPublic', uploadData.isPublic.toString())
+      // 默认设置为私有文件
+      formData.append('isPublic', 'false')
 
       setTokenFromStorage('admin_token')
       const response = await api.post('/file-management/files/upload', formData)
@@ -661,11 +696,14 @@ const FileManagementPage: React.FC = () => {
       if (response.data?.success) {
         success('文件上传成功')
         setShowUploadModal(false)
+        // 重置上传数据，使用当前文件夹或根目录
+        const resetFolderId = currentFolder && isFolderManageable(currentFolder)
+          ? currentFolder 
+          : 'root'
         setUploadData({
-          folderId: currentFolder || 'root',
+          folderId: resetFolderId,
           description: '',
-          tags: '',
-          isPublic: true
+          tags: ''
         })
         setSelectedFile(null)
         await refreshData()
@@ -1391,11 +1429,14 @@ const FileManagementPage: React.FC = () => {
           onClose={() => {
             setShowUploadModal(false)
             setSelectedFile(null)
+            // 重置上传数据，使用当前文件夹或根目录
+            const resetFolderId = currentFolder && isFolderManageable(currentFolder)
+              ? currentFolder 
+              : 'root'
             setUploadData({
-              folderId: currentFolder || 'root',
+              folderId: resetFolderId,
               description: '',
-              tags: '',
-              isPublic: true
+              tags: ''
             })
           }}
           title="上传文件"
@@ -1466,25 +1507,21 @@ const FileManagementPage: React.FC = () => {
                 placeholder="输入标签，用逗号分隔"
               />
             </div>
-            <div className="flex items-center">
-              <input
-                type="checkbox"
-                id="isPublic"
-                checked={uploadData.isPublic}
-                onChange={(e) => setUploadData(prev => ({ ...prev, isPublic: e.target.checked }))}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label htmlFor="isPublic" className="ml-2 block text-sm text-gray-900">
-                公开文件
-              </label>
-            </div>
             <div className="flex justify-end space-x-2 pt-4">
               <Button
                 variant="outline"
                 onClick={() => {
                   setShowUploadModal(false)
                   setSelectedFile(null)
-                  setUploadData({ folderId: 'root', description: '', tags: '', isPublic: true })
+                  // 重置上传数据，使用当前文件夹或根目录
+                  const resetFolderId = currentFolder && isFolderManageable(currentFolder)
+                    ? currentFolder 
+                    : 'root'
+                  setUploadData({ 
+                    folderId: resetFolderId, 
+                    description: '', 
+                    tags: ''
+                  })
                 }}
                 disabled={uploading}
               >
@@ -1656,7 +1693,9 @@ const FileManagementPage: React.FC = () => {
               url: previewFile.url,
               type: previewFile.mimeType,
               size: previewFile.size,
-              originalName: previewFile.originalName
+              originalName: previewFile.originalName,
+              createdAt: previewFile.createdAt,
+              updatedAt: previewFile.updatedAt
             }}
             isOpen={showPreviewModal}
             onClose={() => {
@@ -1665,6 +1704,8 @@ const FileManagementPage: React.FC = () => {
             }}
             showFileName={true}
             showFileSize={true}
+            showFileInfo={true}
+            theme="auto"
           />
         )}
       </div>

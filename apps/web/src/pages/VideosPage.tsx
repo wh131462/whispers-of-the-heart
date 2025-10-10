@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Play, Clock, Eye, Heart } from 'lucide-react'
 import { DEFAULT_VIDEO_COVER } from '../constants/images'
-import VideoPlayer from '../components/VideoPlayer'
-import { FilePreviewModal } from '@whispers/ui'
+import { VideoPlayer, FilePreviewModal } from '@whispers/ui'
 import { api } from '@whispers/utils'
 
 interface Video {
