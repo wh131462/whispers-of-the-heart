@@ -3,6 +3,7 @@ export * from './time'
 
 // 请求相关工具
 export * from './request'
+export * from './api-client'
 
 // 字符串处理工具
 export * from './string'

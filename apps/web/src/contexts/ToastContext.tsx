@@ -87,12 +87,12 @@ const ToastContainer: React.FC = () => {
   const { toasts, removeToast } = useContext(ToastContext)!
 
   return (
-    <div className="fixed top-0 z-[100] flex max-h-screen w-full flex-col-reverse p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]">
+    <div className="fixed top-0 z-[100] flex max-h-screen w-full flex-col-reverse p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px] pointer-events-none">
       {toasts.map((toast, index) => (
-        <Toast 
-          key={toast.id} 
-          variant={toast.variant} 
-          className="mb-3 shadow-lg toast-enter"
+        <Toast
+          key={toast.id}
+          variant={toast.variant}
+          className="mb-3 shadow-lg toast-enter pointer-events-auto"
           style={{
             animationDelay: `${index * 50}ms`,
           }}
@@ -122,4 +122,43 @@ export const useToast = () => {
     throw new Error('useToast must be used within a ToastProvider')
   }
   return context
+}
+
+// 便捷的 toast 方法
+export const useToastContext = () => {
+  const { addToast } = useToast()
+
+  const success = (message: string, title?: string) => {
+    addToast({
+      title: title || '成功',
+      description: message,
+      variant: 'success',
+    })
+  }
+
+  const error = (message: string, title?: string) => {
+    addToast({
+      title: title || '错误',
+      description: message,
+      variant: 'destructive',
+    })
+  }
+
+  const warning = (message: string, title?: string) => {
+    addToast({
+      title: title || '警告',
+      description: message,
+      variant: 'warning',
+    })
+  }
+
+  const info = (message: string, title?: string) => {
+    addToast({
+      title: title || '提示',
+      description: message,
+      variant: 'default',
+    })
+  }
+
+  return { success, error, warning, info }
 }

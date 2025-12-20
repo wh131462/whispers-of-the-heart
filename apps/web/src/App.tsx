@@ -1,36 +1,56 @@
+import { useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import MainLayout from './layouts/MainLayout'
+import AdminLayout from './layouts/AdminLayout'
+import AdminGuard from './components/AdminGuard'
 import HomePage from './pages/HomePage'
 import PostsPage from './pages/PostsPage'
 import PostDetailPage from './pages/PostDetailPage'
 import FavoritesPage from './pages/FavoritesPage'
-import VideosPage from './pages/VideosPage'
-import AudiosPage from './pages/AudiosPage'
 import SearchPage from './pages/SearchPage'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import ProfilePage from './pages/ProfilePage'
-import SettingsPage from './pages/SettingsPage'
 import { ToastProvider } from './contexts/ToastContext'
+import { apiUtils } from '@whispers/utils'
+import { useGlobalStore } from './stores/useGlobalStore'
+import './i18n/config'
 import './index.css'
+import AboutPage from './pages/AboutPage'
 
-// 获取admin URL，支持不同环境
-const getAdminUrl = () => {
-  // 优先使用环境变量配置
-  if (import.meta.env.VITE_ADMIN_URL) {
-    return import.meta.env.VITE_ADMIN_URL
-  }
-  // 开发环境默认配置
-  if (import.meta.env.DEV) {
-    return 'http://localhost:9999'
-  }
-  // 生产环境默认配置
-  return 'https://admin.whispers.local'
-}
+// Admin pages (lazy loaded)
+const AdminDashboardPage = lazy(() => import('./pages/admin/DashboardPage'))
+const AdminPostsPage = lazy(() => import('./pages/admin/PostManagementPage'))
+const AdminPostEditPage = lazy(() => import('./pages/admin/PostEditPage'))
+const AdminTagsPage = lazy(() => import('./pages/admin/TagManagementPage'))
+const AdminCommentsPage = lazy(() => import('./pages/admin/CommentManagementPage'))
+const AdminMediaPage = lazy(() => import('./pages/admin/MediaPage'))
+const AdminUsersPage = lazy(() => import('./pages/admin/UsersPage'))
+const AdminSettingsPage = lazy(() => import('./pages/admin/SettingsPage'))
+
+// Loading component for lazy-loaded pages
+const PageLoader = () => (
+  <div className="flex items-center justify-center h-64">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+  </div>
+)
 
 function App() {
+  const setError = useGlobalStore((state) => state.setError)
+
+  // 初始化 API 客户端
+  useEffect(() => {
+    // 初始化 API 客户端,自动加载 token
+    apiUtils.initialize('auth_token')
+
+    // 设置全局错误处理器
+    apiUtils.setErrorHandler((error, status) => {
+      setError(error)
+    })
+  }, [setError])
+
   return (
     <ToastProvider>
       <Router>
@@ -40,27 +60,106 @@ function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
-          
-          {/* 管理后台重定向 */}
-          <Route path="/admin" element={<Navigate to={getAdminUrl()} replace />} />
-          
+
+          {/* 管理后台路由 */}
+          <Route
+            path="/admin"
+            element={
+              <AdminGuard>
+                <AdminLayout />
+              </AdminGuard>
+            }
+          >
+            <Route index element={<Navigate to="/admin/dashboard" replace />} />
+            <Route
+              path="dashboard"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <AdminDashboardPage />
+                </Suspense>
+              }
+            />
+            {/* 文章管理 */}
+            <Route
+              path="posts"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <AdminPostsPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="posts/new"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <AdminPostEditPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="posts/edit/:id"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <AdminPostEditPage />
+                </Suspense>
+              }
+            />
+            {/* 标签管理 */}
+            <Route
+              path="tags"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <AdminTagsPage />
+                </Suspense>
+              }
+            />
+            {/* 评论管理 */}
+            <Route
+              path="comments"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <AdminCommentsPage />
+                </Suspense>
+              }
+            />
+            {/* 媒体库 */}
+            <Route
+              path="media"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <AdminMediaPage />
+                </Suspense>
+              }
+            />
+            {/* 用户管理 */}
+            <Route
+              path="users"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <AdminUsersPage />
+                </Suspense>
+              }
+            />
+            {/* 站点配置 */}
+            <Route
+              path="settings"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <AdminSettingsPage />
+                </Suspense>
+              }
+            />
+          </Route>
+
           {/* 主布局页面 */}
           <Route path="/" element={<MainLayout />}>
             <Route index element={<HomePage />} />
             <Route path="posts" element={<PostsPage />} />
             <Route path="posts/:slug" element={<PostDetailPage />} />
             <Route path="favorites" element={<FavoritesPage />} />
-            <Route path="videos" element={<VideosPage />} />
-            <Route path="audios" element={<AudiosPage />} />
             <Route path="search" element={<SearchPage />} />
             <Route path="profile" element={<ProfilePage />} />
-            <Route path="settings" element={<SettingsPage />} />
-            <Route path="about" element={
-              <div className="text-center py-12">
-                <h1 className="text-3xl font-bold mb-4">关于我们</h1>
-                <p className="text-muted-foreground">Whispers of the Heart 是一个专注于分享知识和灵感的平台。</p>
-              </div>
-            } />
+            <Route path="about" element={<AboutPage />} />
           </Route>
         </Routes>
       </Router>

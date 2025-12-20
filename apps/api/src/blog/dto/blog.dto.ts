@@ -1,5 +1,4 @@
-import { IsString, IsOptional, IsEnum, IsArray } from 'class-validator';
-import { PostStatus } from '@prisma/client';
+import { IsString, IsOptional, IsBoolean, IsArray } from 'class-validator';
 
 export class CreatePostDto {
   @IsString()
@@ -14,15 +13,11 @@ export class CreatePostDto {
 
   @IsOptional()
   @IsString()
-  category?: string;
-
-  @IsOptional()
-  @IsString()
   coverImage?: string;
 
   @IsOptional()
-  @IsEnum(PostStatus)
-  status?: PostStatus;
+  @IsBoolean()
+  published?: boolean;
 
   @IsOptional()
   @IsArray()
@@ -45,15 +40,11 @@ export class UpdatePostDto {
 
   @IsOptional()
   @IsString()
-  category?: string;
-
-  @IsOptional()
-  @IsString()
   coverImage?: string;
 
   @IsOptional()
-  @IsEnum(PostStatus)
-  status?: PostStatus;
+  @IsBoolean()
+  published?: boolean;
 
   @IsOptional()
   @IsArray()
@@ -74,33 +65,6 @@ export class UpdateTagDto {
   @IsOptional()
   @IsString()
   name?: string;
-
-  @IsOptional()
-  @IsString()
-  color?: string;
-}
-
-export class CreateCategoryDto {
-  @IsString()
-  name: string;
-
-  @IsOptional()
-  @IsString()
-  description?: string;
-
-  @IsOptional()
-  @IsString()
-  color?: string;
-}
-
-export class UpdateCategoryDto {
-  @IsOptional()
-  @IsString()
-  name?: string;
-
-  @IsOptional()
-  @IsString()
-  description?: string;
 
   @IsOptional()
   @IsString()

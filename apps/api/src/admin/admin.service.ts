@@ -7,7 +7,6 @@ export class AdminService {
 
   async getDashboard() {
     try {
-      // 获取基础统计数据
       const [
         totalUsers,
         totalPosts,
@@ -16,23 +15,23 @@ export class AdminService {
         recentPosts,
         recentComments,
         monthlyStats,
-        categoryStats,
+        tagStats,
         userGrowth,
         postGrowth
       ] = await Promise.all([
         // 总用户数
         this.prisma.user.count(),
-        
+
         // 总文章数
         this.prisma.post.count(),
-        
+
         // 总评论数
         this.prisma.comment.count(),
-        
-        // 总媒体数（假设有媒体表，这里先用文章数代替）
-        this.prisma.post.count({ where: { coverImage: { not: null } } }),
-        
-        // 最近文章（按创建时间排序，限制5条）
+
+        // 总媒体数
+        this.prisma.media.count(),
+
+        // 最近文章
         this.prisma.post.findMany({
           take: 5,
           orderBy: { createdAt: 'desc' },
@@ -40,17 +39,18 @@ export class AdminService {
             id: true,
             title: true,
             views: true,
-            likes: true,
+            published: true,
             createdAt: true,
             _count: {
               select: {
-                postComments: true
+                postComments: true,
+                postLikes: true
               }
             }
           }
         }),
-        
-        // 最近评论（按创建时间排序，限制5条）
+
+        // 最近评论
         this.prisma.comment.findMany({
           take: 5,
           orderBy: { createdAt: 'desc' },
@@ -70,41 +70,39 @@ export class AdminService {
             }
           }
         }),
-        
-        // 月度统计（最近6个月）
+
+        // 月度统计
         this.getMonthlyStats(),
-        
-        // 分类统计
-        this.getCategoryStats(),
-        
-        // 用户增长趋势（最近30天）
+
+        // 标签统计
+        this.getTagStats(),
+
+        // 用户增长趋势
         this.getUserGrowthStats(),
-        
-        // 文章增长趋势（最近30天）
+
+        // 文章增长趋势
         this.getPostGrowthStats()
       ]);
 
       return {
-        // 基础统计
         totalUsers,
         totalPosts,
         totalComments,
         totalMedia,
-        
-        // 增长趋势
+
         userGrowth: userGrowth > 0 ? `+${userGrowth}%` : `${userGrowth}%`,
         postGrowth: postGrowth > 0 ? `+${postGrowth}%` : `${postGrowth}%`,
-        
-        // 最近数据
+
         recentPosts: recentPosts.map(post => ({
           id: post.id,
           title: post.title,
           views: post.views,
-          likes: post.likes,
+          likes: post._count.postLikes,
           comments: post._count.postComments,
+          published: post.published,
           createdAt: post.createdAt.toISOString().split('T')[0]
         })),
-        
+
         recentComments: recentComments.map(comment => ({
           id: comment.id,
           content: comment.content,
@@ -112,12 +110,10 @@ export class AdminService {
           postTitle: comment.post.title,
           createdAt: comment.createdAt.toISOString()
         })),
-        
-        // 图表数据
+
         monthlyStats,
-        categoryStats,
-        
-        // 时间戳
+        tagStats,
+
         lastUpdated: new Date().toISOString()
       };
     } catch (error) {
@@ -129,66 +125,69 @@ export class AdminService {
   private async getMonthlyStats() {
     const sixMonthsAgo = new Date();
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    
-    const monthlyData = await this.prisma.post.groupBy({
-      by: ['createdAt'],
+
+    const posts = await this.prisma.post.findMany({
       where: {
         createdAt: {
           gte: sixMonthsAgo
         }
       },
-      _count: {
-        id: true
+      select: {
+        createdAt: true
       }
     });
 
-    // 处理月度数据，确保每个月都有数据
+    // 处理月度数据
     const months: Array<{ month: string; posts: number }> = [];
     for (let i = 5; i >= 0; i--) {
       const date = new Date();
       date.setMonth(date.getMonth() - i);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      
-      const monthData = monthlyData.find(d => 
-        d.createdAt.getFullYear() === date.getFullYear() && 
-        d.createdAt.getMonth() === date.getMonth()
-      );
-      
+
+      const count = posts.filter(p =>
+        p.createdAt.getFullYear() === date.getFullYear() &&
+        p.createdAt.getMonth() === date.getMonth()
+      ).length;
+
       months.push({
         month: monthKey,
-        posts: monthData?._count.id || 0
+        posts: count
       });
     }
-    
+
     return months;
   }
 
-  private async getCategoryStats() {
-    const categories = await this.prisma.post.groupBy({
-      by: ['category'],
-      _count: {
-        id: true
-      },
-      where: {
-        category: {
-          not: null
+  private async getTagStats() {
+    const tags = await this.prisma.tag.findMany({
+      include: {
+        _count: {
+          select: {
+            postTags: true
+          }
         }
-      }
+      },
+      orderBy: {
+        postTags: {
+          _count: 'desc'
+        }
+      },
+      take: 10
     });
 
-    return categories.map(cat => ({
-      name: cat.category || '未分类',
-      count: cat._count.id
+    return tags.map(tag => ({
+      name: tag.name,
+      count: tag._count.postTags
     }));
   }
 
   private async getUserGrowthStats() {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
+
     const sixtyDaysAgo = new Date();
     sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-    
+
     const [recentUsers, previousUsers] = await Promise.all([
       this.prisma.user.count({
         where: {
@@ -214,10 +213,10 @@ export class AdminService {
   private async getPostGrowthStats() {
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
+
     const sixtyDaysAgo = new Date();
     sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
-    
+
     const [recentPosts, previousPosts] = await Promise.all([
       this.prisma.post.count({
         where: {

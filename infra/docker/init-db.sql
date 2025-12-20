@@ -1,4 +1,7 @@
 -- 初始化数据库脚本
+-- 设置客户端编码为 UTF-8
+SET client_encoding = 'UTF8';
+
 -- 创建扩展
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
@@ -107,8 +110,11 @@ CREATE INDEX IF NOT EXISTS idx_posts_status ON posts(status);
 CREATE INDEX IF NOT EXISTS idx_posts_category ON posts(category_id);
 CREATE INDEX IF NOT EXISTS idx_posts_author ON posts(author_id);
 CREATE INDEX IF NOT EXISTS idx_posts_published_at ON posts(published_at);
-CREATE INDEX IF NOT EXISTS idx_posts_title_search ON posts USING gin(to_tsvector('english', title));
-CREATE INDEX IF NOT EXISTS idx_posts_content_search ON posts USING gin(to_tsvector('english', content));
+-- 使用 simple 配置和 pg_trgm 支持中文搜索
+CREATE INDEX IF NOT EXISTS idx_posts_title_search ON posts USING gin(to_tsvector('simple', title));
+CREATE INDEX IF NOT EXISTS idx_posts_content_search ON posts USING gin(to_tsvector('simple', content));
+CREATE INDEX IF NOT EXISTS idx_posts_title_trgm ON posts USING gin(title gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_posts_content_trgm ON posts USING gin(content gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_comments_post ON comments(post_id);
 CREATE INDEX IF NOT EXISTS idx_comments_author ON comments(author_id);
 
@@ -143,7 +149,7 @@ ON CONFLICT (slug) DO NOTHING;
 INSERT INTO site_config (key, value, description) VALUES
 ('site_basic', '{
   "siteName": "Whispers of the Heart",
-  "siteDescription": "专注于分享知识和灵感的平台",
+  "siteDescription": "不知名独立开发的个人博客",
   "siteLogo": "",
   "siteIcon": "",
   "aboutMe": "热爱技术，热爱生活，希望通过文字传递正能量。",

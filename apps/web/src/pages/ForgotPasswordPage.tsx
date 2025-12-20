@@ -53,14 +53,14 @@ const ForgotPasswordPage: React.FC = () => {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">
           <div className="text-center">
             <CheckCircle className="mx-auto h-12 w-12 text-green-500" />
-            <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+            <h2 className="mt-6 text-3xl font-extrabold text-foreground">
               邮件已发送
             </h2>
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="mt-2 text-sm text-muted-foreground">
               我们已向 <span className="font-medium">{email}</span> 发送了密码重置邮件
             </p>
           </div>
@@ -68,10 +68,10 @@ const ForgotPasswordPage: React.FC = () => {
           <Card>
             <CardContent className="pt-6">
               <div className="text-center space-y-4">
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-muted-foreground">
                   请检查您的邮箱，点击邮件中的链接重置密码。
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-muted-foreground/70">
                   如果没有收到邮件，请检查垃圾邮件文件夹，或稍后重试。
                 </p>
                 
@@ -99,7 +99,7 @@ const ForgotPasswordPage: React.FC = () => {
           <div className="text-center">
             <Link
               to="/"
-              className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900"
+              className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4 mr-1" />
               返回首页
@@ -111,13 +111,13 @@ const ForgotPasswordPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+          <h2 className="mt-6 text-3xl font-extrabold text-foreground">
             忘记密码
           </h2>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-2 text-sm text-muted-foreground">
             输入您的邮箱地址，我们将发送密码重置链接
           </p>
         </div>
@@ -147,7 +147,7 @@ const ForgotPasswordPage: React.FC = () => {
 
               {/* 错误信息 */}
               {error && (
-                <div className="flex items-center space-x-2 text-red-600 text-sm bg-red-50 p-3 rounded-md">
+                <div className="flex items-center space-x-2 text-destructive text-sm bg-destructive/10 p-3 rounded-md">
                   <AlertCircle className="h-4 w-4 flex-shrink-0" />
                   <span>{error}</span>
                 </div>
@@ -167,7 +167,7 @@ const ForgotPasswordPage: React.FC = () => {
 
         {/* 返回登录 */}
         <div className="text-center space-y-2">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted-foreground">
             记起密码了？
             <Link
               to="/login"
@@ -176,10 +176,10 @@ const ForgotPasswordPage: React.FC = () => {
               立即登录
             </Link>
           </p>
-          
+
           <Link
             to="/"
-            className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900"
+            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground"
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
             返回首页

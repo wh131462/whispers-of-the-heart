@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
@@ -11,9 +11,11 @@ import { BlogModule } from './blog/blog.module';
 import { SiteConfigModule } from './site-config/site-config.module';
 import { CommentModule } from './comment/comment.module';
 import { MediaModule } from './media/media.module';
-import { FileManagementModule } from './file-management/file-management.module';
 import { AdminModule } from './admin/admin.module';
 import { HitokotoController } from './common/hitokoto.controller';
+import { LoggerModule } from './common/logger/logger.module';
+import { LoggerMiddleware } from './common/middleware/logger.middleware';
+import { MailModule } from './mail/mail.module';
 
 @Module({
   imports: [
@@ -26,16 +28,21 @@ import { HitokotoController } from './common/hitokoto.controller';
     }),
     PassportModule,
     PrismaModule,
+    LoggerModule,
+    MailModule,
     AuthModule,
     UserModule,
     BlogModule,
     SiteConfigModule,
     CommentModule,
     MediaModule,
-    FileManagementModule,
     AdminModule,
   ],
   controllers: [AppController, HitokotoController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(LoggerMiddleware).forRoutes('*');
+  }
+}

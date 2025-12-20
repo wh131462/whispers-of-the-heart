@@ -6,33 +6,74 @@ import { json, urlencoded } from 'express';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
+import { WinstonModule } from 'nest-winston';
+import { winstonConfig } from './common/logger/winston.config';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  
-  // 获取配置服务
-  const configService = app.get(ConfigService);
-  
-  // 配置Express信任代理，以便正确获取客户端IP
-  app.set('trust proxy', true);
-  
-  // 创建uploads目录 - 使用process.cwd()确保路径正确
-  const uploadsDir = join(process.cwd(), 'uploads');
-  console.log('📁 Uploads directory:', uploadsDir);
-  if (!existsSync(uploadsDir)) {
-    mkdirSync(uploadsDir, { recursive: true });
-    console.log('✅ Created uploads directory');
+  // 创建日志目录
+  const logsDir = join(process.cwd(), 'logs');
+  if (!existsSync(logsDir)) {
+    mkdirSync(logsDir, { recursive: true });
   }
-  
-  // 启用 CORS
-  app.enableCors({
-    origin: ['http://localhost:8888', 'http://localhost:9999'],
-    credentials: true,
+
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    logger: WinstonModule.createLogger(winstonConfig),
   });
 
-  // 设置请求体大小限制
+  // 获取配置服务
+  const configService = app.get(ConfigService);
+
+  // 配置Express信任代理，以便正确获取客户端IP
+  app.set('trust proxy', true);
+
+  // 创建uploads目录 - 使用process.cwd()确保路径正确
+  const uploadsDir = join(process.cwd(), 'uploads');
+  if (!existsSync(uploadsDir)) {
+    mkdirSync(uploadsDir, { recursive: true });
+  }
+  
+  // 启用 CORS - 从环境变量读取允许的源
+  const corsOrigins = configService.get<string>('CORS_ORIGINS') || 'http://localhost:8888,http://localhost:9999';
+  const allowedOrigins = corsOrigins.split(',').map(origin => origin.trim());
+  const isDev = configService.get('NODE_ENV') !== 'production';
+
+  app.enableCors({
+    origin: (origin, callback) => {
+      // 允许无 origin 的请求（如同源请求、服务器端请求）
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      // 开发环境下允许所有 localhost 请求
+      if (isDev && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
+        callback(null, true);
+        return;
+      }
+
+      // 检查是否在允许列表中
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  });
+
+  // 设置请求体大小限制和编码
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ extended: true, limit: '50mb' }));
+
+  // 设置默认响应头为 UTF-8
+  app.use((req, res, next) => {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    next();
+  });
 
   // 设置静态文件服务 - 必须在全局前缀之前设置
   app.useStaticAssets(uploadsDir, {
@@ -42,24 +83,63 @@ async function bootstrap() {
   // 设置全局前缀 - 静态文件服务不受此影响
   app.setGlobalPrefix('api/v1');
 
-  // 全局验证管道 - 暂时禁用严格验证
+  // 全局验证管道 - 启用严格验证
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: false,
-      forbidNonWhitelisted: false,
+      whitelist: true,
+      forbidNonWhitelisted: true,
       transform: true,
       transformOptions: {
         enableImplicitConversion: true,
       },
+      stopAtFirstError: false,
     }),
   );
+
+  // 全局异常过滤器
+  app.useGlobalFilters(new AllExceptionsFilter());
+
+  // Swagger API 文档配置
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('Whispers of the Heart API')
+    .setDescription('博客平台后端 API 文档')
+    .setVersion('1.0')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'JWT',
+        description: '输入 JWT token',
+        in: 'header',
+      },
+      'JWT-auth',
+    )
+    .addTag('博客', '博客文章、分类、标签管理')
+    .addTag('认证', '用户认证相关接口')
+    .addTag('用户', '用户管理接口')
+    .addTag('评论', '评论管理接口')
+    .addTag('文件', '文件管理接口')
+    .build();
+
+  const document = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup('api/docs', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+      docExpansion: 'none',
+      filter: true,
+      showRequestDuration: true,
+    },
+  });
 
   // 启动应用
   const port = configService.get('PORT') || 7777;
   await app.listen(port);
-  
-  console.log(`🚀 Application is running on: http://localhost:${port}`);
-  console.log(`📚 API Documentation: http://localhost:${port}/api/v1`);
+
+  app.getHttpAdapter().getInstance().on('listening', () => {
+    console.log(`🚀 Application is running on: http://localhost:${port}`);
+    console.log(`📚 API Documentation: http://localhost:${port}/api/docs`);
+  });
 }
 
 bootstrap();

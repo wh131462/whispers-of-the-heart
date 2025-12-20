@@ -153,3 +153,119 @@ export function isValidIdCard(idCard: string): boolean {
   const idCardRegex = /(^\d{15}$)|(^\d{18}$)|(^\d{17}(\d|X|x)$)/
   return idCardRegex.test(idCard)
 }
+
+/**
+ * 移除 Markdown 格式，只保留纯文本
+ * 用于生成摘要、搜索索引等场景
+ */
+export function stripMarkdown(markdown: string): string {
+  if (!markdown) return ''
+
+  let text = markdown
+
+  // 移除代码块（需要先处理，避免内部内容被其他规则影响）
+  text = text.replace(/```[\s\S]*?```/g, '')
+  text = text.replace(/`([^`]+)`/g, '$1')
+
+  // 移除 HTML 标签
+  text = text.replace(/<[^>]*>/g, '')
+
+  // 移除图片 ![alt](url) 或 ![alt](url "title")
+  text = text.replace(/!\[([^\]]*)\]\([^)]+\)/g, '')
+
+  // 移除链接但保留文本 [text](url) 或 [text](url "title")
+  text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+
+  // 移除引用链接 [text][ref]
+  text = text.replace(/\[([^\]]+)\]\[[^\]]*\]/g, '$1')
+
+  // 移除引用链接定义 [ref]: url
+  text = text.replace(/^\[[^\]]+\]:\s*.+$/gm, '')
+
+  // 移除标题标记 # ## ### 等
+  text = text.replace(/^#{1,6}\s+/gm, '')
+
+  // 移除粗体 **text** 或 __text__
+  text = text.replace(/\*\*([^*]+)\*\*/g, '$1')
+  text = text.replace(/__([^_]+)__/g, '$1')
+
+  // 移除斜体 *text* 或 _text_（需要在粗体之后处理）
+  text = text.replace(/\*([^*]+)\*/g, '$1')
+  text = text.replace(/_([^_]+)_/g, '$1')
+
+  // 移除删除线 ~~text~~
+  text = text.replace(/~~([^~]+)~~/g, '$1')
+
+  // 移除水平分割线 --- *** ___
+  text = text.replace(/^[-*_]{3,}\s*$/gm, '')
+
+  // 移除引用标记 >
+  text = text.replace(/^>\s?/gm, '')
+
+  // 移除无序列表标记 - * +
+  text = text.replace(/^[\s]*[-*+]\s+/gm, '')
+
+  // 移除有序列表标记 1. 2. 等
+  text = text.replace(/^[\s]*\d+\.\s+/gm, '')
+
+  // 移除任务列表标记 [ ] [x]
+  text = text.replace(/\[[ xX]\]\s*/g, '')
+
+  // 移除表格分隔符
+  text = text.replace(/\|/g, ' ')
+  text = text.replace(/^[\s]*[-:]+[\s]*$/gm, '')
+
+  // 移除脚注 [^1] 及其定义
+  text = text.replace(/\[\^[^\]]+\]/g, '')
+
+  // 移除高亮 ==text==
+  text = text.replace(/==([^=]+)==/g, '$1')
+
+  // 移除上标 ^text^
+  text = text.replace(/\^([^^]+)\^/g, '$1')
+
+  // 移除下标 ~text~
+  text = text.replace(/~([^~]+)~/g, '$1')
+
+  // 清理多余的空白字符
+  text = text.replace(/\n{3,}/g, '\n\n') // 多个连续换行变成两个
+  text = text.replace(/[ \t]+/g, ' ') // 多个空格变成一个
+  text = text.trim()
+
+  return text
+}
+
+/**
+ * 从 Markdown 生成摘要
+ * @param markdown Markdown 内容
+ * @param maxLength 最大长度，默认 200
+ * @param suffix 后缀，默认 '...'
+ */
+export function generateExcerpt(markdown: string, maxLength: number = 200, suffix: string = '...'): string {
+  const plainText = stripMarkdown(markdown)
+
+  if (plainText.length <= maxLength) {
+    return plainText
+  }
+
+  // 尝试在句子结束处截断
+  const truncated = plainText.substring(0, maxLength)
+  const sentenceEnd = truncated.lastIndexOf('。')
+  const periodEnd = truncated.lastIndexOf('.')
+  const questionEnd = truncated.lastIndexOf('？')
+  const exclamationEnd = truncated.lastIndexOf('！')
+
+  const lastEnd = Math.max(sentenceEnd, periodEnd, questionEnd, exclamationEnd)
+
+  if (lastEnd > maxLength * 0.5) {
+    return truncated.substring(0, lastEnd + 1)
+  }
+
+  // 尝试在单词/空格处截断
+  const lastSpace = truncated.lastIndexOf(' ')
+  if (lastSpace > maxLength * 0.7) {
+    return truncated.substring(0, lastSpace) + suffix
+  }
+
+  return truncated + suffix
+}

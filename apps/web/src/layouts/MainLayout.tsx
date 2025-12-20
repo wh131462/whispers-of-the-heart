@@ -1,57 +1,36 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { 
-  Home, 
-  FileText, 
-  Video, 
-  Music, 
-  User, 
-  Search, 
-  Menu, 
+import {
+  Home,
+  FileText,
+  User,
+  Search,
+  Menu,
   LogIn,
   LogOut,
   Settings,
   ChevronDown,
   Edit3,
-  ExternalLink,
-  Bookmark
+  Bookmark,
+  Sun,
+  Moon
 } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { useAuthStore } from '../stores/useAuthStore'
+import { useTheme } from '../stores/useGlobalStore'
 import { DEFAULT_AVATAR } from '../constants/images'
 import SearchDialog from '../components/SearchDialog'
 import { api } from '@whispers/utils'
 
-// 获取admin URL，支持不同环境
-const getAdminUrl = () => {
-  // 优先使用环境变量配置
-  if (import.meta.env.VITE_ADMIN_URL) {
-    return import.meta.env.VITE_ADMIN_URL
-  }
-  // 开发环境默认配置
-  if (import.meta.env.DEV) {
-    return 'http://localhost:9999'
-  }
-  // 生产环境默认配置
-  return 'https://admin.whispers.local'
-}
-
 interface SiteConfig {
   siteName: string
   siteDescription: string
-  siteLogo: string
-  siteIcon: string
   aboutMe: string
-  contactEmail: string
+  avatar: string
   socialLinks: {
     github: string
     twitter: string
-    linkedin: string
-  }
-  seoSettings: {
-    metaTitle: string
-    metaDescription: string
-    keywords: string
+    email: string
   }
 }
 
@@ -66,21 +45,30 @@ const MainLayout: React.FC = () => {
   const [isScrolled, setIsScrolled] = useState(false)
   
   const { user, isAuthenticated, logout } = useAuthStore()
-  
+  const { theme, setTheme } = useTheme()
+
+  const userMenuRef = useRef<HTMLDivElement>(null)
+
   // 检查是否在首页
   const isHomePage = location.pathname === '/'
   
   const navigation = [
     { name: '首页', href: '/', icon: Home },
     { name: '文章', href: '/posts', icon: FileText },
-    { name: '视频', href: '/videos', icon: Video },
-    { name: '音频', href: '/audios', icon: Music },
     { name: '关于', href: '/about', icon: User },
   ]
 
   useEffect(() => {
     fetchSiteConfig()
     fetchHitokoto()
+
+    // 初始化主题
+    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | 'system' | null
+    if (savedTheme) {
+      setTheme(savedTheme)
+    } else {
+      setTheme('system')
+    }
   }, [])
 
   // 监听滚动事件
@@ -97,6 +85,35 @@ const MainLayout: React.FC = () => {
       setIsScrolled(true) // 非首页时始终显示背景
     }
   }, [isHomePage])
+
+  // 监听窗口大小变化，当切换到桌面端时关闭移动菜单
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setShowMobileMenu(false)
+      }
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // 点击外部区域关闭用户菜单
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setShowUserMenu(false)
+      }
+    }
+
+    if (showUserMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showUserMenu])
 
   const fetchHitokoto = async () => {
     try {
@@ -160,21 +177,21 @@ const MainLayout: React.FC = () => {
             {/* Logo */}
             <div className="flex items-center space-x-4">
               <Link to="/" className="flex items-center space-x-2">
-                {siteConfig?.siteLogo ? (
-                  <img 
-                    src={siteConfig.siteLogo} 
-                    alt={siteConfig.siteName} 
-                    className="h-8 w-8 rounded-lg"
+                {siteConfig?.avatar ? (
+                  <img
+                    src={siteConfig.avatar}
+                    alt={siteConfig.siteName}
+                    className="h-8 w-8 rounded-full object-cover"
                   />
                 ) : (
-                  <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
+                  <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
                     <span className="text-primary-foreground font-bold text-lg">
                       {siteConfig?.siteName?.charAt(0) || 'W'}
                     </span>
                   </div>
                 )}
                 <span className={`text-xl font-bold transition-colors ${
-                  isHomePage && !isScrolled ? 'text-white' : 'text-primary'
+                  isHomePage && !isScrolled ? 'text-foreground' : 'text-primary'
                 }`}>
                   {siteConfig?.siteName || 'Whispers'}
                 </span>
@@ -193,11 +210,9 @@ const MainLayout: React.FC = () => {
                     to={item.href}
                     className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                       isActive
-                        ? isHomePage && !isScrolled 
-                          ? 'bg-white/20 text-white' 
-                          : 'bg-primary text-primary-foreground'
+                        ? 'bg-primary text-primary-foreground'
                         : isHomePage && !isScrolled
-                          ? 'text-white/80 hover:text-white hover:bg-white/10'
+                          ? 'text-foreground/80 hover:text-foreground hover:bg-foreground/10'
                           : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                     }`}
                   >
@@ -209,13 +224,28 @@ const MainLayout: React.FC = () => {
             </nav>
 
             {/* 右侧操作区 */}
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              {/* 主题切换按钮 */}
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+                className={isHomePage && !isScrolled ? 'text-foreground hover:bg-foreground/10' : ''}
+                title={theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'}
+              >
+                {theme === 'dark' ? (
+                  <Sun className="h-4 w-4" />
+                ) : (
+                  <Moon className="h-4 w-4" />
+                )}
+              </Button>
+
               {/* 搜索功能 */}
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 onClick={() => setShowSearchDialog(true)}
-                className={isHomePage && !isScrolled ? 'text-white hover:bg-white/10' : ''}
+                className={isHomePage && !isScrolled ? 'text-foreground hover:bg-foreground/10' : ''}
                 title="搜索 (⌘K)"
               >
                 <Search className="h-4 w-4" />
@@ -223,11 +253,11 @@ const MainLayout: React.FC = () => {
 
               {/* 用户头像/登录 */}
               {isAuthenticated && user ? (
-                <div className="relative">
+                <div className="relative" ref={userMenuRef}>
                   <Button
                     variant="ghost"
                     className={`flex items-center space-x-2 p-2 ${
-                      isHomePage && !isScrolled ? 'text-white hover:bg-white/10' : ''
+                      isHomePage && !isScrolled ? 'text-foreground hover:bg-foreground/10' : ''
                     }`}
                     onClick={() => setShowUserMenu(!showUserMenu)}
                   >
@@ -247,10 +277,10 @@ const MainLayout: React.FC = () => {
 
                   {/* 用户菜单 */}
                   {showUserMenu && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border">
+                    <div className="absolute right-0 mt-2 w-48 bg-card rounded-md shadow-lg py-1 z-50 border border-border">
                       <Link
                         to="/profile"
-                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        className="flex items-center px-4 py-2 text-sm text-foreground hover:bg-muted"
                         onClick={() => setShowUserMenu(false)}
                       >
                         <User className="h-4 w-4 mr-2" />
@@ -258,36 +288,37 @@ const MainLayout: React.FC = () => {
                       </Link>
                       <Link
                         to="/favorites"
-                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        className="flex items-center px-4 py-2 text-sm text-foreground hover:bg-muted"
                         onClick={() => setShowUserMenu(false)}
                       >
                         <Bookmark className="h-4 w-4 mr-2" />
                         我的收藏
                       </Link>
-                      <Link
-                        to="/settings"
-                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        onClick={() => setShowUserMenu(false)}
-                      >
-                        <Settings className="h-4 w-4 mr-2" />
-                        设置
-                      </Link>
-                      <div className="border-t border-gray-100" />
-                      <a
-                        href={`${getAdminUrl()}/admin/posts/new`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        onClick={() => setShowUserMenu(false)}
-                      >
-                        <Edit3 className="h-4 w-4 mr-2" />
-                        <span className="flex-1">写博客</span>
-                        <ExternalLink className="h-3 w-3 text-gray-400" />
-                      </a>
-                      <div className="border-t border-gray-100" />
+                      {user?.isAdmin && (
+                        <>
+                          <div className="border-t border-border" />
+                          <Link
+                            to="/admin/posts/new"
+                            className="flex items-center px-4 py-2 text-sm text-foreground hover:bg-muted"
+                            onClick={() => setShowUserMenu(false)}
+                          >
+                            <Edit3 className="h-4 w-4 mr-2" />
+                            写博客
+                          </Link>
+                          <Link
+                            to="/admin/dashboard"
+                            className="flex items-center px-4 py-2 text-sm text-foreground hover:bg-muted"
+                            onClick={() => setShowUserMenu(false)}
+                          >
+                            <Settings className="h-4 w-4 mr-2" />
+                            管理后台
+                          </Link>
+                        </>
+                      )}
+                      <div className="border-t border-border" />
                       <button
                         onClick={handleLogout}
-                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        className="flex items-center w-full px-4 py-2 text-sm text-foreground hover:bg-muted"
                       >
                         <LogOut className="h-4 w-4 mr-2" />
                         退出登录
@@ -297,11 +328,11 @@ const MainLayout: React.FC = () => {
                 </div>
               ) : (
                 <Link to="/login">
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant={isHomePage && !isScrolled ? 'ghost' : 'outline'}
                     className={`flex items-center space-x-2 ${
-                      isHomePage && !isScrolled 
-                        ? 'border-white/20 text-white hover:bg-white/10' 
+                      isHomePage && !isScrolled
+                        ? 'text-foreground/90 hover:text-foreground hover:bg-foreground/10 border border-foreground/30'
                         : ''
                     }`}
                   >
@@ -311,12 +342,12 @@ const MainLayout: React.FC = () => {
                 </Link>
               )}
               
-              {/* 移动端菜单按钮 */}
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                className={`md:hidden ${
-                  isHomePage && !isScrolled ? 'text-white hover:bg-white/10' : ''
+              {/* 移动端菜单按钮 - 仅在移动端显示 */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className={`flex md:!hidden ${
+                  isHomePage && !isScrolled ? 'text-foreground hover:bg-foreground/10' : ''
                 }`}
                 onClick={() => setShowMobileMenu(!showMobileMenu)}
               >
@@ -325,36 +356,34 @@ const MainLayout: React.FC = () => {
             </div>
           </div>
 
-          {/* 移动端菜单 */}
+          {/* 移动端菜单 - 仅在移动端显示 */}
           {showMobileMenu && (
-            <div className={`md:hidden py-4 ${
-              isHomePage && !isScrolled ? 'border-t border-white/20' : 'border-t'
+            <div className={`block md:!hidden py-4 ${
+              isHomePage && !isScrolled ? 'border-t border-foreground/20' : 'border-t'
             }`}>
               <nav className="flex flex-col space-y-2">
-                              {navigation.map((item) => {
-                const Icon = item.icon
-                const isActive = location.pathname === item.href
-                
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                      isActive
-                        ? isHomePage && !isScrolled 
-                          ? 'bg-white/20 text-white' 
-                          : 'bg-primary text-primary-foreground'
-                        : isHomePage && !isScrolled
-                          ? 'text-white/80 hover:text-white hover:bg-white/10'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-                    }`}
-                    onClick={() => setShowMobileMenu(false)}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.name}</span>
-                  </Link>
-                )
-              })}
+                {navigation.map((item) => {
+                  const Icon = item.icon
+                  const isActive = location.pathname === item.href
+
+                  return (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        isActive
+                          ? 'bg-primary text-primary-foreground'
+                          : isHomePage && !isScrolled
+                            ? 'text-foreground/80 hover:text-foreground hover:bg-foreground/10'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                      }`}
+                      onClick={() => setShowMobileMenu(false)}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{item.name}</span>
+                    </Link>
+                  )
+                })}
               </nav>
             </div>
           )}

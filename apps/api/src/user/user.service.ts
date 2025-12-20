@@ -1,11 +1,22 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { CreateUserDto, UpdateUserDto } from './dto/user.dto';
+import { CreateUserDto, UpdateUserDto, SendEmailChangeCodeDto, ChangeEmailDto } from './dto/user.dto';
+import { MediaUsageService } from '../media/media-usage.service';
+import { MailService } from '../mail/mail.service';
 import * as bcrypt from 'bcrypt';
+
+// 生成6位数字验证码
+function generateVerificationCode(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
 
 @Injectable()
 export class UserService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private mediaUsageService: MediaUsageService,
+    private mailService: MailService,
+  ) {}
 
   async create(createUserDto: CreateUserDto) {
     const { password, ...userData } = createUserDto;
@@ -41,14 +52,19 @@ export class UserService {
         id: true,
         username: true,
         email: true,
-        role: true,
+        isAdmin: true,
         avatar: true,
         bio: true,
-        isActive: true,
+        theme: true,
         createdAt: true,
         updatedAt: true,
       },
     });
+
+    // 同步头像媒体使用记录
+    if (userData.avatar) {
+      await this.mediaUsageService.syncDirectUsage('user', user.id, 'avatar', userData.avatar);
+    }
 
     return user;
   }
@@ -74,10 +90,10 @@ export class UserService {
           id: true,
           username: true,
           email: true,
-          role: true,
+          isAdmin: true,
           avatar: true,
           bio: true,
-          isActive: true,
+          theme: true,
           createdAt: true,
           updatedAt: true,
           _count: {
@@ -110,10 +126,10 @@ export class UserService {
         id: true,
         username: true,
         email: true,
-        role: true,
+        isAdmin: true,
         avatar: true,
         bio: true,
-        isActive: true,
+        theme: true,
         createdAt: true,
         updatedAt: true,
         _count: {
@@ -129,7 +145,7 @@ export class UserService {
           select: {
             id: true,
             title: true,
-            status: true,
+            published: true,
             createdAt: true,
           },
         },
@@ -196,14 +212,19 @@ export class UserService {
         id: true,
         username: true,
         email: true,
-        role: true,
+        isAdmin: true,
         avatar: true,
         bio: true,
-        isActive: true,
+        theme: true,
         createdAt: true,
         updatedAt: true,
       },
     });
+
+    // 同步头像媒体使用记录（如果头像字段有更新）
+    if ('avatar' in updateData) {
+      await this.mediaUsageService.syncDirectUsage('user', id, 'avatar', updateData.avatar);
+    }
 
     return user;
   }
@@ -217,6 +238,9 @@ export class UserService {
       throw new NotFoundException('用户不存在');
     }
 
+    // 删除用户的媒体使用记录
+    await this.mediaUsageService.deleteEntityUsages('user', id);
+
     await this.prisma.user.delete({
       where: { id },
     });
@@ -224,7 +248,7 @@ export class UserService {
     return { message: '用户删除成功' };
   }
 
-  async toggleActive(id: string) {
+  async toggleAdmin(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
     });
@@ -235,15 +259,136 @@ export class UserService {
 
     const updatedUser = await this.prisma.user.update({
       where: { id },
-      data: { isActive: !user.isActive },
+      data: { isAdmin: !user.isAdmin },
       select: {
         id: true,
         username: true,
         email: true,
-        role: true,
-        isActive: true,
+        isAdmin: true,
         updatedAt: true,
       },
+    });
+
+    return updatedUser;
+  }
+
+  // 发送邮箱更换验证码
+  async sendEmailChangeCode(userId: string, sendEmailChangeCodeDto: SendEmailChangeCodeDto) {
+    const { newEmail } = sendEmailChangeCodeDto;
+
+    // 获取当前用户
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('用户不存在');
+    }
+
+    // 检查新邮箱是否已被使用
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: newEmail },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('该邮箱已被其他用户使用');
+    }
+
+    // 删除该用户之前未使用的邮箱更换验证码
+    await this.prisma.verificationCode.deleteMany({
+      where: {
+        userId,
+        type: 'email_change',
+        used: false,
+      },
+    });
+
+    // 生成新验证码
+    const code = generateVerificationCode();
+    const expiresAt = new Date();
+    expiresAt.setMinutes(expiresAt.getMinutes() + 10); // 10分钟后过期
+
+    // 保存验证码
+    await this.prisma.verificationCode.create({
+      data: {
+        code,
+        email: newEmail,
+        userId,
+        type: 'email_change',
+        expiresAt,
+      },
+    });
+
+    // 发送验证码邮件到新邮箱
+    await this.mailService.sendEmailChangeVerificationCode(newEmail, user.username, code);
+
+    return { message: '验证码已发送到新邮箱' };
+  }
+
+  // 验证并更换邮箱
+  async changeEmail(userId: string, changeEmailDto: ChangeEmailDto) {
+    const { newEmail, code } = changeEmailDto;
+
+    // 获取当前用户
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('用户不存在');
+    }
+
+    // 验证验证码
+    const verificationCode = await this.prisma.verificationCode.findFirst({
+      where: {
+        userId,
+        email: newEmail,
+        code,
+        type: 'email_change',
+        used: false,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    if (!verificationCode) {
+      throw new BadRequestException('验证码无效');
+    }
+
+    if (verificationCode.expiresAt < new Date()) {
+      throw new BadRequestException('验证码已过期');
+    }
+
+    // 再次检查新邮箱是否已被使用
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: newEmail },
+    });
+
+    if (existingUser) {
+      throw new ConflictException('该邮箱已被其他用户使用');
+    }
+
+    // 更新用户邮箱
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data: { email: newEmail },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        isAdmin: true,
+        avatar: true,
+        bio: true,
+        theme: true,
+        emailVerified: true,
+      },
+    });
+
+    // 标记验证码为已使用
+    await this.prisma.verificationCode.update({
+      where: { id: verificationCode.id },
+      data: { used: true },
     });
 
     return updatedUser;

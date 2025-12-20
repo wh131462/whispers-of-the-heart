@@ -1,0 +1,26 @@
+/* VideoPlayer 自定义样式 */
+
+/* 标题栏样式 */
+.vjs-title-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 1.5rem;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), transparent);
+  color: white;
+  font-size: 1.125rem;
+  font-weight: 600;
+  z-index: 10;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+/* 响应式设计 */
+@media (max-width: 640px) {
+  .vjs-title-bar {
+    font-size: 1rem;
+    padding: 1rem;
+  }
+}
+

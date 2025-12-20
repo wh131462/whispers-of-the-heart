@@ -108,7 +108,8 @@ const defaultConfig: RequestConfig = {
   baseURL: getApiBaseUrl(),
   timeout: 10000,
   headers: {
-    'Content-Type': 'application/json',
+    'Content-Type': 'application/json; charset=utf-8',
+    'Accept': 'application/json; charset=utf-8',
   },
   withCredentials: false,
 }

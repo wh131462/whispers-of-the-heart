@@ -27,6 +27,14 @@ export default defineConfig(({ mode }) => {
       port: parseInt(env.VITE_WEB_PORT || '8888'),
       host: true, // 允许外部访问
     },
+    optimizeDeps: {
+      // 预构建并强制包含 BlockNote 依赖，避免开发时重复加载导致插件冲突
+      include: [
+        '@blocknote/core',
+        '@blocknote/react',
+        '@blocknote/mantine',
+      ],
+    },
     preview: {
       port: parseInt(env.VITE_WEB_PORT || '8888'),
       host: true,
@@ -42,7 +50,6 @@ export default defineConfig(({ mode }) => {
     define: {
       // 将环境变量注入到应用中
       'import.meta.env.VITE_API_URL': JSON.stringify(env.VITE_API_URL || 'http://localhost:7777'),
-      'import.meta.env.VITE_ADMIN_URL': JSON.stringify(env.VITE_ADMIN_URL || 'http://localhost:9999'),
       'import.meta.env.VITE_WEB_URL': JSON.stringify(env.VITE_WEB_URL || 'http://localhost:8888'),
       'import.meta.env.NODE_ENV': JSON.stringify(mode),
     },

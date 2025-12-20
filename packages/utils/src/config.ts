@@ -8,13 +8,11 @@ export interface AppConfig {
   appName: string
   webUrl: string
   apiUrl: string
-  adminUrl: string
-  
+
   // 端口配置
   apiPort: number
   webPort: number
-  adminPort: number
-  
+
   // 其他配置
   corsOrigins: string[]
   enableRegistration: boolean
@@ -28,23 +26,20 @@ export interface AppConfig {
  */
 export function getConfig(): AppConfig {
   const isProduction = process.env.NODE_ENV === 'production'
-  
+
   return {
     // 应用信息
     appName: process.env.APP_NAME || 'Whispers of the Heart',
     webUrl: process.env.WEB_URL || (isProduction ? 'https://whispers.local' : 'http://localhost:8888'),
     apiUrl: process.env.API_URL || (isProduction ? 'https://api.whispers.local' : 'http://localhost:7777'),
-    adminUrl: process.env.ADMIN_URL || (isProduction ? 'https://admin.whispers.local' : 'http://localhost:9999'),
-    
+
     // 端口配置
     apiPort: parseInt(process.env.API_PORT || '7777'),
     webPort: parseInt(process.env.WEB_PORT || '8888'),
-    adminPort: parseInt(process.env.ADMIN_PORT || '9999'),
-    
+
     // 其他配置
     corsOrigins: process.env.CORS_ORIGINS?.split(',') || [
       isProduction ? 'https://whispers.local' : 'http://localhost:8888',
-      isProduction ? 'https://admin.whispers.local' : 'http://localhost:9999'
     ],
     enableRegistration: process.env.ENABLE_REGISTRATION === 'true',
     enableComments: process.env.ENABLE_COMMENTS === 'true',
@@ -58,13 +53,6 @@ export function getConfig(): AppConfig {
  */
 export function getApiUrl(): string {
   return getConfig().apiUrl
-}
-
-/**
- * 获取Admin URL
- */
-export function getAdminUrl(): string {
-  return getConfig().adminUrl
 }
 
 /**

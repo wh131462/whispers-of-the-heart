@@ -28,13 +28,13 @@ const LoginDialog: React.FC<LoginDialogProps> = ({
       />
       
       {/* 对话框内容 */}
-      <Card className="relative z-10 w-full max-w-md mx-4 shadow-2xl border-0 bg-white/95 backdrop-blur-sm">
+      <Card className="relative z-10 w-full max-w-md mx-4 shadow-2xl border border-border bg-card/95 backdrop-blur-sm">
         <CardHeader className="text-center pb-4">
           <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
             <User className="w-8 h-8 text-primary" />
           </div>
-          <CardTitle className="text-2xl font-bold text-gray-900">{title}</CardTitle>
-          <CardDescription className="text-gray-600 text-base">{description}</CardDescription>
+          <CardTitle className="text-2xl font-bold text-foreground">{title}</CardTitle>
+          <CardDescription className="text-muted-foreground text-base">{description}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="flex flex-col sm:flex-row gap-3">
@@ -48,10 +48,10 @@ const LoginDialog: React.FC<LoginDialogProps> = ({
               取消
             </Button>
           </div>
-          <div className="text-center text-sm text-gray-600">
+          <div className="text-center text-sm text-muted-foreground">
             还没有账号？{' '}
-            <Link 
-              to="/register" 
+            <Link
+              to="/register"
               className="text-primary hover:text-primary/80 font-medium hover:underline transition-colors"
               onClick={onClose}
             >

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>新评论通知</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      padding: 40px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .logo {
+      font-size: 24px;
+      font-weight: bold;
+      color: #333;
+    }
+    .notification-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+    .content {
+      margin-bottom: 30px;
+    }
+    .button {
+      display: inline-block;
+      padding: 12px 24px;
+      background-color: #3b82f6;
+      color: #ffffff !important;
+      text-decoration: none;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+    .comment-box {
+      background-color: #f8fafc;
+      border-left: 4px solid #3b82f6;
+      border-radius: 0 6px 6px 0;
+      padding: 16px;
+      margin: 20px 0;
+    }
+    .comment-author {
+      font-weight: 600;
+      color: #3b82f6;
+      margin-bottom: 8px;
+    }
+    .comment-content {
+      color: #4b5563;
+    }
+    .post-title {
+      color: #3b82f6;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .footer {
+      text-align: center;
+      color: #666;
+      font-size: 14px;
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #eee;
+    }
+    .unsubscribe {
+      color: #9ca3af;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="header">
+        <div class="notification-icon">💬</div>
+        <div class="logo">{{appName}}</div>
+      </div>
+
+      <div class="content">
+        <p>您好，{{authorName}}：</p>
+
+        <p><strong>{{commenterName}}</strong> 评论了您的文章 <a href="{{postUrl}}" class="post-title">「{{postTitle}}」</a>：</p>
+
+        <div class="comment-box">
+          <div class="comment-author">{{commenterName}} 说：</div>
+          <div class="comment-content">{{commentContent}}</div>
+        </div>
+
+        <p style="text-align: center; margin: 30px 0;">
+          <a href="{{postUrl}}" class="button">查看评论</a>
+        </p>
+      </div>
+
+      <div class="footer">
+        <p>&copy; {{year}} {{appName}}. All rights reserved.</p>
+        <p class="unsubscribe">您收到此邮件是因为有人评论了您的文章。<br>您可以在账号设置中管理邮件通知偏好。</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

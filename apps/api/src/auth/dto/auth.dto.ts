@@ -55,3 +55,34 @@ export class ResetPasswordDto {
   @MinLength(6)
   password: string;
 }
+
+export class SendRegisterCodeDto {
+  @IsEmail()
+  email: string;
+}
+
+export class VerifyRegisterCodeDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @MinLength(6)
+  code: string;
+}
+
+export class RegisterWithCodeDto {
+  @IsString()
+  @MinLength(3)
+  username: string;
+
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @MinLength(6)
+  password: string;
+
+  @IsString()
+  @MinLength(6)
+  code: string;
+}

@@ -1,12 +1,298 @@
-import { Controller, Get, Post, Delete, Param } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Delete,
+  Param,
+  Query,
+  Body,
+  UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  UploadedFiles,
+  Request,
+  ParseIntPipe,
+  DefaultValuePipe,
+  HttpStatus,
+  HttpException,
+} from '@nestjs/common';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+import { randomBytes } from 'crypto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AdminGuard } from '../auth/guards/roles.guard';
 import { MediaService } from './media.service';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
 
+// Generate unique filename
+const generateFilename = () => {
+  const timestamp = Date.now().toString(36);
+  const random = randomBytes(8).toString('hex');
+  return `${timestamp}-${random}`;
+};
+
+// Multer storage configuration
+const storage = diskStorage({
+  destination: './uploads',
+  filename: (req, file, callback) => {
+    const uniqueSuffix = generateFilename();
+    const ext = extname(file.originalname);
+    callback(null, `${uniqueSuffix}${ext}`);
+  },
+});
+
+// File filter for allowed types
+const fileFilter = (req: any, file: Express.Multer.File, callback: any) => {
+  const allowedMimes = [
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+    'image/svg+xml',
+    'video/mp4',
+    'video/webm',
+    'video/ogg',
+    'audio/mpeg',
+    'audio/wav',
+    'audio/ogg',
+    'audio/webm',
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'text/plain',
+  ];
+
+  if (allowedMimes.includes(file.mimetype)) {
+    callback(null, true);
+  } else {
+    callback(new Error('不支持的文件类型'), false);
+  }
+};
+
+@ApiTags('媒体')
 @Controller('media')
 export class MediaController {
   constructor(private readonly mediaService: MediaService) {}
 
   @Get()
-  async getMedia() {
-    return { message: 'Media files' };
+  @ApiOperation({ summary: '获取媒体列表' })
+  async findAll(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('type') type?: string,
+    @Query('search') search?: string,
+  ) {
+    const skip = (page - 1) * limit;
+    const result = await this.mediaService.findAll({
+      skip,
+      take: limit,
+      mimeType: type,
+      search,
+    });
+
+    return {
+      success: true,
+      data: result,
+    };
+  }
+
+  @Get('stats')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: '获取媒体统计' })
+  async getStats() {
+    const stats = await this.mediaService.getStats();
+    return {
+      success: true,
+      data: stats,
+    };
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: '获取单个媒体' })
+  async findOne(@Param('id') id: string) {
+    const media = await this.mediaService.findOne(id);
+    return {
+      success: true,
+      data: media,
+    };
+  }
+
+  @Post('upload')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: '上传单个文件' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+        },
+        tags: {
+          type: 'string',
+          description: '标签，逗号分隔',
+        },
+      },
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage,
+      fileFilter,
+      limits: {
+        fileSize: 50 * 1024 * 1024, // 50MB
+      },
+    }),
+  )
+  async uploadFile(
+    @UploadedFile() file: Express.Multer.File,
+    @Request() req: any,
+    @Body('tags') tagsString?: string,
+  ) {
+    const tags = tagsString ? tagsString.split(',').map((t) => t.trim()) : [];
+    const media = await this.mediaService.create(file, req.user.id, tags);
+
+    return {
+      success: true,
+      data: media,
+      message: '文件上传成功',
+    };
+  }
+
+  @Post('upload/multiple')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: '批量上传文件' })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(
+    FilesInterceptor('files', 10, {
+      storage,
+      fileFilter,
+      limits: {
+        fileSize: 50 * 1024 * 1024, // 50MB per file
+      },
+    }),
+  )
+  async uploadMultipleFiles(
+    @UploadedFiles() files: Express.Multer.File[],
+    @Request() req: any,
+    @Body('tags') tagsString?: string,
+  ) {
+    const tags = tagsString ? tagsString.split(',').map((t) => t.trim()) : [];
+    const results = await Promise.all(
+      files.map((file) => this.mediaService.create(file, req.user.id, tags)),
+    );
+
+    return {
+      success: true,
+      data: results,
+      message: `成功上传 ${results.length} 个文件`,
+    };
+  }
+
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: '更新媒体信息' })
+  async update(
+    @Param('id') id: string,
+    @Body() updateData: { tags?: string[] },
+  ) {
+    const media = await this.mediaService.update(id, updateData);
+    return {
+      success: true,
+      data: media,
+      message: '更新成功',
+    };
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: '删除媒体' })
+  async delete(
+    @Param('id') id: string,
+    @Query('force') force?: string,
+  ) {
+    try {
+      await this.mediaService.delete(id, force === 'true');
+      return {
+        success: true,
+        message: '删除成功',
+      };
+    } catch (error: any) {
+      // 处理文件被引用的情况，返回详细的引用信息
+      if (error.status === HttpStatus.CONFLICT) {
+        const response = error.getResponse();
+        const responseData = typeof response === 'object' ? response : { message: response };
+        throw new HttpException(
+          {
+            success: false,
+            message: responseData.message || '该媒体文件正在被使用，无法删除',
+            references: responseData.references || [],
+            usages: responseData.usages || [],
+          },
+          HttpStatus.CONFLICT,
+        );
+      }
+      throw error;
+    }
+  }
+
+  @Post('batch/delete')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: '批量删除媒体' })
+  async deleteMany(@Body() body: { ids: string[]; force?: boolean }) {
+    const ids = body.ids || [];
+    if (ids.length === 0) {
+      return {
+        success: false,
+        message: '请选择要删除的文件',
+      };
+    }
+    try {
+      await this.mediaService.deleteMany(ids, body.force === true);
+      return {
+        success: true,
+        message: `成功删除 ${ids.length} 个文件`,
+      };
+    } catch (error: any) {
+      // 处理文件被引用的情况，返回详细的引用信息
+      if (error.status === HttpStatus.CONFLICT) {
+        const response = error.getResponse();
+        const responseData = typeof response === 'object' ? response : { message: response };
+        throw new HttpException(
+          {
+            success: false,
+            message: responseData.message || '部分媒体文件正在被使用，无法删除',
+            referencedMedia: responseData.referencedMedia || [],
+          },
+          HttpStatus.CONFLICT,
+        );
+      }
+      throw error;
+    }
+  }
+
+  @Get(':id/references')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: '检查媒体引用' })
+  async checkReferences(@Param('id') id: string) {
+    const media = await this.mediaService.findOne(id);
+    const references = await this.mediaService.checkReferences(media.url);
+    return {
+      success: true,
+      data: {
+        hasReferences: references.length > 0,
+        references,
+      },
+    };
   }
 }

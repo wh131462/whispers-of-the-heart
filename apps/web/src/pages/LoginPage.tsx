@@ -11,7 +11,7 @@ const LoginPage: React.FC = () => {
   const navigate = useNavigate()
   const { login, isLoading } = useAuthStore()
   
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
@@ -20,27 +20,27 @@ const LoginPage: React.FC = () => {
     e.preventDefault()
     setError('')
 
-    if (!email || !password) {
-      setError('请填写邮箱和密码')
+    if (!identifier || !password) {
+      setError('请填写用户名/邮箱和密码')
       return
     }
 
-    const success = await login(email, password)
+    const success = await login(identifier, password)
     if (success) {
       navigate('/')
     } else {
-      setError('邮箱或密码错误')
+      setError('用户名/邮箱或密码错误')
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-background py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+          <h2 className="mt-6 text-3xl font-extrabold text-foreground">
             登录账户
           </h2>
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-2 text-sm text-muted-foreground">
             还没有账户？
             <Link to="/register" className="font-medium text-primary hover:text-primary/80 ml-1">
               立即注册
@@ -55,25 +55,25 @@ const LoginPage: React.FC = () => {
               <span>登录</span>
             </CardTitle>
             <CardDescription>
-              请输入您的邮箱和密码登录
+              请输入您的用户名或邮箱登录
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md text-sm">
+                <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md text-sm">
                   {error}
                 </div>
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="email">邮箱</Label>
+                <Label htmlFor="identifier">用户名 / 邮箱</Label>
                 <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="请输入邮箱"
+                  id="identifier"
+                  type="text"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder="请输入用户名或邮箱"
                   required
                 />
               </div>

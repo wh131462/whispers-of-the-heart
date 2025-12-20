@@ -121,8 +121,8 @@ const FavoritesPage: React.FC = () => {
       {/* 页面头部 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">我的收藏</h1>
-          <p className="text-lg text-gray-600">共收藏了 {total} 篇文章</p>
+          <h1 className="text-4xl font-bold text-foreground mb-2">我的收藏</h1>
+          <p className="text-lg text-muted-foreground">共收藏了 {total} 篇文章</p>
         </div>
         <Link to="/" className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="h-4 w-4 mr-2" />
@@ -142,13 +142,13 @@ const FavoritesPage: React.FC = () => {
       ) : (
         <Card>
           <CardContent className="py-12 text-center">
-            <div className="text-gray-400 mb-4">
+            <div className="text-muted-foreground mb-4">
               <Bookmark className="h-12 w-12 mx-auto" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
+            <h3 className="text-lg font-medium text-foreground mb-2">
               还没有收藏任何文章
             </h3>
-            <p className="text-gray-500 mb-6">
+            <p className="text-muted-foreground mb-6">
               去浏览一些有趣的文章并收藏它们吧！
             </p>
             <Link 

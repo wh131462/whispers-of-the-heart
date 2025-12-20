@@ -1,6 +1,18 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { Calendar, Eye, Heart, MessageCircle, Tag, Share2, Bookmark, ArrowLeft, FileX, Home, FileText } from 'lucide-react'
+import {
+  Calendar,
+  Eye,
+  Heart,
+  MessageCircle,
+  Tag,
+  Share2,
+  Bookmark,
+  ArrowLeft,
+  FileX,
+  Home,
+  FileText,
+} from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { MarkdownRenderer } from '@whispers/ui'
 import CommentForm from '../components/CommentForm'
@@ -11,20 +23,19 @@ import { blogApi } from '../services/blogApi'
 import { useAuthStore } from '../stores/useAuthStore'
 import { useToast } from '../contexts/ToastContext'
 import { api } from '@whispers/utils'
+import { FilePreviewModal, type PreviewFileLink } from '@eternalheart/react-file-preview'
+import '@eternalheart/react-file-preview/style.css'
 
 interface Post {
   id: string
   title: string
   content: string
   excerpt: string | null
-  status: string
-  category: string | null
   coverImage?: string | null
   createdAt: string
   updatedAt: string
   views: number
   likes: number
-  comments: number
   author: {
     id: string
     username: string
@@ -32,15 +43,11 @@ interface Post {
   }
   postTags: Array<{
     id: string
-    postId: string
-    tagId: string
     tag: {
       id: string
       name: string
       slug: string
       color?: string | null
-      createdAt: string
-      updatedAt: string
     }
   }>
   _count: {
@@ -48,7 +55,6 @@ interface Post {
     postLikes: number
   }
 }
-
 
 const PostDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>()
@@ -67,6 +73,164 @@ const PostDetailPage: React.FC = () => {
   const { isAuthenticated } = useAuthStore()
   const { addToast } = useToast()
 
+  // 文件预览状态
+  const [previewFiles, setPreviewFiles] = useState<PreviewFileLink[]>([])
+  const [previewIndex, setPreviewIndex] = useState(0)
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
+  const contentRef = useRef<HTMLDivElement>(null)
+
+  // 根据 URL 获取文件类型
+  const getMimeType = useCallback((url: string): string => {
+    const ext = url.split('.').pop()?.toLowerCase() || ''
+    const mimeTypes: Record<string, string> = {
+      // 图片
+      jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
+      webp: 'image/webp', svg: 'image/svg+xml', ico: 'image/x-icon', bmp: 'image/bmp',
+      // 视频
+      mp4: 'video/mp4', webm: 'video/webm', ogg: 'video/ogg', mov: 'video/quicktime',
+      avi: 'video/x-msvideo', mkv: 'video/x-matroska',
+      // 音频
+      mp3: 'audio/mpeg', wav: 'audio/wav', flac: 'audio/flac', aac: 'audio/aac',
+      m4a: 'audio/mp4', wma: 'audio/x-ms-wma',
+      // 文档
+      pdf: 'application/pdf', doc: 'application/msword',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      xls: 'application/vnd.ms-excel',
+      xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      ppt: 'application/vnd.ms-powerpoint',
+      pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      txt: 'text/plain', md: 'text/markdown', json: 'application/json',
+    }
+    return mimeTypes[ext] || 'application/octet-stream'
+  }, [])
+
+  // 收集内容中的所有媒体文件
+  const collectMediaFiles = useCallback((): PreviewFileLink[] => {
+    const files: PreviewFileLink[] = []
+    if (!contentRef.current) return files
+
+    // 收集图片
+    const images = contentRef.current.querySelectorAll('img')
+    images.forEach((img, index) => {
+      files.push({
+        id: `img-${index}`,
+        name: img.alt || `图片 ${index + 1}`,
+        url: img.src,
+        type: getMimeType(img.src)
+      })
+    })
+
+    // 收集视频
+    const videos = contentRef.current.querySelectorAll('video')
+    videos.forEach((video, index) => {
+      const src = video.src || video.querySelector('source')?.src
+      if (src) {
+        files.push({
+          id: `video-${index}`,
+          name: `视频 ${index + 1}`,
+          url: src,
+          type: getMimeType(src)
+        })
+      }
+    })
+
+    // 收集音频
+    const audios = contentRef.current.querySelectorAll('audio')
+    audios.forEach((audio, index) => {
+      const src = audio.src || audio.querySelector('source')?.src
+      if (src) {
+        files.push({
+          id: `audio-${index}`,
+          name: `音频 ${index + 1}`,
+          url: src,
+          type: getMimeType(src)
+        })
+      }
+    })
+
+    // 收集指向媒体文件的链接
+    const links = contentRef.current.querySelectorAll('a[href]')
+    const mediaExtensions = /\.(jpg|jpeg|png|gif|webp|svg|mp4|webm|ogg|mov|mp3|wav|flac|pdf|doc|docx|xls|xlsx|ppt|pptx)$/i
+    links.forEach((link, index) => {
+      const href = (link as HTMLAnchorElement).href
+      if (mediaExtensions.test(href)) {
+        // 避免重复添加已经作为 img/video/audio 收集的文件
+        if (!files.find(f => f.url === href)) {
+          files.push({
+            id: `link-${index}`,
+            name: link.textContent || `文件 ${index + 1}`,
+            url: href,
+            type: getMimeType(href)
+          })
+        }
+      }
+    })
+
+    return files
+  }, [getMimeType])
+
+  // 处理内容区域的点击
+  const handleContentClick = useCallback((e: React.MouseEvent) => {
+    const target = e.target as HTMLElement
+
+    // 处理图片点击
+    if (target.tagName === 'IMG') {
+      e.preventDefault()
+      const img = target as HTMLImageElement
+      const files = collectMediaFiles()
+      const clickedIndex = files.findIndex(f => f.url === img.src)
+      setPreviewFiles(files)
+      setPreviewIndex(clickedIndex >= 0 ? clickedIndex : 0)
+      setIsPreviewOpen(true)
+      return
+    }
+
+    // 处理视频点击
+    if (target.tagName === 'VIDEO' || target.closest('video')) {
+      e.preventDefault()
+      const video = (target.tagName === 'VIDEO' ? target : target.closest('video')) as HTMLVideoElement
+      const src = video.src || video.querySelector('source')?.src
+      if (src) {
+        const files = collectMediaFiles()
+        const clickedIndex = files.findIndex(f => f.url === src)
+        setPreviewFiles(files)
+        setPreviewIndex(clickedIndex >= 0 ? clickedIndex : 0)
+        setIsPreviewOpen(true)
+      }
+      return
+    }
+
+    // 处理音频点击
+    if (target.tagName === 'AUDIO' || target.closest('audio')) {
+      e.preventDefault()
+      const audio = (target.tagName === 'AUDIO' ? target : target.closest('audio')) as HTMLAudioElement
+      const src = audio.src || audio.querySelector('source')?.src
+      if (src) {
+        const files = collectMediaFiles()
+        const clickedIndex = files.findIndex(f => f.url === src)
+        setPreviewFiles(files)
+        setPreviewIndex(clickedIndex >= 0 ? clickedIndex : 0)
+        setIsPreviewOpen(true)
+      }
+      return
+    }
+
+    // 处理媒体文件链接点击
+    const link = target.closest('a[href]') as HTMLAnchorElement | null
+    if (link) {
+      const href = link.href
+      const mediaExtensions = /\.(jpg|jpeg|png|gif|webp|svg|mp4|webm|ogg|mov|mp3|wav|flac|pdf|doc|docx|xls|xlsx|ppt|pptx)$/i
+      if (mediaExtensions.test(href)) {
+        e.preventDefault()
+        const files = collectMediaFiles()
+        const clickedIndex = files.findIndex(f => f.url === href)
+        setPreviewFiles(files)
+        setPreviewIndex(clickedIndex >= 0 ? clickedIndex : 0)
+        setIsPreviewOpen(true)
+      }
+    }
+  }, [collectMediaFiles])
+
   useEffect(() => {
     if (slug) {
       fetchPost(slug)
@@ -83,78 +247,29 @@ const PostDetailPage: React.FC = () => {
         setPost(postData)
         setCommentCount(postData._count?.postComments || 0)
         setLikesCount(postData.likes || 0)
-          
-          // 如果用户已登录，获取点赞和收藏状态
-          if (isAuthenticated) {
-            try {
-              const [likeStatus, favoriteStatus] = await Promise.all([
-                blogApi.getLikeStatus(postData.id),
-                blogApi.getFavoriteStatus(postData.id)
-              ])
-              setIsLiked(likeStatus.liked)
-              setIsBookmarked(favoriteStatus.favorited)
-            } catch (error) {
-              console.error('Failed to fetch like/favorite status:', error)
-              // 如果获取状态失败，重置为默认值
-              setIsLiked(false)
-              setIsBookmarked(false)
-            }
-          } else {
-            // 如果用户未登录，重置状态
+
+        if (isAuthenticated) {
+          try {
+            const [likeStatus, favoriteStatus] = await Promise.all([
+              blogApi.getLikeStatus(postData.id),
+              blogApi.getFavoriteStatus(postData.id),
+            ])
+            setIsLiked(likeStatus.liked)
+            setIsBookmarked(favoriteStatus.favorited)
+          } catch (error) {
             setIsLiked(false)
             setIsBookmarked(false)
           }
+        }
       } else {
-        // 文章不存在或获取失败
         setPost(null)
       }
     } catch (error) {
       console.error('Failed to fetch post:', error)
-      // API请求失败，不设置post，让页面显示"文章未找到"
       setPost(null)
     } finally {
       setLoading(false)
     }
-  }
-
-  if (loading) {
-    return (
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-lg text-muted-foreground">加载中...</div>
-        </div>
-      </div>
-    )
-  }
-
-  if (!post) {
-    return (
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center py-12">
-          <div className="w-16 h-16 mx-auto mb-4 bg-muted rounded-full flex items-center justify-center">
-            <FileX className="w-8 h-8 text-muted-foreground" />
-          </div>
-          <h1 className="text-2xl font-bold mb-4">文章未找到</h1>
-          <p className="text-muted-foreground mb-6">抱歉，您访问的文章不存在或已被删除。</p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link 
-              to="/" 
-              className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-            >
-              <Home className="w-4 h-4 mr-2" />
-              返回首页
-            </Link>
-            <Link 
-              to="/posts" 
-              className="inline-flex items-center px-4 py-2 border border-input bg-background rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
-            >
-              <FileText className="w-4 h-4 mr-2" />
-              浏览文章
-            </Link>
-          </div>
-        </div>
-      </div>
-    )
   }
 
   const handleLike = async () => {
@@ -171,19 +286,13 @@ const PostDetailPage: React.FC = () => {
       const result = await blogApi.toggleLike(post.id)
       setIsLiked(result.liked)
       setLikesCount(result.likesCount)
-      
+
       addToast({
         title: result.liked ? '点赞成功' : '取消点赞',
-        description: result.liked ? '感谢您的支持！' : '已取消点赞',
-        variant: 'success'
+        variant: 'success',
       })
     } catch (error) {
-      console.error('Failed to toggle like:', error)
-      addToast({
-        title: '操作失败',
-        description: '请稍后重试',
-        variant: 'destructive'
-      })
+      addToast({ title: '操作失败', variant: 'destructive' })
     } finally {
       setIsLikeLoading(false)
     }
@@ -202,19 +311,13 @@ const PostDetailPage: React.FC = () => {
       setIsFavoriteLoading(true)
       const result = await blogApi.toggleFavorite(post.id)
       setIsBookmarked(result.favorited)
-      
+
       addToast({
         title: result.favorited ? '收藏成功' : '取消收藏',
-        description: result.favorited ? '文章已添加到收藏' : '已取消收藏',
-        variant: 'success'
+        variant: 'success',
       })
     } catch (error) {
-      console.error('Failed to toggle favorite:', error)
-      addToast({
-        title: '操作失败',
-        description: '请稍后重试',
-        variant: 'destructive'
-      })
+      addToast({ title: '操作失败', variant: 'destructive' })
     } finally {
       setIsFavoriteLoading(false)
     }
@@ -230,317 +333,242 @@ const PostDetailPage: React.FC = () => {
           text: post.excerpt || post.title,
           url: window.location.href,
         })
-        addToast({
-          title: '分享成功',
-          description: '感谢您的分享！',
-          variant: 'success'
-        })
       } else {
-        // 降级到复制链接
-        await blogApi.sharePost(post.id, 'copy')
-        addToast({
-          title: '链接已复制',
-          description: '文章链接已复制到剪贴板',
-          variant: 'success'
-        })
+        await navigator.clipboard.writeText(window.location.href)
+        addToast({ title: '链接已复制', variant: 'success' })
       }
     } catch (error) {
-      console.error('Failed to share:', error)
-      // 如果分享失败，尝试复制链接
       try {
-        await blogApi.sharePost(post.id, 'copy')
-        addToast({
-          title: '链接已复制',
-          description: '文章链接已复制到剪贴板',
-          variant: 'success'
-        })
-      } catch (copyError) {
-        console.error('Failed to copy link:', copyError)
-        addToast({
-          title: '分享失败',
-          description: '请手动复制链接',
-          variant: 'destructive'
-        })
+        await navigator.clipboard.writeText(window.location.href)
+        addToast({ title: '链接已复制', variant: 'success' })
+      } catch {
+        addToast({ title: '分享失败', variant: 'destructive' })
       }
     }
   }
 
-  const handleConfirmLogin = () => {
-    setShowLoginDialog(true)
+  if (loading) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-0 py-12 sm:py-20">
+        <div className="flex items-center justify-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </div>
+    )
   }
 
-  const getConfirmDialogProps = () => {
-    if (pendingAction === 'like') {
-      return {
-        title: '需要登录才能点赞',
-        description: '登录后即可为喜欢的文章点赞，是否前往登录页面？',
-        confirmText: '前往登录',
-        variant: 'default' as const
-      }
-    } else if (pendingAction === 'bookmark') {
-      return {
-        title: '需要登录才能收藏',
-        description: '登录后即可收藏喜欢的文章，是否前往登录页面？',
-        confirmText: '前往登录',
-        variant: 'bookmark' as const
-      }
-    }
-    return {
-      title: '需要登录',
-      description: '请先登录后再进行此操作',
-      confirmText: '前往登录',
-      variant: 'default' as const
-    }
+  if (!post) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-0 py-12 sm:py-20 text-center">
+        <FileX className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-4 sm:mb-6 text-muted-foreground" />
+        <h1 className="text-xl sm:text-2xl font-serif mb-3 sm:mb-4">文章未找到</h1>
+        <p className="text-sm sm:text-base text-muted-foreground mb-6 sm:mb-8">抱歉，您访问的文章不存在或已被删除。</p>
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
+          <Link to="/">
+            <Button variant="outline" className="w-full sm:w-auto">
+              <Home className="w-4 h-4 mr-2" />
+              返回首页
+            </Button>
+          </Link>
+          <Link to="/posts">
+            <Button className="w-full sm:w-auto">
+              <FileText className="w-4 h-4 mr-2" />
+              浏览文章
+            </Button>
+          </Link>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      {/* 返回按钮 */}
-      <div>
-        <Link to="/" className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          返回首页
-        </Link>
-      </div>
+    <article className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-0">
+      {/* 返回链接 */}
+      <Link
+        to="/posts"
+        className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6 md:mb-8"
+      >
+        <ArrowLeft className="h-4 w-4 mr-1" />
+        返回文章列表
+      </Link>
 
       {/* 文章头部 */}
-      <div className="space-y-6">
-        {/* 分类标签 */}
-        {post.category && (
-          <div className="flex items-center space-x-2">
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary/10 text-primary">
-              {post.category}
-            </span>
-          </div>
-        )}
-
-        {/* 文章标题 */}
-        <h1 className="text-4xl font-bold tracking-tight text-foreground leading-tight">
+      <header className="mb-8 md:mb-12">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-serif font-bold leading-tight mb-4 md:mb-6">
           {post.title}
         </h1>
 
-        {/* 文章摘要 */}
         {post.excerpt && (
-          <p className="text-lg text-muted-foreground leading-relaxed">
+          <p className="text-base sm:text-lg md:text-xl text-muted-foreground leading-relaxed mb-4 md:mb-6 font-serif italic">
             {post.excerpt}
           </p>
         )}
 
-        {/* 文章元信息 */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          <div className="flex items-center space-x-6 text-sm text-muted-foreground">
-            {/* 作者信息 */}
-            <div className="flex items-center space-x-2">
-              <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
-                {post.author.avatar ? (
-                  <img 
-                    src={post.author.avatar} 
-                    alt={post.author.username}
-                    className="w-6 h-6 rounded-full object-cover"
-                  />
-                ) : (
-                  <span className="text-xs font-medium text-primary">
-                    {post.author.username.charAt(0).toUpperCase()}
-                  </span>
-                )}
-              </div>
-              <span>作者：{post.author.username}</span>
+        {/* 元信息 */}
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+              {post.author.avatar ? (
+                <img
+                  src={post.author.avatar}
+                  alt={post.author.username}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-xs sm:text-sm font-medium text-primary">
+                  {post.author.username.charAt(0).toUpperCase()}
+                </span>
+              )}
             </div>
-            
-            {/* 发布时间 */}
-            <div className="flex items-center space-x-1">
-              <Calendar className="w-4 h-4" />
-              <span>{new Date(post.createdAt).toLocaleDateString('zh-CN')}</span>
-            </div>
-            
-            {/* 阅读量 */}
-            <div className="flex items-center space-x-1">
-              <Eye className="w-4 h-4" />
-              <span>{post.views} 次阅读</span>
-            </div>
+            <span>{post.author.username}</span>
           </div>
 
-          {/* 文章统计 */}
-          <div className="flex items-center space-x-6 text-sm text-muted-foreground">
-            <div className="flex items-center space-x-1">
-              <Heart className="w-4 h-4" />
-              <span>{likesCount} 次点赞</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <MessageCircle className="w-4 h-4" />
-              <span>{commentCount} 条评论</span>
-            </div>
+          <span className="text-muted-foreground/50 hidden sm:inline">·</span>
+
+          <div className="flex items-center gap-1">
+            <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
+            <span>
+              {new Date(post.createdAt).toLocaleDateString('zh-CN', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+              })}
+            </span>
+          </div>
+
+          <span className="text-muted-foreground/50 hidden sm:inline">·</span>
+
+          <div className="flex items-center gap-1">
+            <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+            <span>{post.views} 阅读</span>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* 特色图片 */}
+      {/* 封面图 */}
       {post.coverImage && (
-        <div className="aspect-video overflow-hidden rounded-lg">
+        <figure className="mb-8 md:mb-12 -mx-4 sm:mx-0">
           <img
             src={post.coverImage}
             alt={post.title}
-            className="w-full h-full object-cover"
+            className="w-full sm:rounded-lg object-cover max-h-[300px] sm:max-h-[400px] md:max-h-[500px]"
           />
-        </div>
+        </figure>
       )}
 
       {/* 文章内容 */}
-      <div className="max-w-none">
-        <MarkdownRenderer 
-          content={post.content}
-          className="max-w-none"
-        />
+      <div
+        ref={contentRef}
+        onClick={handleContentClick}
+        className="prose prose-sm sm:prose-base md:prose-lg dark:prose-invert max-w-none mb-8 md:mb-12 overflow-x-auto [&_img]:cursor-pointer [&_img]:transition-opacity [&_img:hover]:opacity-90 [&_video]:cursor-pointer [&_audio]:cursor-pointer"
+      >
+        <MarkdownRenderer content={post.content} className="prose-article" />
       </div>
-
-      {/* 文章操作区域 */}
-      <div className="space-y-6">
-        {/* 操作按钮 */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-6 bg-muted/30 rounded-lg border">
-          <div className="flex items-center space-x-4">
-            <h3 className="text-lg font-medium text-foreground">喜欢这篇文章？</h3>
-            <p className="text-sm text-muted-foreground">支持作者，分享给更多人</p>
-          </div>
-          
-          <div className="flex items-center space-x-3">
-            <Button
-              variant={isLiked ? 'default' : 'outline'}
-              size="lg"
-              onClick={handleLike}
-              disabled={isLikeLoading || !isAuthenticated}
-              className="min-w-[100px]"
-            >
-              <Heart className={`h-5 w-5 mr-2 ${isLiked ? 'fill-current' : ''}`} />
-              {isLikeLoading ? '...' : `${likesCount} 点赞`}
-            </Button>
-
-            <Button
-              variant={isBookmarked ? 'default' : 'outline'}
-              size="lg"
-              onClick={handleBookmark}
-              disabled={isFavoriteLoading || !isAuthenticated}
-              className="min-w-[100px]"
-            >
-              <Bookmark className={`h-5 w-5 mr-2 ${isBookmarked ? 'fill-current' : ''}`} />
-              {isFavoriteLoading ? '...' : '收藏'}
-            </Button>
-
-            <Button 
-              variant="outline" 
-              size="lg" 
-              onClick={handleShare}
-              className="min-w-[100px]"
-            >
-              <Share2 className="h-5 w-5 mr-2" />
-              分享
-            </Button>
-          </div>
-        </div>
-
-        {/* CC授权说明 */}
-        <div className="p-6 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-          <div className="flex items-start space-x-3">
-            <div className="flex-shrink-0">
-              <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-                <span className="text-blue-600 dark:text-blue-400 font-bold text-sm">CC</span>
-              </div>
-            </div>
-            <div className="flex-1">
-              <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">
-                知识共享许可协议
-              </h4>
-              <p className="text-sm text-blue-700 dark:text-blue-300 leading-relaxed">
-                本文采用 <a 
-                  href="https://creativecommons.org/licenses/by-nc-sa/4.0/" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="underline hover:no-underline font-medium"
-                >
-                  CC BY-NC-SA 4.0
-                </a> 许可协议。您可以自由地：
-              </p>
-              <ul className="text-sm text-blue-700 dark:text-blue-300 mt-2 space-y-1">
-                <li>• <strong>分享</strong> — 在任何媒介以任何形式复制、发行本作品</li>
-                <li>• <strong>演绎</strong> — 修改、转换或以本作品为基础进行创作</li>
-                <li>• <strong>署名</strong> — 您必须给出适当的署名，提供指向本许可协议的链接</li>
-                <li>• <strong>非商业性使用</strong> — 您不得将本作品用于商业目的</li>
-                <li>• <strong>相同方式共享</strong> — 如果您修改、转换或以本作品为基础进行创作，您必须基于与原先许可协议相同的许可协议分发您贡献的作品</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-
 
       {/* 标签 */}
-      <div className="space-y-2">
-        <h3 className="text-sm font-medium text-muted-foreground">标签</h3>
-        {post.postTags && post.postTags.length > 0 ? (
-          <div className="flex flex-wrap gap-2">
-            {post.postTags.map((postTag) => (
-              <span
-                key={postTag.id}
-                className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-secondary text-secondary-foreground"
-                style={{ 
-                  backgroundColor: postTag.tag.color ? `${postTag.tag.color}20` : undefined,
-                  color: postTag.tag.color || undefined
-                }}
-              >
-                <Tag className="h-3 w-3 mr-1" />
-                {postTag.tag.name}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">暂无标签</p>
-        )}
+      {post.postTags && post.postTags.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-8 md:mb-12">
+          {post.postTags.map((postTag) => (
+            <span
+              key={postTag.id}
+              className="inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm bg-secondary/50 text-secondary-foreground"
+            >
+              <Tag className="h-3 w-3 mr-1 sm:mr-1.5" />
+              {postTag.tag.name}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* 操作栏 */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0 py-4 sm:py-6 border-y mb-8 md:mb-12">
+        <div className="flex items-center gap-1 sm:gap-2 w-full sm:w-auto">
+          <Button
+            variant={isLiked ? 'default' : 'ghost'}
+            size="sm"
+            onClick={handleLike}
+            disabled={isLikeLoading}
+            className="flex-1 sm:flex-none"
+          >
+            <Heart className={`h-4 w-4 mr-1 sm:mr-1.5 ${isLiked ? 'fill-current' : ''}`} />
+            <span className="hidden sm:inline">{likesCount}</span>
+            <span className="sm:hidden">{likesCount}</span>
+          </Button>
+
+          <Button
+            variant={isBookmarked ? 'default' : 'ghost'}
+            size="sm"
+            onClick={handleBookmark}
+            disabled={isFavoriteLoading}
+            className="flex-1 sm:flex-none"
+          >
+            <Bookmark className={`h-4 w-4 mr-1 sm:mr-1.5 ${isBookmarked ? 'fill-current' : ''}`} />
+            <span className="hidden sm:inline">收藏</span>
+            <span className="sm:hidden">藏</span>
+          </Button>
+
+          <Button variant="ghost" size="sm" onClick={handleShare} className="flex-1 sm:flex-none">
+            <Share2 className="h-4 w-4 mr-1 sm:mr-1.5" />
+            <span className="hidden sm:inline">分享</span>
+            <span className="sm:hidden">享</span>
+          </Button>
+        </div>
+
+        <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground">
+          <MessageCircle className="h-4 w-4" />
+          <span>{commentCount} 评论</span>
+        </div>
       </div>
 
+      {/* 评论区 */}
+      <section className="space-y-6 sm:space-y-8">
+        <h2 className="text-xl sm:text-2xl font-serif font-bold">评论</h2>
 
-      {/* 评论区域 */}
-      <div className="mt-12 space-y-6">
-        <h2 className="text-2xl font-bold">评论</h2>
-        
-        {/* 评论表单 */}
-        <CommentForm 
-          postId={post.id} 
+        <CommentForm
+          postId={post.id}
           onCommentAdded={() => {
-            // 触发评论列表刷新
-            setCommentRefreshKey(prev => prev + 1)
-            // 增加评论数量
-            setCommentCount(prev => prev + 1)
+            setCommentRefreshKey((prev) => prev + 1)
+            setCommentCount((prev) => prev + 1)
           }}
         />
-        
-        {/* 评论列表 */}
-        <CommentList 
-          key={commentRefreshKey} 
-          postId={post.id} 
+
+        <CommentList
+          key={commentRefreshKey}
+          postId={post.id}
           onCommentCountChange={setCommentCount}
         />
-      </div>
+      </section>
 
-      {/* 登录对话框 */}
+      {/* 对话框 */}
       <LoginDialog
         isOpen={showLoginDialog}
         onClose={() => setShowLoginDialog(false)}
         title="需要登录"
-        description="请先登录后再进行点赞或收藏操作"
+        description="请先登录后再进行操作"
       />
 
-      {/* 确认对话框 */}
       <ConfirmDialog
         isOpen={showConfirmDialog}
         onClose={() => {
           setShowConfirmDialog(false)
           setPendingAction(null)
         }}
-        onConfirm={handleConfirmLogin}
-        {...getConfirmDialogProps()}
+        onConfirm={() => setShowLoginDialog(true)}
+        title={pendingAction === 'like' ? '需要登录才能点赞' : '需要登录才能收藏'}
+        description="是否前往登录页面？"
+        confirmText="前往登录"
       />
-    </div>
+
+      {/* 文件预览 */}
+      <FilePreviewModal
+        files={previewFiles}
+        currentIndex={previewIndex}
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        onNavigate={setPreviewIndex}
+      />
+    </article>
   )
 }
 
 export default PostDetailPage
-

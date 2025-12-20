@@ -1,20 +1,23 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CreatePostDto, UpdatePostDto, CreateTagDto, UpdateTagDto } from './dto/blog.dto';
-import { PostStatus } from '@prisma/client';
+import { MediaUsageService } from '../media/media-usage.service';
 
 @Injectable()
 export class BlogService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private mediaUsageService: MediaUsageService,
+  ) {}
 
   // 文章相关方法
   async createPost(createPostDto: CreatePostDto, authorId: string) {
-    const { tags, ...postData } = createPostDto;
+    const { tags, published, ...postData } = createPostDto;
 
     // 验证作者是否存在
     const author = await this.prisma.user.findUnique({
       where: { id: authorId },
-      select: { id: true, username: true, role: true }
+      select: { id: true, username: true, isAdmin: true }
     });
 
     if (!author) {
@@ -30,7 +33,8 @@ export class BlogService {
         ...postData,
         slug,
         authorId,
-        publishedAt: postData.status === PostStatus.PUBLISHED ? new Date() : null,
+        published: published || false,
+        publishedAt: published ? new Date() : null,
       },
       include: {
         author: {
@@ -53,32 +57,35 @@ export class BlogService {
       await this.handlePostTags(post.id, tags);
     }
 
+    // 同步媒体使用记录
+    if (postData.coverImage) {
+      await this.mediaUsageService.syncDirectUsage('post', post.id, 'coverImage', postData.coverImage);
+    }
+    if (postData.content) {
+      await this.mediaUsageService.syncContentUsage('post', post.id, 'content', postData.content);
+    }
+
     return this.findOnePost(post.id);
   }
 
-  async findAllPosts(page = 1, limit = 10, search?: string, status?: PostStatus, category?: string) {
+  async findAllPosts(page = 1, limit = 10, search?: string, published?: boolean) {
     try {
-      // 确保page和limit是数字类型
       const pageNum = Number(page) || 1;
       const limitNum = Number(limit) || 10;
       const skip = (pageNum - 1) * limitNum;
 
       const where: any = {};
-      
+
       if (search) {
         where.OR = [
-          { title: { contains: search } },
-          { content: { contains: search } },
-          { excerpt: { contains: search } },
+          { title: { contains: search, mode: 'insensitive' } },
+          { content: { contains: search, mode: 'insensitive' } },
+          { excerpt: { contains: search, mode: 'insensitive' } },
         ];
       }
 
-      if (status) {
-        where.status = status;
-      }
-
-      if (category) {
-        where.category = category;
+      if (published !== undefined) {
+        where.published = published;
       }
 
       const [posts, total] = await Promise.all([
@@ -126,6 +133,112 @@ export class BlogService {
     }
   }
 
+  // 高级搜索方法
+  async searchPosts(options: {
+    query?: string;
+    page?: number;
+    limit?: number;
+    tag?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+  }) {
+    try {
+      const {
+        query,
+        page = 1,
+        limit = 20,
+        tag,
+        sortBy = 'createdAt',
+        sortOrder = 'desc'
+      } = options;
+
+      const pageNum = Number(page) || 1;
+      const limitNum = Number(limit) || 20;
+      const skip = (pageNum - 1) * limitNum;
+
+      const where: any = {
+        published: true, // 只搜索已发布的文章
+      };
+
+      // 搜索关键词
+      if (query) {
+        where.OR = [
+          { title: { contains: query, mode: 'insensitive' } },
+          { content: { contains: query, mode: 'insensitive' } },
+          { excerpt: { contains: query, mode: 'insensitive' } },
+        ];
+      }
+
+      // 标签筛选
+      if (tag) {
+        where.postTags = {
+          some: {
+            tag: {
+              OR: [
+                { id: tag },
+                { slug: tag },
+                { name: tag }
+              ]
+            }
+          }
+        };
+      }
+
+      // 排序选项
+      const orderBy: any = {};
+      if (sortBy === 'views') {
+        orderBy.views = sortOrder;
+      } else if (sortBy === 'publishedAt') {
+        orderBy.publishedAt = sortOrder;
+      } else {
+        orderBy.createdAt = sortOrder;
+      }
+
+      const [posts, total] = await Promise.all([
+        this.prisma.post.findMany({
+          where,
+          skip,
+          take: limitNum,
+          include: {
+            author: {
+              select: {
+                id: true,
+                username: true,
+                avatar: true,
+              },
+            },
+            postTags: {
+              include: {
+                tag: true,
+              },
+            },
+            _count: {
+              select: {
+                postComments: true,
+                postLikes: true,
+              },
+            },
+          },
+          orderBy,
+        }),
+        this.prisma.post.count({ where }),
+      ]);
+
+      return {
+        items: posts,
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum),
+        hasNext: pageNum < Math.ceil(total / limitNum),
+        hasPrev: pageNum > 1,
+      };
+    } catch (error) {
+      console.error('Error in searchPosts:', error);
+      throw error;
+    }
+  }
+
   async findOnePost(id: string, incrementViews: boolean = true) {
     const post = await this.prisma.post.findUnique({
       where: { id },
@@ -155,7 +268,7 @@ export class BlogService {
       throw new NotFoundException('文章不存在');
     }
 
-    // 只有在需要时才增加浏览量（用于公开访问，不用于编辑）
+    // 只有在需要时才增加浏览量
     if (incrementViews) {
       await this.prisma.post.update({
         where: { id },
@@ -166,7 +279,6 @@ export class BlogService {
     return post;
   }
 
-  // 专门用于编辑的方法，不增加访问量
   async findOnePostForEdit(id: string) {
     return this.findOnePost(id, false);
   }
@@ -202,7 +314,7 @@ export class BlogService {
 
     // 增加浏览量
     await this.prisma.post.update({
-      where: { slug },
+      where: { id: post.id },
       data: { views: { increment: 1 } },
     });
 
@@ -221,29 +333,28 @@ export class BlogService {
     // 获取当前用户信息
     const currentUser = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { role: true },
+      select: { isAdmin: true },
     });
 
     if (!currentUser) {
       throw new NotFoundException('用户不存在');
     }
 
-    // 检查权限：只有文章作者、ADMIN或EDITOR可以修改文章
+    // 检查权限：只有文章作者或管理员可以修改文章
     const isAuthor = post.authorId === userId;
-    const isAdmin = currentUser.role === 'ADMIN';
-    const isEditor = currentUser.role === 'EDITOR';
+    const isAdmin = currentUser.isAdmin;
 
-    if (!isAuthor && !isAdmin && !isEditor) {
-      throw new NotFoundException('无权限修改此文章');
+    if (!isAuthor && !isAdmin) {
+      throw new ForbiddenException('无权限修改此文章');
     }
 
-    const { tags, ...updateData } = updatePostDto;
+    const { tags, published, ...updateData } = updatePostDto;
     const dataToUpdate: any = { ...updateData };
 
     // 如果更新标题，需要重新生成 slug
     if (updateData.title && updateData.title !== post.title) {
       const newSlug = this.generateSlug(updateData.title);
-      
+
       // 检查新 slug 是否已存在
       const existingPost = await this.prisma.post.findUnique({
         where: { slug: newSlug },
@@ -256,9 +367,12 @@ export class BlogService {
       dataToUpdate.slug = newSlug;
     }
 
-    // 如果状态变为已发布，设置发布时间
-    if (updateData.status === PostStatus.PUBLISHED && post.status !== PostStatus.PUBLISHED) {
-      dataToUpdate.publishedAt = new Date();
+    // 处理发布状态
+    if (published !== undefined) {
+      dataToUpdate.published = published;
+      if (published && !post.published) {
+        dataToUpdate.publishedAt = new Date();
+      }
     }
 
     // 更新文章
@@ -272,20 +386,20 @@ export class BlogService {
       await this.handlePostTags(id, tags);
     }
 
-    return this.findOnePost(id);
+    // 同步媒体使用记录
+    if ('coverImage' in updateData) {
+      await this.mediaUsageService.syncDirectUsage('post', id, 'coverImage', updateData.coverImage);
+    }
+    if ('content' in updateData) {
+      await this.mediaUsageService.syncContentUsage('post', id, 'content', updateData.content);
+    }
+
+    return this.findOnePost(id, false);
   }
 
   async removePost(id: string, userId: string) {
     const post = await this.prisma.post.findUnique({
       where: { id },
-      include: {
-        author: {
-          select: {
-            id: true,
-            role: true,
-          },
-        },
-      },
     });
 
     if (!post) {
@@ -295,22 +409,25 @@ export class BlogService {
     // 获取当前用户信息
     const currentUser = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { role: true },
+      select: { isAdmin: true },
     });
 
     if (!currentUser) {
       throw new NotFoundException('用户不存在');
     }
 
-    // 检查权限：只有文章作者、ADMIN或EDITOR可以删除文章
+    // 检查权限：只有文章作者或管理员可以删除文章
     const isAuthor = post.authorId === userId;
-    const isAdmin = currentUser.role === 'ADMIN';
-    const isEditor = currentUser.role === 'EDITOR';
+    const isAdmin = currentUser.isAdmin;
 
-    if (!isAuthor && !isAdmin && !isEditor) {
-      throw new NotFoundException('无权限删除此文章');
+    if (!isAuthor && !isAdmin) {
+      throw new ForbiddenException('无权限删除此文章');
     }
 
+    // 删除文章的媒体使用记录
+    await this.mediaUsageService.deleteEntityUsages('post', id);
+
+    // 直接删除文章（级联删除相关的标签关联、评论、点赞等）
     await this.prisma.post.delete({
       where: { id },
     });
@@ -318,230 +435,10 @@ export class BlogService {
     return { message: '文章删除成功' };
   }
 
-  async getCategories() {
-    const categories = await this.prisma.post.groupBy({
-      by: ['category'],
-      where: {
-        category: { not: null },
-        status: PostStatus.PUBLISHED,
-      },
-      _count: {
-        category: true,
-      },
-    });
-
-    return categories.map(cat => ({
-      name: cat.category,
-      count: cat._count.category,
-    }));
-  }
-
-  // 管理员分类管理方法
-  async getAllCategories() {
-    const categories = await this.prisma.post.groupBy({
-      by: ['category'],
-      where: {
-        category: { not: null },
-      },
-      _count: {
-        category: true,
-      },
-    });
-
-    // 模拟Category对象结构
-    return categories.map(cat => ({
-      id: this.generateSlug(cat.category || 'uncategorized'), // 使用slug作为ID
-      name: cat.category || 'Uncategorized',
-      slug: this.generateSlug(cat.category || 'uncategorized'),
-      description: null,
-      color: '#3B82F6', // 默认颜色
-      postCount: cat._count.category,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }));
-  }
-
-  async getCategoryById(id: string) {
-    // 由于没有Category表，我们根据slug查找分类
-    const categoryName = id.replace(/-/g, ' '); // 简单的slug转换
-    
-    const posts = await this.prisma.post.findMany({
-      where: {
-        category: {
-          contains: categoryName,
-          mode: 'insensitive',
-        },
-      },
-    });
-
-    if (posts.length === 0) {
-      throw new NotFoundException('分类不存在');
-    }
-
-    const actualCategoryName = posts[0].category || 'Uncategorized';
-    
-    return {
-      id: this.generateSlug(actualCategoryName),
-      name: actualCategoryName,
-      slug: this.generateSlug(actualCategoryName),
-      description: null,
-      color: '#3B82F6',
-      postCount: posts.length,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-  }
-
-  async createCategory(createCategoryDto: any) {
-    const { name, description, color } = createCategoryDto;
-
-    // 检查分类是否已存在
-    const existingPosts = await this.prisma.post.findFirst({
-      where: {
-        category: name,
-      },
-    });
-
-    if (existingPosts) {
-      throw new ConflictException('分类已存在');
-    }
-
-    // 由于没有Category表，我们创建一个虚拟的分类对象
-    // 实际的分类会在创建文章时自动创建
-    return {
-      id: this.generateSlug(name),
-      name,
-      slug: this.generateSlug(name),
-      description,
-      color: color || '#3B82F6',
-      postCount: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-  }
-
-  async updateCategory(id: string, updateCategoryDto: any) {
-    const { name, description, color } = updateCategoryDto;
-    
-    // 查找使用该分类的所有文章
-    const categoryName = id.replace(/-/g, ' ');
-    const posts = await this.prisma.post.findMany({
-      where: {
-        category: {
-          contains: categoryName,
-          mode: 'insensitive',
-        },
-      },
-    });
-
-    if (posts.length === 0) {
-      throw new NotFoundException('分类不存在');
-    }
-
-    const oldCategoryName = posts[0].category;
-
-    // 如果名称发生变化，更新所有使用该分类的文章
-    if (name && name !== oldCategoryName) {
-      await this.prisma.post.updateMany({
-        where: {
-          category: oldCategoryName,
-        },
-        data: {
-          category: name,
-        },
-      });
-    }
-
-    return {
-      id: this.generateSlug(name || oldCategoryName),
-      name: name || oldCategoryName,
-      slug: this.generateSlug(name || oldCategoryName),
-      description,
-      color: color || '#3B82F6',
-      postCount: posts.length,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-  }
-
-  async deleteCategory(id: string) {
-    const categoryName = id.replace(/-/g, ' ');
-    
-    // 检查是否有文章使用该分类
-    const posts = await this.prisma.post.findMany({
-      where: {
-        category: {
-          contains: categoryName,
-          mode: 'insensitive',
-        },
-      },
-    });
-
-    if (posts.length > 0) {
-      throw new ConflictException(`无法删除分类，该分类下还有 ${posts.length} 篇文章`);
-    }
-
-    // 由于没有Category表，这里只是验证操作
-    return { message: '分类删除成功' };
-  }
-
-  async getCategoryPosts(id: string, page: number = 1, limit: number = 10) {
-    const categoryName = id.replace(/-/g, ' ');
-    
-    const posts = await this.prisma.post.findMany({
-      where: {
-        category: {
-          contains: categoryName,
-          mode: 'insensitive',
-        },
-      },
-      include: {
-        author: {
-          select: {
-            id: true,
-            username: true,
-            avatar: true,
-          },
-        },
-        postTags: {
-          include: {
-            tag: true,
-          },
-        },
-      },
-      skip: (page - 1) * limit,
-      take: limit,
-      orderBy: { createdAt: 'desc' },
-    });
-
-    const total = await this.prisma.post.count({
-      where: {
-        category: {
-          contains: categoryName,
-          mode: 'insensitive',
-        },
-      },
-    });
-
-    const processedPosts = posts.map(post => ({
-      ...post,
-      tags: post.postTags.map(pt => pt.tag.name),
-    }));
-
-    return {
-      items: processedPosts,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-    };
-  }
-
   // 标签相关方法
   async createTag(createTagDto: CreateTagDto) {
     const { name, color } = createTagDto;
 
-    // 检查标签名称是否已存在
     const existingTag = await this.prisma.tag.findUnique({
       where: { name },
     });
@@ -550,7 +447,6 @@ export class BlogService {
       throw new ConflictException('标签已存在');
     }
 
-    // 生成唯一的标签 slug
     const uniqueSlug = await this.generateUniqueTagSlug(name);
 
     const tag = await this.prisma.tag.create({
@@ -576,12 +472,10 @@ export class BlogService {
       orderBy: { name: 'asc' },
     });
 
-    // 转换为前端期望的格式
     return tags.map(tag => ({
       id: tag.id,
       name: tag.name,
       slug: tag.slug,
-      description: null, // Tag表中没有description字段
       color: tag.color,
       postCount: tag._count.postTags,
       createdAt: tag.createdAt.toISOString(),
@@ -609,7 +503,6 @@ export class BlogService {
       id: tag.id,
       name: tag.name,
       slug: tag.slug,
-      description: null,
       color: tag.color,
       postCount: tag._count.postTags,
       createdAt: tag.createdAt.toISOString(),
@@ -628,6 +521,7 @@ export class BlogService {
 
     const posts = await this.prisma.post.findMany({
       where: {
+        published: true,
         postTags: {
           some: {
             tagId: id,
@@ -655,6 +549,7 @@ export class BlogService {
 
     const total = await this.prisma.post.count({
       where: {
+        published: true,
         postTags: {
           some: {
             tagId: id,
@@ -687,10 +582,13 @@ export class BlogService {
     }
 
     const { name, color } = updateTagDto;
-    const updateData: any = { color };
+    const updateData: any = {};
+
+    if (color !== undefined) {
+      updateData.color = color;
+    }
 
     if (name && name !== tag.name) {
-      // 检查新名称是否已存在
       const existingTag = await this.prisma.tag.findUnique({
         where: { name },
       });
@@ -700,7 +598,7 @@ export class BlogService {
       }
 
       updateData.name = name;
-      updateData.slug = this.generateSlug(name);
+      updateData.slug = await this.generateUniqueTagSlug(name);
     }
 
     const updatedTag = await this.prisma.tag.update({
@@ -720,6 +618,7 @@ export class BlogService {
       throw new NotFoundException('标签不存在');
     }
 
+    // 直接删除标签（会级联删除 PostTag 关联）
     await this.prisma.tag.delete({
       where: { id },
     });
@@ -739,10 +638,15 @@ export class BlogService {
 
   private async generateUniqueSlug(title: string): Promise<string> {
     let baseSlug = this.generateSlug(title);
+
+    // 如果 baseSlug 为空，使用时间戳
+    if (!baseSlug) {
+      baseSlug = `post-${Date.now()}`;
+    }
+
     let slug = baseSlug;
     let counter = 1;
 
-    // 检查slug是否已存在，如果存在则添加数字后缀
     while (true) {
       const existingPost = await this.prisma.post.findUnique({
         where: { slug },
@@ -761,10 +665,14 @@ export class BlogService {
 
   private async generateUniqueTagSlug(name: string): Promise<string> {
     let baseSlug = this.generateSlug(name);
+
+    if (!baseSlug) {
+      baseSlug = `tag-${Date.now()}`;
+    }
+
     let slug = baseSlug;
     let counter = 1;
 
-    // 检查标签slug是否已存在，如果存在则添加数字后缀
     while (true) {
       const existingTag = await this.prisma.tag.findUnique({
         where: { slug },
@@ -795,7 +703,6 @@ export class BlogService {
         });
 
         if (!tag) {
-          // 生成唯一的标签 slug
           const uniqueSlug = await this.generateUniqueTagSlug(name);
           tag = await this.prisma.tag.create({
             data: {
@@ -824,7 +731,6 @@ export class BlogService {
 
   // 点赞相关方法
   async toggleLike(postId: string, userId: string) {
-    // 检查文章是否存在
     const post = await this.prisma.post.findUnique({
       where: { id: postId },
     });
@@ -833,7 +739,6 @@ export class BlogService {
       throw new NotFoundException('文章不存在');
     }
 
-    // 检查是否已经点赞
     const existingLike = await this.prisma.like.findUnique({
       where: {
         postId_userId: {
@@ -843,21 +748,17 @@ export class BlogService {
       },
     });
 
+    const likesCount = await this.prisma.like.count({
+      where: { postId },
+    });
+
     if (existingLike) {
-      // 取消点赞
       await this.prisma.like.delete({
         where: { id: existingLike.id },
       });
 
-      // 更新文章点赞数
-      await this.prisma.post.update({
-        where: { id: postId },
-        data: { likes: { decrement: 1 } },
-      });
-
-      return { liked: false, likesCount: post.likes - 1 };
+      return { liked: false, likesCount: likesCount - 1 };
     } else {
-      // 添加点赞
       await this.prisma.like.create({
         data: {
           postId,
@@ -865,36 +766,27 @@ export class BlogService {
         },
       });
 
-      // 更新文章点赞数
-      await this.prisma.post.update({
-        where: { id: postId },
-        data: { likes: { increment: 1 } },
-      });
-
-      return { liked: true, likesCount: post.likes + 1 };
+      return { liked: true, likesCount: likesCount + 1 };
     }
   }
 
   async getLikeStatus(postId: string, userId: string | null) {
-    // 获取文章点赞数
     const post = await this.prisma.post.findUnique({
       where: { id: postId },
-      select: { likes: true },
     });
 
     if (!post) {
       throw new NotFoundException('文章不存在');
     }
 
-    // 如果用户未登录，只返回点赞数
+    const likesCount = await this.prisma.like.count({
+      where: { postId },
+    });
+
     if (!userId) {
-      return { 
-        liked: false, 
-        likesCount: post.likes 
-      };
+      return { liked: false, likesCount };
     }
 
-    // 如果用户已登录，检查是否已点赞
     const existingLike = await this.prisma.like.findUnique({
       where: {
         postId_userId: {
@@ -904,15 +796,11 @@ export class BlogService {
       },
     });
 
-    return { 
-      liked: !!existingLike, 
-      likesCount: post.likes 
-    };
+    return { liked: !!existingLike, likesCount };
   }
 
   // 收藏相关方法
   async toggleFavorite(postId: string, userId: string) {
-    // 检查文章是否存在
     const post = await this.prisma.post.findUnique({
       where: { id: postId },
     });
@@ -921,7 +809,6 @@ export class BlogService {
       throw new NotFoundException('文章不存在');
     }
 
-    // 检查是否已经收藏
     const existingFavorite = await this.prisma.favorite.findUnique({
       where: {
         postId_userId: {
@@ -932,14 +819,12 @@ export class BlogService {
     });
 
     if (existingFavorite) {
-      // 取消收藏
       await this.prisma.favorite.delete({
         where: { id: existingFavorite.id },
       });
 
       return { favorited: false };
     } else {
-      // 添加收藏
       await this.prisma.favorite.create({
         data: {
           postId,
@@ -952,12 +837,10 @@ export class BlogService {
   }
 
   async getFavoriteStatus(postId: string, userId: string | null) {
-    // 如果用户未登录，返回未收藏状态
     if (!userId) {
       return { favorited: false };
     }
 
-    // 如果用户已登录，检查是否已收藏
     const existingFavorite = await this.prisma.favorite.findUnique({
       where: {
         postId_userId: {
@@ -1015,6 +898,26 @@ export class BlogService {
       totalPages: Math.ceil(total / limit),
       hasNext: page < Math.ceil(total / limit),
       hasPrev: page > 1,
+    };
+  }
+
+  // 站点统计方法
+  async getSiteStats() {
+    const [totalPosts, totalComments, totalLikes, viewsResult] = await Promise.all([
+      this.prisma.post.count({ where: { published: true } }),
+      this.prisma.comment.count({ where: { isApproved: true, deletedAt: null } }),
+      this.prisma.like.count(),
+      this.prisma.post.aggregate({
+        _sum: { views: true },
+        where: { published: true },
+      }),
+    ]);
+
+    return {
+      totalPosts,
+      totalComments,
+      totalViews: viewsResult._sum.views || 0,
+      totalLikes,
     };
   }
 }

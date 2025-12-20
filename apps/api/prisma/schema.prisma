@@ -13,50 +13,54 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 用户模型
+// 用户模型 - 简化版
 model User {
-  id        String   @id @default(cuid())
-  username  String   @unique
-  email     String   @unique
-  password  String
-  role      UserRole @default(USER)
-  avatar    String?
-  bio       String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(cuid())
+  username      String   @unique
+  email         String   @unique
+  password      String
+  avatar        String?
+  bio           String?
+  isAdmin       Boolean  @default(false) // 简化权限：仅区分管理员和普通用户
+  emailVerified Boolean  @default(false) // 邮箱是否已验证
+  theme         String?  @default("system") // 主题偏好：system, light, dark
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // 邮件通知偏好
+  emailNotifications Boolean @default(true)  // 是否接收邮件通知
+  notifyOnComment    Boolean @default(true)  // 有人评论我的文章时通知
+  notifyOnReply      Boolean @default(true)  // 有人回复我的评论时通知
 
   // 关联关系
-  posts     Post[]
-  comments  Comment[]
-  likes     Like[]
-  commentLikes CommentLike[]
-  favorites Favorite[]
-  refreshTokens RefreshToken[]
+  posts               Post[]
+  comments            Comment[]
+  likes               Like[]
+  commentLikes        CommentLike[]
+  favorites           Favorite[]
+  refreshTokens       RefreshToken[]
   passwordResetTokens PasswordResetToken[]
-  files     File[]
-  folders   Folder[] @relation("UserFolders")
+  verificationCodes   VerificationCode[]
+  media               Media[]
+  commentReports      CommentReport[]
 
+  @@index([email])
+  @@index([username])
   @@map("users")
-}
-
-// 用户角色枚举
-enum UserRole {
-  ADMIN
-  USER
-  EDITOR
 }
 
 // 刷新令牌模型
 model RefreshToken {
-  id          String   @id @default(cuid())
-  token       String   @unique
-  userId      String
-  expiresAt   DateTime
-  createdAt   DateTime @default(now())
-  
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
   @@map("refresh_tokens")
 }
 
@@ -72,42 +76,57 @@ model PasswordResetToken {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@index([userId])
+  @@index([expiresAt])
   @@map("password_reset_tokens")
 }
 
-// 文章模型
-model Post {
-  id          String      @id @default(cuid())
-  title       String
-  content     String      @db.Text
-  excerpt     String?
-  slug        String      @unique
-  status      PostStatus  @default(DRAFT)
-  category    String?
-  coverImage  String?
-  views       Int         @default(0)
-  likes       Int         @default(0)
-  comments    Int         @default(0)
-  publishedAt DateTime?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  
-  // 关联关系
-  authorId    String
-  author      User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  postTags    PostTag[]
-  postComments Comment[]
-  postLikes   Like[]
-  postFavorites Favorite[]
+// 验证码模型 - 用于邮箱验证和邮箱更换
+model VerificationCode {
+  id        String   @id @default(cuid())
+  code      String   // 6位数字验证码
+  type      String   // 'register' | 'email_change'
+  email     String   // 目标邮箱
+  userId    String?  // 用户ID (注册时可能为空)
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
 
-  @@map("posts")
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([email])
+  @@index([code])
+  @@index([expiresAt])
+  @@map("verification_codes")
 }
 
-// 文章状态枚举
-enum PostStatus {
-  DRAFT
-  PUBLISHED
-  ARCHIVED
+// 文章模型 - 简化版
+model Post {
+  id          String    @id @default(cuid())
+  title       String
+  content     String    @db.Text
+  excerpt     String?
+  slug        String    @unique
+  coverImage  String?
+  published   Boolean   @default(false) // 简化：仅区分草稿和已发布
+  publishedAt DateTime?
+  views       Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // 关联关系
+  authorId      String
+  author        User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  postTags      PostTag[]
+  postComments  Comment[]
+  postLikes     Like[]
+  postFavorites Favorite[]
+
+  @@index([slug])
+  @@index([published])
+  @@index([authorId])
+  @@index([publishedAt])
+  @@map("posts")
 }
 
 // 标签模型
@@ -120,8 +139,9 @@ model Tag {
   updatedAt DateTime @updatedAt
 
   // 关联关系
-  postTags  PostTag[]
+  postTags PostTag[]
 
+  @@index([slug])
   @@map("tags")
 }
 
@@ -135,31 +155,66 @@ model PostTag {
   tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@unique([postId, tagId])
+  @@index([postId])
+  @@index([tagId])
   @@map("post_tags")
 }
 
 // 评论模型
 model Comment {
+  id         String    @id @default(cuid())
+  content    String
+  isApproved Boolean   @default(false)
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  // 增强功能字段
+  deletedAt  DateTime?  // 软删除时间
+  editedAt   DateTime?  // 最后编辑时间
+  isPinned   Boolean   @default(false) // 是否置顶
+
+  // 关联关系
+  postId       String
+  post         Post            @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId     String
+  author       User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parentId     String?
+  parent       Comment?        @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies      Comment[]       @relation("CommentReplies")
+  commentLikes CommentLike[]
+  reports      CommentReport[]
+
+  @@index([postId])
+  @@index([authorId])
+  @@index([parentId])
+  @@index([isApproved])
+  @@index([deletedAt])
+  @@index([isPinned])
+  @@map("comments")
+}
+
+// 评论举报模型
+model CommentReport {
   id        String   @id @default(cuid())
-  content   String
-  isApproved Boolean  @default(false)
-  likes     Int      @default(0)
-  ipAddress String?
-  userAgent String?
+  reason    String   // spam, abuse, harassment, other
+  details   String?  // 举报详情
+  status    String   @default("pending") // pending, resolved, dismissed
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // 关联关系
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  parentId  String?
-  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies   Comment[] @relation("CommentReplies")
-  commentLikes CommentLike[]
+  commentId  String
+  comment    Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  reporterId String
+  reporter   User    @relation(fields: [reporterId], references: [id], onDelete: Cascade)
 
-  @@map("comments")
+  @@unique([commentId, reporterId]) // 每个用户只能举报一次同一评论
+  @@index([commentId])
+  @@index([reporterId])
+  @@index([status])
+  @@map("comment_reports")
 }
 
 // 点赞模型
@@ -168,12 +223,14 @@ model Like {
   createdAt DateTime @default(now())
 
   // 关联关系
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
   @@map("likes")
 }
 
@@ -184,11 +241,13 @@ model CommentLike {
 
   // 关联关系
   commentId String
-  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  comment   Comment @relation(fields: [commentId], references: [id], onDelete: Cascade)
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([commentId, userId])
+  @@index([commentId])
+  @@index([userId])
   @@map("comment_likes")
 }
 
@@ -198,93 +257,73 @@ model Favorite {
   createdAt DateTime @default(now())
 
   // 关联关系
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
   @@map("favorites")
 }
 
-// 文件夹模型
-model Folder {
-  id          String      @id @default(cuid())
-  name        String
-  path        String      @unique  // 文件夹路径，如 /public, /user-uuid/subfolder
-  parentId    String?     // 父文件夹ID，支持嵌套
-  description String?
-  isSystem    Boolean     @default(false)  // 是否为系统文件夹（公共目录、用户根目录）
-  isPublic    Boolean     @default(false)  // 是否为公共目录
-  ownerId     String?     // 文件夹所有者（用户ID），公共目录为null
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-
-  // 关联关系
-  owner       User?       @relation("UserFolders", fields: [ownerId], references: [id], onDelete: Cascade)
-  parent      Folder?     @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
-  children    Folder[]    @relation("FolderHierarchy")
-  files       File[]
-
-  @@map("folders")
-}
-
-// 文件模型
-model File {
-  id          String   @id @default(cuid())
-  filename    String
-  originalName String
-  mimeType    String
-  size        Int
-  url         String
-  thumbnail   String?
-  alt         String?
-  description String?
-  tags        String[] // 文件标签
-  isPublic    Boolean  @default(true)  // 是否公开
-  downloadCount Int    @default(0)     // 下载次数
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // 关联关系
-  folderId    String?
-  folder      Folder?  @relation(fields: [folderId], references: [id], onDelete: Cascade)
-  uploaderId  String
-  uploader    User     @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
-
-  @@map("files")
-}
-
-// 媒体文件模型（保持向后兼容）
+// 媒体库模型 - 简化的文件管理
 model Media {
-  id          String   @id @default(cuid())
-  filename    String
+  id           String   @id @default(cuid())
+  filename     String
   originalName String
-  mimeType    String
-  size        Int
-  url         String
-  thumbnail   String?
-  alt         String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  mimeType     String
+  size         Int
+  url          String
+  thumbnail    String?
+  hash         String?  @unique // 文件内容哈希，用于去重
+  tags         String[] @default([]) // 用于分类和搜索
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
+  // 关联关系
+  uploaderId String
+  uploader   User         @relation(fields: [uploaderId], references: [id], onDelete: Cascade)
+  usages     MediaUsage[]
+
+  @@index([mimeType])
+  @@index([uploaderId])
+  @@index([createdAt])
+  @@index([url])
+  @@index([hash])
   @@map("media")
 }
 
-// 站点配置模型
+// 媒体使用记录 - 追踪媒体在各处的引用
+model MediaUsage {
+  id        String   @id @default(cuid())
+  mediaId   String
+  media     Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+
+  // 使用位置（多态关联）
+  entityType String // 'post' | 'user' | 'site_config'
+  entityId   String // 关联实体的 ID
+  fieldName  String // 'avatar' | 'coverImage' | 'content'
+
+  createdAt DateTime @default(now())
+
+  @@unique([mediaId, entityType, entityId, fieldName])
+  @@index([entityType, entityId])
+  @@index([mediaId])
+  @@map("media_usages")
+}
+
+// 站点配置模型 - 简化版
 model SiteConfig {
-  id          String   @id @default(cuid())
-  siteName    String
+  id              String   @id @default("default")
+  siteName        String   @default("Whispers of the Heart")
   siteDescription String?
-  siteLogo    String?
-  siteIcon    String?
-  aboutMe     String?  @db.Text
-  contactEmail String?
-  socialLinks Json?    // GitHub, Twitter, LinkedIn 等
-  seoSettings Json?    // 标题、描述、关键词等
-  ossConfig   Json?    // OSS 配置
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  aboutMe         String?  @db.Text
+  avatar          String?
+  socialLinks     Json?    // { github: "", twitter: "", email: "" }
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@map("site_config")
 }

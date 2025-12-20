@@ -29,11 +29,9 @@
 
     "dev:api": "turbo run dev --filter=api",
     "dev:web": "turbo run dev --filter=web",
-    "dev:admin": "turbo run dev --filter=admin",
-    
+
     "build:api": "turbo run build --filter=api",
     "build:web": "turbo run build --filter=web",
-    "build:admin": "turbo run build --filter=admin",
 
     "build:ui": "turbo run build --filter=ui",
     "build:types": "turbo run build --filter=types",
@@ -44,7 +42,6 @@
     
     "start:api": "turbo run start --filter=api",
     "start:web": "turbo run start --filter=web",
-    "start:admin": "turbo run start --filter=admin",
     
     "dev:development": "cross-env NODE_ENV=development turbo run dev",
     "dev:production": "cross-env NODE_ENV=production turbo run dev",
@@ -87,8 +84,8 @@
     "docker:build": "cd infra/docker && docker-compose build",
     "docker:logs": "cd infra/docker && docker-compose logs -f",
     
-     "ports": "echo '🚀 项目端口信息:' && echo '  本地开发:' && echo '    API: http://localhost:7777/api/v1' && echo '    Web: http://localhost:8888' && echo '    Admin: http://localhost:9999' && echo '    PostgreSQL: localhost:5432' && echo '    Redis: localhost:6379' && echo '    MinIO: http://localhost:9001' && echo '    pgAdmin: http://localhost:5050' && echo '' && echo '  生产环境:' && echo '    Web: https://whispers.example.com' && echo '    API: https://api.whispers.example.com' && echo '    Admin: https://admin.whispers.example.com'",
-    "health": "echo '🔍 检查服务状态...' && curl -s http://localhost:7777/api/v1/health || echo 'API 未运行' && curl -s http://localhost:8888 -o /dev/null && echo 'Web 运行正常' || echo 'Web 未运行' && curl -s http://localhost:9999 -o /dev/null && echo 'Admin 运行正常' || echo 'Admin 未运行'"
+    "ports": "echo '🚀 项目端口信息:' && echo '  本地开发:' && echo '    API: http://localhost:7777/api/v1' && echo '    Web: http://localhost:8888' && echo '    PostgreSQL: localhost:5432' && echo '    Redis: localhost:6379' && echo '    MinIO: http://localhost:9001' && echo '    pgAdmin: http://localhost:5050' && echo '' && echo '  生产环境:' && echo '    Web: https://whispers.example.com' && echo '    API: https://api.whispers.example.com'",
+    "health": "echo '🔍 检查服务状态...' && curl -s http://localhost:7777/api/v1/health || echo 'API 未运行' && curl -s http://localhost:8888 -o /dev/null && echo 'Web 运行正常' || echo 'Web 未运行'"
   },
   "devDependencies": {
     "@types/node": "^22.18.0",

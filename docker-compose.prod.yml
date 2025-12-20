@@ -19,7 +19,6 @@ services:
     depends_on:
       - api
       - web
-      - admin
     healthcheck:
       test: ["CMD", "nginx", "-t"]
       interval: 30s
@@ -54,7 +53,7 @@ services:
       timeout: 10s
       retries: 3
 
-  # Web 前端服务
+  # Web 前端服务（含管理后台）
   web:
     build:
       context: .
@@ -62,31 +61,12 @@ services:
       target: production
       args:
         - VITE_API_URL=https://api.whispers.example.com
-        - VITE_ADMIN_URL=https://admin.whispers.example.com
     container_name: whispers-web-prod
     restart: always
     networks:
       - whispers-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8888"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # Admin 管理后台服务
-  admin:
-    build:
-      context: .
-      dockerfile: infra/docker/Dockerfile.admin
-      target: production
-      args:
-        - VITE_API_URL=https://api.whispers.example.com
-    container_name: whispers-admin-prod
-    restart: always
-    networks:
-      - whispers-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9999"]
       interval: 30s
       timeout: 10s
       retries: 3

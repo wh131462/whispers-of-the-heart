@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, PostStatus } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
@@ -10,12 +10,12 @@ async function main() {
   const adminPassword = await bcrypt.hash('admin123', 10);
   const admin = await prisma.user.upsert({
     where: { email: 'admin@whispers.local' },
-    update: {},
+    update: { isAdmin: true },
     create: {
       username: 'admin',
       email: 'admin@whispers.local',
       password: adminPassword,
-      role: UserRole.ADMIN,
+      isAdmin: true,
       bio: '系统管理员',
     },
   });
@@ -29,7 +29,7 @@ async function main() {
       username: 'testuser',
       email: 'test@whispers.local',
       password: testPassword,
-      role: UserRole.USER,
+      isAdmin: false,
       bio: '测试用户',
     },
   });
@@ -42,7 +42,7 @@ async function main() {
       username: 'anonymous',
       email: 'anonymous@example.com',
       password: 'anonymous',
-      role: UserRole.USER,
+      isAdmin: false,
     },
   });
 
@@ -55,7 +55,7 @@ async function main() {
       content: '这是一篇测试文章，用于演示博客系统功能。',
       excerpt: '测试文章摘要',
       slug: 'test-post',
-      status: PostStatus.PUBLISHED,
+      published: true,
       authorId: admin.id,
       publishedAt: new Date(),
     },
@@ -70,7 +70,7 @@ async function main() {
       content: '这是另一篇测试文章，包含更多内容来展示博客系统的各种功能。\n\n## 功能特性\n\n- 文章发布\n- 评论系统\n- 点赞功能\n- 收藏功能\n\n希望您喜欢这个博客系统！',
       excerpt: '展示博客系统功能的另一篇文章',
       slug: 'another-test-post',
-      status: PostStatus.PUBLISHED,
+      published: true,
       authorId: admin.id,
       publishedAt: new Date(),
     },

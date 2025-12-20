@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { Search, X, FileText, Video, Music, ArrowRight } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Search, X, FileText, ArrowRight } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { cn } from '../lib/utils'
@@ -8,7 +9,7 @@ import { api } from '@whispers/utils'
 interface SearchResult {
   id: string
   title: string
-  type: 'post' | 'video' | 'audio'
+  type: 'post'
   excerpt?: string
   slug: string
   publishedAt?: string
@@ -20,6 +21,7 @@ interface SearchDialogProps {
 }
 
 const SearchDialog: React.FC<SearchDialogProps> = ({ isOpen, onClose }) => {
+  const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchResult[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -42,15 +44,21 @@ const SearchDialog: React.FC<SearchDialogProps> = ({ isOpen, onClose }) => {
 
     setIsLoading(true)
     try {
-      // 调用实际的搜索API
-      const response = await api.get('/blog', { params: { search: searchQuery } })
-      if (response.data?.items) {
+      // 调用搜索API
+      const response = await api.get('/blog/search', {
+        params: {
+          q: searchQuery,
+          limit: 10
+        }
+      })
+
+      if (response.data?.success && response.data?.data?.items) {
         // 转换API数据格式为SearchResult格式
-        const searchResults: SearchResult[] = response.data.items.map((post: any) => ({
+        const searchResults: SearchResult[] = response.data.data.items.map((post: any) => ({
           id: post.id,
           title: post.title,
           type: 'post' as const,
-          excerpt: post.excerpt || '',
+          excerpt: post.excerpt || post.content?.substring(0, 100) || '',
           slug: post.slug,
           publishedAt: post.publishedAt || post.createdAt
         }))
@@ -104,38 +112,18 @@ const SearchDialog: React.FC<SearchDialogProps> = ({ isOpen, onClose }) => {
 
   // 处理结果点击
   const handleResultClick = (result: SearchResult) => {
-    const basePath = result.type === 'post' ? '/posts' : 
-                    result.type === 'video' ? '/videos' : '/audios'
-    window.location.href = `${basePath}/${result.slug}`
+    navigate(`/posts/${result.slug}`)
     onClose()
   }
 
   // 获取类型图标
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case 'post':
-        return <FileText className="h-4 w-4" />
-      case 'video':
-        return <Video className="h-4 w-4" />
-      case 'audio':
-        return <Music className="h-4 w-4" />
-      default:
-        return <FileText className="h-4 w-4" />
-    }
+  const getTypeIcon = () => {
+    return <FileText className="h-4 w-4" />
   }
 
   // 获取类型标签
-  const getTypeLabel = (type: string) => {
-    switch (type) {
-      case 'post':
-        return '文章'
-      case 'video':
-        return '视频'
-      case 'audio':
-        return '音频'
-      default:
-        return '内容'
-    }
+  const getTypeLabel = () => {
+    return '文章'
   }
 
   if (!isOpen) return null
@@ -149,10 +137,10 @@ const SearchDialog: React.FC<SearchDialogProps> = ({ isOpen, onClose }) => {
       />
       
       {/* 搜索对话框 */}
-      <div className="relative w-full max-w-2xl mx-4 bg-white rounded-lg shadow-2xl">
+      <div className="relative w-full max-w-2xl mx-4 bg-card rounded-lg shadow-2xl border border-border">
         {/* 搜索输入框 */}
-        <div className="flex items-center p-4 border-b">
-          <Search className="h-5 w-5 text-gray-400 mr-3" />
+        <div className="flex items-center p-4 border-b border-border">
+          <Search className="h-5 w-5 text-muted-foreground mr-3" />
           <Input
             ref={inputRef}
             type="text"
@@ -160,7 +148,7 @@ const SearchDialog: React.FC<SearchDialogProps> = ({ isOpen, onClose }) => {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="flex-1 border-0 shadow-none text-lg placeholder:text-gray-400 focus-visible:ring-0"
+            className="flex-1 border-0 shadow-none text-lg placeholder:text-muted-foreground focus-visible:ring-0"
           />
           <Button
             variant="ghost"
@@ -175,7 +163,7 @@ const SearchDialog: React.FC<SearchDialogProps> = ({ isOpen, onClose }) => {
         {/* 搜索结果 */}
         <div className="max-h-96 overflow-y-auto">
           {isLoading ? (
-            <div className="p-8 text-center text-gray-500">
+            <div className="p-8 text-center text-muted-foreground">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
               搜索中...
             </div>
@@ -187,55 +175,55 @@ const SearchDialog: React.FC<SearchDialogProps> = ({ isOpen, onClose }) => {
                     key={result.id}
                     onClick={() => handleResultClick(result)}
                     className={cn(
-                      "flex items-center p-4 hover:bg-gray-50 cursor-pointer transition-colors",
-                      selectedIndex === index && "bg-gray-50"
+                      "flex items-center p-4 hover:bg-muted cursor-pointer transition-colors",
+                      selectedIndex === index && "bg-muted"
                     )}
                   >
-                    <div className="flex-shrink-0 mr-3 text-gray-400">
-                      {getTypeIcon(result.type)}
+                    <div className="flex-shrink-0 mr-3 text-muted-foreground">
+                      {getTypeIcon()}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <h3 className="text-sm font-medium text-gray-900 truncate">
+                        <h3 className="text-sm font-medium text-foreground truncate">
                           {result.title}
                         </h3>
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                          {getTypeLabel(result.type)}
+                        <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                          {getTypeLabel()}
                         </span>
                       </div>
                       {result.excerpt && (
-                        <p className="text-xs text-gray-500 line-clamp-2">
+                        <p className="text-xs text-muted-foreground line-clamp-2">
                           {result.excerpt}
                         </p>
                       )}
                       {result.publishedAt && (
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="text-xs text-muted-foreground/70 mt-1">
                           {new Date(result.publishedAt).toLocaleDateString('zh-CN')}
                         </p>
                       )}
                     </div>
-                    <ArrowRight className="h-4 w-4 text-gray-400 ml-2" />
+                    <ArrowRight className="h-4 w-4 text-muted-foreground ml-2" />
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="p-8 text-center text-gray-500">
-                <Search className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+              <div className="p-8 text-center text-muted-foreground">
+                <Search className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
                 <p>未找到相关结果</p>
                 <p className="text-sm">尝试使用不同的关键词</p>
               </div>
             )
           ) : (
-            <div className="p-8 text-center text-gray-500">
-              <Search className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+            <div className="p-8 text-center text-muted-foreground">
+              <Search className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
               <p>输入关键词开始搜索</p>
-              <p className="text-sm">支持搜索文章、视频和音频内容</p>
+              <p className="text-sm">搜索博客文章</p>
             </div>
           )}
         </div>
 
         {/* 快捷键提示 */}
-        <div className="px-4 py-2 border-t bg-gray-50 text-xs text-gray-500">
+        <div className="px-4 py-2 border-t border-border bg-muted text-xs text-muted-foreground">
           <div className="flex items-center justify-between">
             <span>使用 ↑↓ 键导航，Enter 键选择，Esc 键关闭</span>
             <div className="flex items-center space-x-4">

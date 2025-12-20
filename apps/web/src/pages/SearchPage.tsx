@@ -5,18 +5,19 @@ import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Badge } from '../components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
-import { 
-  Search, 
-  FileText, 
-  Video, 
+import {
+  Search,
+  FileText,
+  Video,
   Music,
-  Eye, 
-  Heart, 
+  Eye,
+  Heart,
   MessageCircle,
   Calendar,
   Play,
   Volume2
 } from 'lucide-react'
+import { api } from '@whispers/utils'
 
 interface SearchResult {
   id: string
@@ -67,77 +68,50 @@ const SearchPage: React.FC = () => {
 
     setLoading(true)
     try {
-      // 模拟搜索，实际应该调用 API
-      const mockResults: SearchResult[] = [
-        {
-          id: '1',
-          title: 'React 18 新特性详解',
-          description: '深入探讨 React 18 的新特性和改进，包括并发特性、自动批处理等。',
-          type: 'post',
-          category: '前端开发',
-          views: 1250,
-          likes: 89,
-          comments: 23,
-          publishedAt: '2024-01-15T10:00:00Z',
-          createdAt: '2024-01-15T10:00:00Z',
-          author: {
-            id: '1',
-            username: 'admin',
-            avatar: undefined
-          },
-          tags: ['React', 'JavaScript', '前端'],
-          excerpt: '深入探讨 React 18 的新特性和改进，包括并发特性、自动批处理等。',
-          slug: 'react-18-features'
-        },
-        {
-          id: '2',
-          title: 'TypeScript 高级类型技巧',
-          description: '掌握 TypeScript 的高级类型系统，提升代码的类型安全性。',
-          type: 'video',
-          category: '编程语言',
-          views: 890,
-          likes: 67,
-          comments: 18,
-          publishedAt: '2024-01-14T14:30:00Z',
-          createdAt: '2024-01-14T14:30:00Z',
-          author: {
-            id: '1',
-            username: 'admin',
-            avatar: undefined
-          },
-          tags: ['TypeScript', '类型系统', '编程'],
-          thumbnail: 'https://via.placeholder.com/400x225',
-          duration: 2400
-        },
-        {
-          id: '3',
-          title: 'JavaScript 异步编程详解',
-          description: '深入探讨 JavaScript 中的异步编程模式，包括 Promise、async/await 等。',
-          type: 'audio',
-          category: '前端开发',
-          views: 856,
-          likes: 67,
-          comments: 15,
-          publishedAt: '2024-01-15T10:00:00Z',
-          createdAt: '2024-01-15T10:00:00Z',
-          author: {
-            id: '1',
-            username: 'admin',
-            avatar: undefined
-          },
-          tags: ['JavaScript', '异步编程', '前端'],
-          coverImage: 'https://via.placeholder.com/300x300',
-          audioDuration: 1800
+      // 调用搜索 API
+      const response = await api.get('/blog/search', {
+        params: {
+          q: searchTerm,
+          limit: 50,
+          sortBy: 'createdAt',
+          sortOrder: 'desc'
         }
-      ]
+      })
 
-      // 过滤结果
-      const filteredResults = mockResults.filter(result => 
-        result.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        result.description.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+      if (response.data?.success && response.data?.data?.items) {
+        // 转换 API 数据为 SearchResult 格式
+        const searchResults: SearchResult[] = response.data.data.items.map((post: any) => {
+          // 提取分类名称
+          const categoryName = typeof post.category === 'object' && post.category
+            ? post.category.name
+            : (post.category || '未分类')
 
-      setResults(filteredResults)
+          // 提取标签
+          const tags = post.postTags?.map((pt: any) => pt.tag?.name).filter(Boolean) || []
+
+          return {
+            id: post.id,
+            title: post.title,
+            description: post.excerpt || post.content?.substring(0, 200) || '',
+            type: 'post' as const,
+            category: categoryName,
+            views: post.views || 0,
+            likes: post._count?.postLikes || 0,
+            comments: post._count?.postComments || 0,
+            publishedAt: post.publishedAt || post.createdAt,
+            createdAt: post.createdAt,
+            author: post.author,
+            tags,
+            excerpt: post.excerpt || '',
+            slug: post.slug,
+            coverImage: post.coverImage
+          }
+        })
+
+        setResults(searchResults)
+      } else {
+        setResults([])
+      }
     } catch (error) {
       console.error('Search error:', error)
     } finally {
@@ -206,8 +180,8 @@ const SearchPage: React.FC = () => {
     <div className="space-y-8">
       {/* 搜索头部 */}
       <div className="text-center">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">搜索结果</h1>
-        <p className="text-lg text-gray-600">
+        <h1 className="text-4xl font-bold text-foreground mb-4">搜索结果</h1>
+        <p className="text-lg text-muted-foreground">
           {query ? `搜索 "${query}" 的结果` : '请输入搜索关键词'}
         </p>
       </div>
@@ -217,7 +191,7 @@ const SearchPage: React.FC = () => {
         <CardContent className="pt-6">
           <form onSubmit={handleSearch} className="flex space-x-4">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 type="text"
                 placeholder="搜索文章、视频、音频..."
@@ -238,7 +212,7 @@ const SearchPage: React.FC = () => {
         <div className="space-y-6">
           {/* 结果统计 */}
           <div className="flex items-center justify-between">
-            <p className="text-gray-600">
+            <p className="text-muted-foreground">
               找到 {filteredResults.length} 个结果
             </p>
             
@@ -256,7 +230,7 @@ const SearchPage: React.FC = () => {
           {/* 结果列表 */}
           {loading ? (
             <div className="flex items-center justify-center h-64">
-              <div className="text-lg text-gray-500">搜索中...</div>
+              <div className="text-lg text-muted-foreground">搜索中...</div>
             </div>
           ) : filteredResults.length > 0 ? (
             <div className="space-y-4">
@@ -289,11 +263,11 @@ const SearchPage: React.FC = () => {
                               </Badge>
                             </div>
                             
-                            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                            <h3 className="text-lg font-semibold text-foreground mb-2">
                               {result.title}
                             </h3>
-                            
-                            <p className="text-gray-600 text-sm mb-3 line-clamp-2">
+
+                            <p className="text-muted-foreground text-sm mb-3 line-clamp-2">
                               {result.excerpt || result.description}
                             </p>
 
@@ -318,7 +292,7 @@ const SearchPage: React.FC = () => {
                             )}
 
                             {/* 统计信息 */}
-                            <div className="flex items-center justify-between text-xs text-gray-500">
+                            <div className="flex items-center justify-between text-xs text-muted-foreground">
                               <div className="flex items-center space-x-4">
                                 <span className="flex items-center space-x-1">
                                   <Eye className="h-3 w-3" />
@@ -361,13 +335,13 @@ const SearchPage: React.FC = () => {
           ) : (
             <Card>
               <CardContent className="py-12 text-center">
-                <div className="text-gray-400 mb-4">
+                <div className="text-muted-foreground/50 mb-4">
                   <Search className="h-12 w-12 mx-auto" />
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                <h3 className="text-lg font-medium text-foreground mb-2">
                   没有找到相关结果
                 </h3>
-                <p className="text-gray-500">
+                <p className="text-muted-foreground">
                   尝试使用不同的关键词或调整搜索条件
                 </p>
               </CardContent>

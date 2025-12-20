@@ -1,7 +1,19 @@
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent } from '../components/ui/card'
-import { Github, Twitter, Linkedin, Mail } from 'lucide-react'
+import { Button } from '../components/ui/button'
+import {
+  Mail,
+  FileText,
+  MessageSquare,
+  Eye,
+  Heart,
+  Loader2,
+  Globe,
+  MessageCircle,
+  Code2
+} from 'lucide-react'
 import { api } from '@whispers/utils'
+import GithubIcon from "@/assets/github.svg"
 
 interface SiteConfig {
   siteName: string
@@ -10,274 +22,287 @@ interface SiteConfig {
   siteIcon: string
   aboutMe: string
   contactEmail: string
+  avatar: string
   socialLinks: {
     github: string
     twitter: string
     linkedin: string
   }
-  seoSettings: {
-    metaTitle: string
-    metaDescription: string
-    keywords: string
+}
+
+interface SiteStats {
+  totalPosts: number
+  totalComments: number
+  totalViews: number
+  totalLikes: number
+}
+
+// GitHub 用户名
+const GITHUB_USERNAME = 'wh131462'
+// GitHub 头像 URL
+const GITHUB_AVATAR_URL = `https://github.com/${GITHUB_USERNAME}.png`
+
+const defaultConfig: SiteConfig = {
+  siteName: 'EternalHeart',
+  siteDescription: 'A frontend enthusiast, passionate about creating',
+  siteLogo: '',
+  siteIcon: '',
+  avatar: GITHUB_AVATAR_URL,
+  aboutMe: 'I am a frontend enthusiast, passionate about creating, and a frontend developer committed to transitioning into a full-stack role.',
+  contactEmail: 'hao131462@qq.com',
+  socialLinks: {
+    github: `https://github.com/${GITHUB_USERNAME}`,
+    twitter: '',
+    linkedin: ''
   }
 }
 
+// 精简的技术栈数据
+const techStacks = [
+  {
+    category: 'Frontend',
+    items: ['HTML', 'CSS', 'JavaScript', 'TypeScript', 'Angular', 'Vue', 'React']
+  },
+  {
+    category: 'Backend',
+    items: ['Node.js', 'NestJS', 'Java', 'Python', 'Rust']
+  },
+  {
+    category: 'Mobile',
+    items: ['Flutter', 'Swift']
+  },
+  {
+    category: 'Tools',
+    items: ['Git', 'Docker', 'Vite', 'Webpack']
+  }
+]
+
 const AboutPage: React.FC = () => {
   const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null)
+  const [stats, setStats] = useState<SiteStats | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchSiteConfig()
-  }, [])
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+        const [configResponse, statsResponse] = await Promise.all([
+          api.get('/site-config'),
+          api.get('/blog/stats').catch(() => ({ data: null }))
+        ])
 
-  const fetchSiteConfig = async () => {
-    try {
-      setLoading(true)
-      const response = await api.get('/site-config')
-      if (response.data?.success && response.data?.data) {
-        setSiteConfig(response.data.data)
-      } else {
-        // 使用默认配置
-        setSiteConfig({
-          siteName: 'Whispers of the Heart',
-          siteDescription: '专注于分享知识和灵感的平台',
-          siteLogo: '',
-          siteIcon: '',
-          aboutMe: '热爱技术，热爱生活，希望通过文字传递正能量。我是一个充满激情的开发者，专注于前端技术和用户体验设计。在这里，我分享我的技术见解、学习心得和生活感悟。',
-          contactEmail: 'contact@example.com',
-          socialLinks: {
-            github: 'https://github.com/yourusername',
-            twitter: 'https://twitter.com/yourusername',
-            linkedin: 'https://linkedin.com/in/yourusername'
-          },
-          seoSettings: {
-            metaTitle: 'Whispers of the Heart - 知识分享平台',
-            metaDescription: '专注于分享技术和生活感悟的平台',
-            keywords: '技术,生活,感悟,分享,博客'
-          }
-        })
-      }
-    } catch (error) {
-      console.error('Failed to fetch site config:', error)
-      // 使用默认配置
-      setSiteConfig({
-        siteName: 'Whispers of the Heart',
-        siteDescription: '专注于分享知识和灵感的平台',
-        siteLogo: '',
-        siteIcon: '',
-        aboutMe: '热爱技术，热爱生活，希望通过文字传递正能量。我是一个充满激情的开发者，专注于前端技术和用户体验设计。在这里，我分享我的技术见解、学习心得和生活感悟。',
-        contactEmail: 'contact@example.com',
-        socialLinks: {
-          github: 'https://github.com/yourusername',
-          twitter: 'https://twitter.com/yourusername',
-          linkedin: 'https://linkedin.com/in/yourusername'
-        },
-        seoSettings: {
-          metaTitle: 'Whispers of the Heart - 知识分享平台',
-          metaDescription: '专注于分享技术和生活感悟的平台',
-          keywords: '技术,生活,感悟,分享,博客'
+        if (configResponse.data?.success && configResponse.data?.data) {
+          setSiteConfig(configResponse.data.data)
+        } else if (configResponse.data && !configResponse.data.success) {
+          setSiteConfig(defaultConfig)
+        } else {
+          setSiteConfig(configResponse.data || defaultConfig)
         }
-      })
-    } finally {
-      setLoading(false)
+
+        if (statsResponse.data?.success && statsResponse.data?.data) {
+          setStats(statsResponse.data.data)
+        } else if (statsResponse.data?.data) {
+          setStats(statsResponse.data.data)
+        }
+      } catch (error) {
+        console.error('Failed to fetch data:', error)
+        setSiteConfig(defaultConfig)
+      } finally {
+        setLoading(false)
+      }
     }
-  }
+
+    fetchData()
+  }, [])
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-lg text-muted-foreground">加载中...</div>
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span>加载中...</span>
+        </div>
       </div>
     )
   }
 
+  const config = siteConfig || defaultConfig
+
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
-      {/* 页面标题 */}
-      <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold tracking-tight text-foreground">
-          关于我们
-        </h1>
-        <p className="text-xl text-muted-foreground">
-          了解更多关于 {siteConfig?.siteName || 'Whispers of the Heart'} 的信息
-        </p>
-      </div>
+    <div className="space-y-12 max-w-4xl mx-auto">
+      {/* Hero 区域 */}
+      <section className="text-center py-8">
+        <img
+          src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=500&size=24&pause=1000&color=6366F1&center=true&vCenter=true&random=false&width=500&lines=Hello,+I'm+EternalHeart;A+Frontend+Developer;Passionate+about+Creating"
+          alt="Typing SVG"
+          className="mx-auto"
+        />
+      </section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* 主要内容 */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* 关于我们 */}
-          <Card>
-            <CardContent className="p-8">
-              <h2 className="text-2xl font-semibold mb-6">关于我们</h2>
-              <div className="prose prose-lg max-w-none">
-                <p className="text-muted-foreground leading-relaxed">
-                  {siteConfig?.aboutMe || '热爱技术，热爱生活，希望通过文字传递正能量。'}
-                </p>
+      {/* 个人介绍卡片 */}
+      <section>
+        <Card className="overflow-hidden">
+          <CardContent className="p-8">
+            <div className="flex flex-col md:flex-row items-center gap-8">
+              {/* 头像 - 使用 GitHub 头像 */}
+              <div className="flex-shrink-0">
+                <img
+                  src={config.avatar || GITHUB_AVATAR_URL}
+                  alt="Avatar"
+                  className="w-32 h-32 rounded-full object-cover border-4 border-primary/20 shadow-xl select-none"
+                  draggable={false}
+                  onError={(e) => {
+                    e.currentTarget.src = GITHUB_AVATAR_URL
+                  }}
+                />
               </div>
-            </CardContent>
-          </Card>
 
-          {/* 网站介绍 */}
-          <Card>
-            <CardContent className="p-8">
-              <h2 className="text-2xl font-semibold mb-6">网站介绍</h2>
-              <div className="prose prose-lg max-w-none">
-                <p className="text-muted-foreground leading-relaxed mb-4">
-                  {siteConfig?.siteDescription || '专注于分享知识和灵感的平台'}
+              {/* 信息 */}
+              <div className="flex-1 text-center md:text-left">
+                <h1 className="text-3xl font-bold text-foreground mb-4">
+                  EternalHeart
+                </h1>
+                <p className="text-lg text-muted-foreground mb-4 leading-relaxed">
+                  I am a frontend enthusiast, passionate about creating, and a frontend developer committed to transitioning into a full-stack role. I aspire to become a recognized expert in the field of technology.
                 </p>
-                <p className="text-muted-foreground leading-relaxed mb-4">
-                  在这个快速发展的数字时代，我们致力于创建一个知识分享和思想交流的平台。
-                  无论您是技术爱好者、设计师、还是对生活有独特见解的人，这里都是您表达想法的地方。
-                </p>
-                <p className="text-muted-foreground leading-relaxed">
-                  我们相信，每一个想法都有其价值，每一份分享都能激发灵感。
-                  让我们一起构建一个更加开放、包容、富有创造力的社区。
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+                <blockquote className="border-l-4 border-primary pl-4 italic text-muted-foreground text-sm">
+                  "Keep learning, let the heart stay passionate eternally..."
+                </blockquote>
 
-          {/* 我们的愿景 */}
-          <Card>
-            <CardContent className="p-8">
-              <h2 className="text-2xl font-semibold mb-6">我们的愿景</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="text-lg font-medium mb-3 text-primary">知识分享</h3>
-                  <p className="text-muted-foreground text-sm">
-                    打造一个高质量的知识分享平台，让每个人都能找到有价值的内容。
-                  </p>
-                </div>
-                <div>
-                  <h3 className="text-lg font-medium mb-3 text-primary">社区建设</h3>
-                  <p className="text-muted-foreground text-sm">
-                    构建一个积极向上的社区环境，促进思想碰撞和创新。
-                  </p>
-                </div>
-                <div>
-                  <h3 className="text-lg font-medium mb-3 text-primary">持续学习</h3>
-                  <p className="text-muted-foreground text-sm">
-                    鼓励终身学习，与时俱进，跟上技术和时代的发展步伐。
-                  </p>
-                </div>
-                <div>
-                  <h3 className="text-lg font-medium mb-3 text-primary">开放协作</h3>
-                  <p className="text-muted-foreground text-sm">
-                    倡导开放的协作精神，共同创造更美好的数字世界。
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* 侧边栏 */}
-        <div className="space-y-6">
-          {/* 联系信息 */}
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-4">联系我们</h3>
-              <div className="space-y-4">
-                {siteConfig?.contactEmail && (
-                  <div className="flex items-center space-x-3">
-                    <Mail className="h-5 w-5 text-muted-foreground" />
-                    <a 
-                      href={`mailto:${siteConfig.contactEmail}`}
-                      className="text-sm text-muted-foreground hover:text-primary transition-colors"
-                    >
-                      {siteConfig.contactEmail}
-                    </a>
-                  </div>
-                )}
-                
                 {/* 社交链接 */}
-                <div className="pt-4 border-t">
-                  <p className="text-sm font-medium mb-3">关注我们</p>
-                  <div className="flex space-x-3">
-                    {siteConfig?.socialLinks?.github && (
-                      <a 
-                        href={siteConfig.socialLinks.github} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
+                <div className="flex items-center justify-center md:justify-start gap-3 mt-6">
+                  <a
+                    href="https://github.com/wh131462"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2.5 rounded-full bg-muted hover:bg-primary/10 transition-all hover:scale-110"
+                    title="GitHub"
+                  >
+                    <img src={GithubIcon} alt="Github" className="h-5 w-5" />
+                  </a>
+                  <a
+                    href="mailto:hao131462@qq.com"
+                    className="p-2.5 rounded-full bg-muted hover:bg-primary/10 transition-all hover:scale-110"
+                    title="Email"
+                  >
+                    <Mail className="h-5 w-5" />
+                  </a>
+                  <a
+                    href="https://131462.wang"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-2.5 rounded-full bg-muted hover:bg-primary/10 transition-all hover:scale-110"
+                    title="Website"
+                  >
+                    <Globe className="h-5 w-5" />
+                  </a>
+                  <span
+                    className="p-2.5 rounded-full bg-muted cursor-help"
+                    title="WeChat: proxy_why"
+                  >
+                    <MessageCircle className="h-5 w-5" />
+                  </span>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* 统计数据 */}
+      {stats && (
+        <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card className="text-center hover:shadow-lg transition-shadow">
+            <CardContent className="pt-6 pb-4">
+              <FileText className="h-8 w-8 text-blue-500 mx-auto mb-2" />
+              <p className="text-2xl font-bold text-foreground">{stats.totalPosts}</p>
+              <p className="text-xs text-muted-foreground">文章</p>
+            </CardContent>
+          </Card>
+          <Card className="text-center hover:shadow-lg transition-shadow">
+            <CardContent className="pt-6 pb-4">
+              <MessageSquare className="h-8 w-8 text-green-500 mx-auto mb-2" />
+              <p className="text-2xl font-bold text-foreground">{stats.totalComments}</p>
+              <p className="text-xs text-muted-foreground">评论</p>
+            </CardContent>
+          </Card>
+          <Card className="text-center hover:shadow-lg transition-shadow">
+            <CardContent className="pt-6 pb-4">
+              <Eye className="h-8 w-8 text-purple-500 mx-auto mb-2" />
+              <p className="text-2xl font-bold text-foreground">{stats.totalViews}</p>
+              <p className="text-xs text-muted-foreground">浏览</p>
+            </CardContent>
+          </Card>
+          <Card className="text-center hover:shadow-lg transition-shadow">
+            <CardContent className="pt-6 pb-4">
+              <Heart className="h-8 w-8 text-red-500 mx-auto mb-2" />
+              <p className="text-2xl font-bold text-foreground">{stats.totalLikes}</p>
+              <p className="text-xs text-muted-foreground">点赞</p>
+            </CardContent>
+          </Card>
+        </section>
+      )}
+
+      {/* 技术栈 */}
+      <section>
+        <Card>
+          <CardContent className="p-8">
+            <h2 className="text-xl font-bold text-foreground mb-6 flex items-center gap-2">
+              <Code2 className="h-5 w-5 text-primary" />
+              技术栈
+            </h2>
+            <div className="space-y-4">
+              {techStacks.map((stack) => (
+                <div key={stack.category}>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">{stack.category}</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {stack.items.map((item) => (
+                      <span
+                        key={item}
+                        className="px-3 py-1.5 text-sm rounded-full bg-muted hover:bg-primary/10 transition-colors"
                       >
-                        <Github className="h-4 w-4" />
-                      </a>
-                    )}
-                    {siteConfig?.socialLinks?.twitter && (
-                      <a 
-                        href={siteConfig.socialLinks.twitter} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
-                      >
-                        <Twitter className="h-4 w-4" />
-                      </a>
-                    )}
-                    {siteConfig?.socialLinks?.linkedin && (
-                      <a 
-                        href={siteConfig.socialLinks.linkedin} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
-                      >
-                        <Linkedin className="h-4 w-4" />
-                      </a>
-                    )}
+                        {item}
+                      </span>
+                    ))}
                   </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </section>
 
-          {/* 技术栈 */}
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-4">技术栈</h3>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm font-medium">前端</p>
-                  <p className="text-xs text-muted-foreground">React, TypeScript, TailwindCSS</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium">后端</p>
-                  <p className="text-xs text-muted-foreground">NestJS, Prisma, PostgreSQL</p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium">部署</p>
-                  <p className="text-xs text-muted-foreground">Docker, Nginx</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* 统计信息 */}
-          <Card>
-            <CardContent className="p-6">
-              <h3 className="text-lg font-semibold mb-4">网站统计</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">50+</p>
-                  <p className="text-xs text-muted-foreground">文章发布</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">1K+</p>
-                  <p className="text-xs text-muted-foreground">页面浏览</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">100+</p>
-                  <p className="text-xs text-muted-foreground">用户访问</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-primary">20+</p>
-                  <p className="text-xs text-muted-foreground">技术分享</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+      {/* 联系我 */}
+      <section>
+        <Card>
+          <CardContent className="p-8 text-center">
+            <h2 className="text-xl font-bold text-foreground mb-4">联系我</h2>
+            <p className="text-muted-foreground mb-6">
+              如果您有任何问题、建议或合作意向，欢迎随时与我联系
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-4">
+              <Button asChild>
+                <a href="mailto:hao131462@qq.com">
+                  <Mail className="h-4 w-4 mr-2" />
+                  发送邮件
+                </a>
+              </Button>
+              <Button variant="outline" asChild>
+                <a href="https://github.com/wh131462" target="_blank" rel="noopener noreferrer">
+                  <img src={GithubIcon} alt="Github" className="h-4 w-4 mr-2" />
+                  GitHub
+                </a>
+              </Button>
+              <Button variant="outline" asChild>
+                <a href="https://131462.wang" target="_blank" rel="noopener noreferrer">
+                  <Globe className="h-4 w-4 mr-2" />
+                  主页
+                </a>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
     </div>
   )
 }

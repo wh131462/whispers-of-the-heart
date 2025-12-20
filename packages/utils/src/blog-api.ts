@@ -13,7 +13,13 @@ export interface Post {
   excerpt?: string
   slug: string
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
-  category?: string
+  category?: string | {
+    id: string
+    name: string
+    slug: string
+    description?: string
+    color?: string
+  }
   coverImage?: string
   views: number
   likes: number
@@ -34,7 +40,7 @@ export interface CreatePostDto {
   title: string
   content: string
   excerpt?: string
-  category?: string
+  categoryId?: string
   coverImage?: string
   status?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
   tags?: string[]
@@ -44,7 +50,7 @@ export interface UpdatePostDto {
   title?: string
   content?: string
   excerpt?: string
-  category?: string
+  categoryId?: string
   coverImage?: string
   status?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
   tags?: string[]
@@ -142,7 +148,7 @@ class BlogApiService {
     this.client = new ApiClient()
     // 自动从localStorage获取token（仅在浏览器环境）
     if (typeof window !== 'undefined') {
-      this.client.setTokenFromStorage()
+      this.client.setTokenFromStorage('auth_token')
     }
   }
 
@@ -296,6 +302,30 @@ class BlogApiService {
   async deletePost(id: string): Promise<ApiResponse<{ message: string }>> {
     const response = await this.client.delete<ApiResponse<{ message: string }>>(`/blog/post/${id}`)
     return response.data
+  }
+
+  // 仪表盘API
+  async getDashboard(): Promise<{ data: ApiResponse<{
+    totalPosts: number
+    publishedPosts: number
+    draftPosts: number
+    totalComments: number
+    pendingComments: number
+    totalViews: number
+    totalUsers: number
+    totalTags: number
+  }> }> {
+    const response = await this.client.get<ApiResponse<{
+      totalPosts: number
+      publishedPosts: number
+      draftPosts: number
+      totalComments: number
+      pendingComments: number
+      totalViews: number
+      totalUsers: number
+      totalTags: number
+    }>>('/admin/dashboard')
+    return { data: response.data }
   }
 
   // 分类相关API

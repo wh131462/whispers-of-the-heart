@@ -39,7 +39,7 @@ const AlertDialogContent = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "relative z-10 w-full max-w-md mx-4 bg-white rounded-lg shadow-2xl border-0",
+      "relative z-10 w-full max-w-md mx-4 bg-card rounded-lg shadow-2xl border border-border",
       className
     )}
     {...props}
@@ -69,7 +69,7 @@ const AlertDialogTitle = React.forwardRef<
   <h2
     ref={ref}
     className={cn(
-      "text-2xl font-bold text-gray-900",
+      "text-2xl font-bold text-foreground",
       className
     )}
     {...props}
@@ -84,7 +84,7 @@ const AlertDialogDescription = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "text-gray-600 text-base",
+      "text-muted-foreground text-base",
       className
     )}
     {...props}
@@ -114,7 +114,7 @@ const AlertDialogAction = React.forwardRef<
   <button
     ref={ref}
     className={cn(
-      "inline-flex h-12 items-center justify-center rounded-md px-4 py-2 text-base font-medium text-white bg-blue-500 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none transition-colors",
+      "inline-flex h-12 items-center justify-center rounded-md px-4 py-2 text-base font-medium text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none transition-colors",
       className
     )}
     {...props}
@@ -129,7 +129,7 @@ const AlertDialogCancel = React.forwardRef<
   <button
     ref={ref}
     className={cn(
-      "inline-flex h-12 items-center justify-center rounded-md px-4 py-2 text-base font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none transition-colors",
+      "inline-flex h-12 items-center justify-center rounded-md px-4 py-2 text-base font-medium text-foreground bg-card border border-border hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none transition-colors",
       className
     )}
     {...props}

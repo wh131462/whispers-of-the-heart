@@ -1,15 +1,22 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CreateSiteConfigDto, UpdateSiteConfigDto } from './dto/site-config.dto';
+import { MediaUsageService } from '../media/media-usage.service';
 
 @Injectable()
 export class SiteConfigService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private mediaUsageService: MediaUsageService,
+  ) { }
 
   async create(createSiteConfigDto: CreateSiteConfigDto) {
     const config = await this.prisma.siteConfig.create({
       data: createSiteConfigDto,
     });
+
+    // 同步媒体使用记录
+    await this.syncSiteConfigMediaUsage(config.id, createSiteConfigDto);
 
     return config;
   }
@@ -22,7 +29,7 @@ export class SiteConfigService {
       return {
         id: 'default',
         siteName: 'Whispers of the Heart',
-        siteDescription: '专注于分享知识和灵感的平台',
+        siteDescription: '不知名独立开发的个人博客',
         siteLogo: null,
         siteIcon: null,
         aboutMe: '热爱技术，热爱生活，希望通过文字传递正能量。',
@@ -34,7 +41,7 @@ export class SiteConfigService {
         },
         seoSettings: {
           title: 'Whispers of the Heart',
-          description: '专注于分享知识和灵感的平台',
+          description: '不知名独立开发的个人博客',
           keywords: '技术,博客,分享,知识',
         },
         ossConfig: {
@@ -70,6 +77,9 @@ export class SiteConfigService {
       data: mergedData,
     });
 
+    // 同步媒体使用记录
+    await this.syncSiteConfigMediaUsage(id, updateSiteConfigDto);
+
     return updatedConfig;
   }
 
@@ -81,6 +91,9 @@ export class SiteConfigService {
     if (!config) {
       throw new NotFoundException('站点配置不存在');
     }
+
+    // 删除站点配置的媒体使用记录
+    await this.mediaUsageService.deleteEntityUsages('site_config', id);
 
     await this.prisma.siteConfig.delete({
       where: { id },
@@ -102,5 +115,18 @@ export class SiteConfigService {
     }
 
     return result;
+  }
+
+  // 私有方法：同步站点配置的媒体使用记录
+  private async syncSiteConfigMediaUsage(configId: string, dto: Partial<CreateSiteConfigDto | UpdateSiteConfigDto>) {
+    // 同步 siteLogo
+    if ('siteLogo' in dto) {
+      await this.mediaUsageService.syncDirectUsage('site_config', configId, 'avatar', dto.siteLogo);
+    }
+
+    // 同步 aboutMe（富文本内容，可能包含图片）
+    if ('aboutMe' in dto) {
+      await this.mediaUsageService.syncContentUsage('site_config', configId, 'aboutMe', dto.aboutMe);
+    }
   }
 }

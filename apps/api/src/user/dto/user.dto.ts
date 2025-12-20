@@ -2,10 +2,9 @@ import {
   IsEmail,
   IsString,
   IsOptional,
-  IsEnum,
+  IsBoolean,
   MinLength,
 } from 'class-validator';
-import { UserRole } from '@prisma/client';
 
 export class CreateUserDto {
   @IsString()
@@ -28,8 +27,8 @@ export class CreateUserDto {
   bio?: string;
 
   @IsOptional()
-  @IsEnum(UserRole)
-  role?: UserRole;
+  @IsBoolean()
+  isAdmin?: boolean;
 }
 
 export class UpdateUserDto {
@@ -56,8 +55,8 @@ export class UpdateUserDto {
   bio?: string;
 
   @IsOptional()
-  @IsEnum(UserRole)
-  role?: UserRole;
+  @IsString()
+  theme?: string;
 }
 
 export class LoginDto {
@@ -71,4 +70,18 @@ export class LoginDto {
 export class RefreshTokenDto {
   @IsString()
   refreshToken: string;
+}
+
+export class SendEmailChangeCodeDto {
+  @IsEmail()
+  newEmail: string;
+}
+
+export class ChangeEmailDto {
+  @IsEmail()
+  newEmail: string;
+
+  @IsString()
+  @MinLength(6)
+  code: string;
 }
