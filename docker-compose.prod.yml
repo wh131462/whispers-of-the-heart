@@ -47,6 +47,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      minio:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:7777/health"]
       interval: 30s
@@ -60,7 +62,7 @@ services:
       dockerfile: infra/docker/Dockerfile.web
       target: production
       args:
-        - VITE_API_URL=https://api.whispers.example.com
+        - VITE_API_URL=https://api.131462.wang
     container_name: whispers-web-prod
     restart: always
     networks:
@@ -111,11 +113,33 @@ services:
       timeout: 10s
       retries: 3
 
+  # MinIO 对象存储
+  minio:
+    image: minio/minio:latest
+    container_name: whispers-minio-prod
+    restart: always
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+      TZ: Asia/Shanghai
+    volumes:
+      - minio_data:/data
+    networks:
+      - whispers-network
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
 volumes:
   postgres_data:
     name: whispers_postgres_prod_data
   redis_data:
     name: whispers_redis_prod_data
+  minio_data:
+    name: whispers_minio_prod_data
 
 networks:
   whispers-network:

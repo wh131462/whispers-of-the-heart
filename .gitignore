@@ -13,6 +13,10 @@ out/
 .env.local
 .env.*.local
 
+# Configs (keep env.example as template)
+configs/env.development
+configs/env.production
+
 # Logs
 *.log
 npm-debug.log*

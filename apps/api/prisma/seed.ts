@@ -3,17 +3,22 @@ import * as bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
+// 从环境变量读取管理员配置
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@whispers.local';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+
 async function main() {
   console.log('开始生成种子数据...');
 
   // 创建管理员用户
-  const adminPassword = await bcrypt.hash('admin123', 10);
+  const adminPassword = await bcrypt.hash(ADMIN_PASSWORD, 10);
   const admin = await prisma.user.upsert({
-    where: { email: 'admin@whispers.local' },
+    where: { email: ADMIN_EMAIL },
     update: { isAdmin: true },
     create: {
-      username: 'admin',
-      email: 'admin@whispers.local',
+      username: ADMIN_USERNAME,
+      email: ADMIN_EMAIL,
       password: adminPassword,
       isAdmin: true,
       bio: '系统管理员',
@@ -163,7 +168,7 @@ async function main() {
   });
 
   console.log('种子数据生成完成！');
-  console.log('管理员账户: admin@whispers.local / admin123');
+  console.log(`管理员账户: ${ADMIN_EMAIL} / ******`);
   console.log('测试用户: test@whispers.local / test123');
   console.log(`创建了 ${await prisma.post.count()} 篇文章`);
   console.log(`创建了 ${await prisma.comment.count()} 条评论`);
