@@ -29,6 +29,9 @@ RUN pnpm install
 # 复制源代码
 COPY . .
 
+# 生成 Prisma 客户端 (构建前需要)
+RUN cd apps/api && npx prisma generate
+
 # 构建后端应用
 RUN pnpm --filter=api build
 
