@@ -309,7 +309,15 @@ const PostManagementPage: React.FC = () => {
                 <td className="px-6 py-4 text-sm text-muted-foreground">
                   <div className="flex items-center">
                     <Calendar className="h-4 w-4 mr-1" />
-                    {new Date(post.updatedAt).toLocaleDateString('zh-CN')}
+                    {new Date(post.updatedAt).toLocaleString('zh-CN', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit',
+                      hour12: false
+                    })}
                   </div>
                 </td>
                 <td className="px-6 py-4 text-right">

@@ -101,14 +101,15 @@ export class ContentModerationService {
       confidence -= 0.5;
     }
 
-    // 检测是否包含有意义的内容
+    // 检测是否包含有意义的内容（放宽限制，只对极短内容降低置信度）
     const meaningfulContent = this.extractMeaningfulContent(content);
-    if (meaningfulContent.length < 5) {
+    if (meaningfulContent.length < 2) {
       reasons.push('内容缺乏意义');
-      confidence -= 0.4;
+      confidence -= 0.6;
     }
 
-    const isApproved = confidence >= 0.5 && reasons.length === 0;
+    // 只根据置信度判断是否通过，reasons 仅作为参考信息
+    const isApproved = confidence >= 0.5;
 
     return {
       isApproved,

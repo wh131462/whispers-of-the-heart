@@ -319,13 +319,11 @@ model SiteConfig {
   id              String   @id @default("default")
   siteName        String   @default("Whispers of the Heart")
   siteDescription String?
-  siteLogo        String?  // 站点 Logo / 头像
-  siteIcon        String?  // 站点图标 (favicon)
-  aboutMe         String?  @db.Text
+  siteLogo        String?  // 网站 Logo（用于导航栏左上角）
+  ownerName       String?  // 博主名称（用于首页 Banner）
+  ownerAvatar     String?  // 博主头像（用于首页 Banner）
   contactEmail    String?  // 联系邮箱
   socialLinks     Json?    // { github: "", twitter: "", linkedin: "" }
-  seoSettings     Json?    // { title: "", description: "", keywords: "" }
-  ossConfig       Json?    // OSS 配置
   commentSettings Json?    // { autoModeration: true, bannedWords: [] }
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

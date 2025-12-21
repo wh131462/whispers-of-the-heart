@@ -59,8 +59,8 @@ interface SiteConfig {
   siteName: string
   siteDescription?: string
   siteLogo?: string | null
-  siteIcon?: string | null
-  aboutMe?: string
+  ownerName?: string | null
+  ownerAvatar?: string | null
   contactEmail?: string | null
   socialLinks?: {
     github?: string | null
@@ -170,9 +170,9 @@ const HomePage: React.FC = () => {
   const observerRef = useRef<IntersectionObserver | null>(null)
   const loadMoreRef = useRef<HTMLDivElement>(null)
 
-  // 打字机效果
+  // 打字机效果 - 使用博主名称，如果没有则回退到网站名称
   const { displayText, isTyping } = useTypewriter(
-    siteConfig?.siteName || 'Whispers of the Heart',
+    siteConfig?.ownerName || siteConfig?.siteName || 'Whispers of the Heart',
     80,
     300
   )
@@ -325,12 +325,12 @@ const HomePage: React.FC = () => {
 
         {/* 内容 */}
         <div className="relative z-10 text-center px-4 py-16 max-w-3xl mx-auto">
-          {/* 头像 */}
+          {/* 博主头像 */}
           <div className="mb-8">
-            {siteConfig?.siteLogo ? (
+            {siteConfig?.ownerAvatar ? (
               <img
-                src={siteConfig.siteLogo}
-                alt="Avatar"
+                src={siteConfig.ownerAvatar}
+                alt={siteConfig?.ownerName || '博主头像'}
                 className="w-24 h-24 mx-auto rounded-full object-cover border-4 border-background shadow-lg"
               />
             ) : (

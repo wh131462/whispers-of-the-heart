@@ -27,8 +27,8 @@ interface SiteConfig {
   siteName: string
   siteDescription?: string | null
   siteLogo?: string | null
-  siteIcon?: string | null
-  aboutMe?: string | null
+  ownerName?: string | null
+  ownerAvatar?: string | null
   contactEmail?: string | null
   socialLinks?: {
     github?: string | null

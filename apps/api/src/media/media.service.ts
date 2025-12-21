@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import * as fs from 'fs';
@@ -127,6 +127,18 @@ export class MediaService {
     uploaderId: string,
     tags: string[] = [],
   ) {
+    // 验证用户是否存在
+    const user = await this.prisma.user.findUnique({
+      where: { id: uploaderId },
+    });
+    if (!user) {
+      // 删除已上传的文件
+      if (file.path && fs.existsSync(file.path)) {
+        fs.unlinkSync(file.path);
+      }
+      throw new UnauthorizedException('用户不存在或会话已过期，请重新登录');
+    }
+
     const filePath = file.path;
 
     // 计算文件哈希值

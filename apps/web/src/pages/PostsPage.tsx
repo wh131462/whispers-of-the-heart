@@ -115,23 +115,25 @@ const PostsPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const [posts, setPosts] = useState<Post[]>([])
   const [tags, setTags] = useState<TagWithCount[]>([])
-  const [loading, setLoading] = useState(true)
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
+  const [isSearching, setIsSearching] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
-  // 实际用于 API 请求的搜索词（防抖后更新）
-  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '')
-  // 输入框的值（即时更新）
+  // 输入框的值（即时更新，不触发重新渲染）
   const [inputValue, setInputValue] = useState(searchParams.get('search') || '')
+  // 实际用于 API 请求的搜索词
+  const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get('search') || '')
   const [activeTag, setActiveTag] = useState(searchParams.get('tag') || '')
   const [showBackTop, setShowBackTop] = useState(false)
   const observerRef = useRef<IntersectionObserver | null>(null)
   const loadMoreRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   // 用于跟踪输入法组合状态（拼音输入）
   const isComposingRef = useRef(false)
+  // 用于存储最新的筛选参数
+  const filtersRef = useRef({ search: searchParams.get('search') || '', tag: searchParams.get('tag') || '' })
 
   // 获取标签列表
   useEffect(() => {
@@ -148,11 +150,15 @@ const PostsPage: React.FC = () => {
     fetchTags()
   }, [])
 
-  // 获取文章列表
-  const fetchPosts = useCallback(async (pageNum: number, isInitial = false) => {
+  // 获取文章列表 - 不依赖搜索词状态，使用 ref
+  const fetchPosts = useCallback(async (pageNum: number, isInitial = false, search?: string, tag?: string) => {
+    // 使用传入的参数或 ref 中的值
+    const currentSearch = search ?? filtersRef.current.search
+    const currentTag = tag ?? filtersRef.current.tag
+
     try {
       if (isInitial) {
-        setLoading(true)
+        setIsSearching(true)
       } else {
         setLoadingMore(true)
       }
@@ -165,13 +171,13 @@ const PostsPage: React.FC = () => {
       }
 
       // 如果有搜索词或标签筛选，使用 search 端点
-      const hasFilters = searchTerm || activeTag
-      if (searchTerm) {
-        params.q = searchTerm
+      const hasFilters = currentSearch || currentTag
+      if (currentSearch) {
+        params.q = currentSearch
       }
 
-      if (activeTag) {
-        params.tag = activeTag
+      if (currentTag) {
+        params.tag = currentTag
       }
 
       // 使用搜索端点支持标签筛选
@@ -193,24 +199,34 @@ const PostsPage: React.FC = () => {
     } catch (error) {
       console.error('Failed to fetch posts:', error)
     } finally {
-      setLoading(false)
+      setIsInitialLoad(false)
+      setIsSearching(false)
       setLoadingMore(false)
     }
-  }, [searchTerm, activeTag])
+  }, [])
 
-  // 初始加载
+  // 初始加载 - 只在组件挂载时执行一次
   useEffect(() => {
-    setPage(1)
     fetchPosts(1, true)
-  }, [fetchPosts])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // 搜索词或标签变化时重新加载
+  useEffect(() => {
+    // 更新 ref
+    filtersRef.current = { search: debouncedSearch, tag: activeTag }
+    // 重置页码并重新加载
+    setPage(1)
+    fetchPosts(1, true, debouncedSearch, activeTag)
+  }, [debouncedSearch, activeTag, fetchPosts])
 
   // 无限滚动
   useEffect(() => {
-    if (loading) return
+    if (isInitialLoad) return
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !isSearching) {
           setPage(prev => prev + 1)
         }
       },
@@ -228,7 +244,7 @@ const PostsPage: React.FC = () => {
         observerRef.current.disconnect()
       }
     }
-  }, [loading, hasMore, loadingMore])
+  }, [isInitialLoad, hasMore, loadingMore, isSearching])
 
   // 加载更多
   useEffect(() => {
@@ -246,32 +262,28 @@ const PostsPage: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  // 搜索处理（防抖）
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    // 只更新输入框的值，不立即触发搜索
-    setInputValue(value)
-
+  // 防抖搜索 - 输入值变化后 300ms 触发搜索
+  useEffect(() => {
     // 如果正在输入拼音，不触发搜索
     if (isComposingRef.current) {
       return
     }
 
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current)
-    }
+    const timer = setTimeout(() => {
+      setDebouncedSearch(inputValue)
+      // 更新 URL 参数（不触发页面刷新，只是同步状态）
+      const newParams = new URLSearchParams()
+      if (inputValue) newParams.set('search', inputValue)
+      if (activeTag) newParams.set('tag', activeTag)
+      setSearchParams(newParams, { replace: true })
+    }, 300)
 
-    // 防抖后才更新搜索词和 URL 参数
-    searchTimeoutRef.current = setTimeout(() => {
-      setSearchTerm(value)
-      if (value) {
-        setSearchParams({ search: value, ...(activeTag ? { tag: activeTag } : {}) })
-      } else {
-        const newParams = new URLSearchParams()
-        if (activeTag) newParams.set('tag', activeTag)
-        setSearchParams(newParams)
-      }
-    }, 500)
+    return () => clearTimeout(timer)
+  }, [inputValue, activeTag, setSearchParams])
+
+  // 搜索输入处理
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValue(e.target.value)
   }
 
   // 输入法组合开始（拼音输入开始）
@@ -280,57 +292,25 @@ const PostsPage: React.FC = () => {
   }
 
   // 输入法组合结束（拼音输入结束）
-  const handleCompositionEnd = (e: React.CompositionEvent<HTMLInputElement>) => {
+  const handleCompositionEnd = () => {
     isComposingRef.current = false
-    // 组合结束后，手动触发搜索
-    const value = e.currentTarget.value
-
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current)
-    }
-
-    searchTimeoutRef.current = setTimeout(() => {
-      setSearchTerm(value)
-      if (value) {
-        setSearchParams({ search: value, ...(activeTag ? { tag: activeTag } : {}) })
-      } else {
-        const newParams = new URLSearchParams()
-        if (activeTag) newParams.set('tag', activeTag)
-        setSearchParams(newParams)
-      }
-    }, 500)
   }
 
   // 标签筛选
   const handleTagClick = (tagSlug: string) => {
-    const newParams = new URLSearchParams()
-
-    // 保留搜索词
-    if (searchTerm) {
-      newParams.set('search', searchTerm)
-    }
-
     if (activeTag === tagSlug) {
-      // 取消选中当前标签
       setActiveTag('')
     } else {
-      // 选中新标签
       setActiveTag(tagSlug)
-      newParams.set('tag', tagSlug)
     }
-
-    setSearchParams(newParams)
   }
 
   // 清除筛选
   const handleClearFilters = () => {
     setInputValue('')
-    setSearchTerm('')
+    setDebouncedSearch('')
     setActiveTag('')
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current)
-    }
-    setSearchParams({})
+    setSearchParams({}, { replace: true })
   }
 
   // 返回顶部
@@ -361,11 +341,12 @@ const PostsPage: React.FC = () => {
     return Object.entries(stats).sort((a, b) => Number(b[0]) - Number(a[0]))
   }
 
-  const hasFilters = searchTerm || activeTag
+  const hasFilters = debouncedSearch || activeTag
   const groupedPosts = groupPostsByYear(posts)
   const years = Object.keys(groupedPosts).sort((a, b) => Number(b) - Number(a))
 
-  if (loading) {
+  // 只在初次加载时显示全页加载状态
+  if (isInitialLoad) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
@@ -405,13 +386,10 @@ const PostsPage: React.FC = () => {
             <button
               onClick={() => {
                 setInputValue('')
-                setSearchTerm('')
-                if (searchTimeoutRef.current) {
-                  clearTimeout(searchTimeoutRef.current)
-                }
+                setDebouncedSearch('')
                 const newParams = new URLSearchParams()
                 if (activeTag) newParams.set('tag', activeTag)
-                setSearchParams(newParams)
+                setSearchParams(newParams, { replace: true })
               }}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
@@ -463,7 +441,14 @@ const PostsPage: React.FC = () => {
       <div className="flex flex-col lg:flex-row gap-10">
         {/* 左侧：文章时间线 */}
         <main className="flex-1 min-w-0">
-          {posts.length > 0 ? (
+          {/* 搜索中的加载指示器 */}
+          {isSearching && (
+            <div className="flex items-center justify-center py-8 mb-4">
+              <Loader2 className="h-5 w-5 animate-spin text-primary mr-2" />
+              <span className="text-muted-foreground text-sm">搜索中...</span>
+            </div>
+          )}
+          {!isSearching && posts.length > 0 ? (
             <div className="space-y-8">
               {years.map(year => (
                 <div key={year}>
@@ -499,7 +484,7 @@ const PostsPage: React.FC = () => {
                 )}
               </div>
             </div>
-          ) : (
+          ) : !isSearching ? (
             <div className="text-center py-16 text-muted-foreground">
               <Feather className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p className="mb-2">
@@ -511,7 +496,7 @@ const PostsPage: React.FC = () => {
                 </Button>
               )}
             </div>
-          )}
+          ) : null}
         </main>
 
         {/* 右侧：侧边栏 */}

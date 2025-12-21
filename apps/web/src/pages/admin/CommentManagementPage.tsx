@@ -17,10 +17,14 @@ import {
   BarChart3,
   Clock,
   CheckCircle,
-  XCircle
+  XCircle,
+  Bell,
+  Wifi,
+  WifiOff
 } from 'lucide-react'
 import { api } from '@whispers/utils'
 import { useToastContext } from '../../contexts/ToastContext'
+import { useNotificationSocket } from '../../hooks/useNotificationSocket'
 
 interface Comment {
   id: string
@@ -96,6 +100,28 @@ const CommentManagementPage: React.FC = () => {
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [reportStatus, setReportStatus] = useState<'pending' | 'resolved' | 'dismissed'>('pending')
+
+  // WebSocket 实时通知
+  const handleNewComment = useCallback((comment: Comment) => {
+    // 如果在"全部"或"待审核"标签页，将新评论添加到列表顶部
+    if (activeTab === 'all' || (activeTab === 'pending' && !comment.isApproved)) {
+      setComments(prev => {
+        // 避免重复添加
+        if (prev.some(c => c.id === comment.id)) return prev
+        return [comment, ...prev]
+      })
+    }
+  }, [activeTab])
+
+  const handleStatsUpdate = useCallback((newStats: CommentStats) => {
+    setStats(newStats)
+  }, [])
+
+  const { isConnected, newCommentsCount, clearNewComments } = useNotificationSocket({
+    onNewComment: handleNewComment,
+    onStatsUpdate: handleStatsUpdate,
+    enabled: true,
+  })
 
   // Fetch stats
   const fetchStats = useCallback(async () => {
@@ -308,7 +334,31 @@ const CommentManagementPage: React.FC = () => {
       {/* 页面头部 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">评论管理</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-foreground">评论管理</h1>
+            {/* WebSocket 连接状态指示器 */}
+            <div className="flex items-center gap-1.5" title={isConnected ? '实时连接已建立' : '实时连接已断开'}>
+              {isConnected ? (
+                <Wifi className="h-4 w-4 text-green-500" />
+              ) : (
+                <WifiOff className="h-4 w-4 text-muted-foreground" />
+              )}
+              <span className={`text-xs ${isConnected ? 'text-green-500' : 'text-muted-foreground'}`}>
+                {isConnected ? '实时' : '离线'}
+              </span>
+            </div>
+            {/* 新评论通知徽章 */}
+            {newCommentsCount > 0 && (
+              <button
+                onClick={clearNewComments}
+                className="flex items-center gap-1 px-2 py-1 bg-primary/10 text-primary rounded-full text-xs hover:bg-primary/20 transition-colors"
+                title="点击清除通知"
+              >
+                <Bell className="h-3 w-3" />
+                {newCommentsCount} 条新评论
+              </button>
+            )}
+          </div>
           <p className="text-muted-foreground mt-1">审核和管理用户评论</p>
         </div>
         {activeTab !== 'trash' && activeTab !== 'reports' && (

@@ -23,6 +23,7 @@ import logoImg from '../assets/logo.png'
 const AdminLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false) // 移动端展开
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false) // 桌面端收起
+  const [currentTime, setCurrentTime] = useState(new Date())
   const navigate = useNavigate()
   const location = useLocation()
   const { user, logout, token } = useAuthStore()
@@ -37,6 +38,14 @@ const AdminLayout: React.FC = () => {
       blogApi.setToken(token)
     }
   }, [token])
+
+  // 实时更新时间
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   const navigation = [
     { name: '仪表盘', href: '/admin/dashboard', icon: LayoutDashboard },
@@ -218,8 +227,16 @@ const AdminLayout: React.FC = () => {
             </Button>
 
             <div className="flex items-center space-x-4 ml-auto">
-              <div className="text-sm text-muted-foreground">
-                {new Date().toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}
+              <div className="text-sm text-muted-foreground font-mono">
+                {currentTime.toLocaleString('zh-CN', {
+                  year: 'numeric',
+                  month: '2-digit',
+                  day: '2-digit',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                  hour12: false
+                })}
               </div>
             </div>
           </div>

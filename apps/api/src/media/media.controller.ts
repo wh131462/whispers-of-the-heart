@@ -19,8 +19,9 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { extname, join } from 'path';
 import { randomBytes } from 'crypto';
+import { existsSync, mkdirSync } from 'fs';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/roles.guard';
 import { MediaService } from './media.service';
@@ -33,9 +34,17 @@ const generateFilename = () => {
   return `${timestamp}-${random}`;
 };
 
+// 使用绝对路径确保上传目录一致
+const uploadsDir = join(process.cwd(), 'uploads');
+
+// 确保上传目录存在
+if (!existsSync(uploadsDir)) {
+  mkdirSync(uploadsDir, { recursive: true });
+}
+
 // Multer storage configuration
 const storage = diskStorage({
-  destination: './uploads',
+  destination: uploadsDir,
   filename: (req, file, callback) => {
     const uniqueSuffix = generateFilename();
     const ext = extname(file.originalname);
@@ -154,6 +163,20 @@ export class MediaController {
     @Request() req: any,
     @Body('tags') tagsString?: string,
   ) {
+    if (!file) {
+      throw new HttpException(
+        { success: false, message: '请选择要上传的文件' },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+
+    if (!req.user?.id) {
+      throw new HttpException(
+        { success: false, message: '用户未认证' },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
+
     const tags = tagsString ? tagsString.split(',').map((t) => t.trim()) : [];
     const media = await this.mediaService.create(file, req.user.id, tags);
 

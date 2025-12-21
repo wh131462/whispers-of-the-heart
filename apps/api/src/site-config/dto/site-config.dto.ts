@@ -14,11 +14,11 @@ export class CreateSiteConfigDto {
 
   @IsOptional()
   @IsString()
-  siteIcon?: string;
+  ownerName?: string;
 
   @IsOptional()
   @IsString()
-  aboutMe?: string;
+  ownerAvatar?: string;
 
   @IsOptional()
   @IsString()
@@ -30,25 +30,6 @@ export class CreateSiteConfigDto {
     github?: string;
     twitter?: string;
     linkedin?: string;
-  };
-
-  @IsOptional()
-  @IsObject()
-  seoSettings?: {
-    title?: string;
-    description?: string;
-    keywords?: string;
-  };
-
-  @IsOptional()
-  @IsObject()
-  ossConfig?: {
-    provider?: string;
-    endpoint?: string;
-    accessKey?: string;
-    secretKey?: string;
-    bucketName?: string;
-    cdnDomain?: string;
   };
 
   @IsOptional()
@@ -74,11 +55,11 @@ export class UpdateSiteConfigDto {
 
   @IsOptional()
   @IsString()
-  siteIcon?: string;
+  ownerName?: string;
 
   @IsOptional()
   @IsString()
-  aboutMe?: string;
+  ownerAvatar?: string;
 
   @IsOptional()
   @IsString()
@@ -90,25 +71,6 @@ export class UpdateSiteConfigDto {
     github?: string;
     twitter?: string;
     linkedin?: string;
-  };
-
-  @IsOptional()
-  @IsObject()
-  seoSettings?: {
-    title?: string;
-    description?: string;
-    keywords?: string;
-  };
-
-  @IsOptional()
-  @IsObject()
-  ossConfig?: {
-    provider?: string;
-    endpoint?: string;
-    accessKey?: string;
-    secretKey?: string;
-    bucketName?: string;
-    cdnDomain?: string;
   };
 
   @IsOptional()

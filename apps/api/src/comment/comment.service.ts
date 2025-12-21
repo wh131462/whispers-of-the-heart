@@ -4,6 +4,7 @@ import { CreateCommentDto, UpdateCommentDto } from './dto/comment.dto';
 import { ContentModerationService } from '../common/services/content-moderation.service';
 import { MailService } from '../mail/mail.service';
 import { SiteConfigService } from '../site-config/site-config.service';
+import { NotificationGateway } from '../notification/notification.gateway';
 
 // 用户编辑评论的时间限制（分钟）
 const EDIT_TIME_LIMIT_MINUTES = 15;
@@ -15,6 +16,7 @@ export class CommentService {
     private contentModerationService: ContentModerationService,
     private mailService: MailService,
     private siteConfigService: SiteConfigService,
+    private notificationGateway: NotificationGateway,
   ) {}
 
   async create(createCommentDto: CreateCommentDto & { authorId?: string }) {
@@ -140,6 +142,15 @@ export class CommentService {
       createCommentDto.content,
       createCommentDto.authorId,
     );
+
+    // 推送 WebSocket 通知给管理员
+    this.notificationGateway.notifyNewComment({
+      ...comment,
+      author: {
+        id: createCommentDto.authorId,
+        username: commenter?.username || '匿名用户',
+      },
+    });
 
     return comment;
   }

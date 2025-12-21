@@ -8,10 +8,10 @@ function loadConfigEnv(mode: string) {
   const configsPath = path.resolve(__dirname, '../../configs')
   const envFile = mode === 'production' ? 'env.production' : 'env.development'
   const envFilePath = path.join(configsPath, envFile)
-  
+
   // 加载指定的环境文件
   config({ path: envFilePath })
-  
+
   // 也加载vite默认的环境变量
   return loadEnv(mode, process.cwd(), '')
 }
@@ -20,7 +20,7 @@ function loadConfigEnv(mode: string) {
 export default defineConfig(({ mode }) => {
   // 加载环境变量
   const env = loadConfigEnv(mode)
-  
+
   return {
     plugins: [react()],
     server: {
@@ -28,12 +28,7 @@ export default defineConfig(({ mode }) => {
       host: true, // 允许外部访问
     },
     optimizeDeps: {
-      // 预构建并强制包含 BlockNote 依赖，避免开发时重复加载导致插件冲突
-      include: [
-        '@blocknote/core',
-        '@blocknote/react',
-        '@blocknote/mantine',
-      ],
+
     },
     preview: {
       port: parseInt(env.VITE_WEB_PORT || '8888'),

@@ -426,13 +426,38 @@ const PostDetailPage: React.FC = () => {
           <div className="flex items-center gap-1">
             <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
             <span>
-              {new Date(post.createdAt).toLocaleDateString('zh-CN', {
+              {new Date(post.createdAt).toLocaleString('zh-CN', {
                 year: 'numeric',
-                month: 'short',
-                day: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
               })}
             </span>
           </div>
+
+          {/* 如果更新时间与创建时间不同，显示更新时间 */}
+          {post.updatedAt !== post.createdAt && (
+            <>
+              <span className="text-muted-foreground/50 hidden sm:inline">·</span>
+              <div className="flex items-center gap-1 text-muted-foreground/70">
+                <span className="text-xs">更新于</span>
+                <span>
+                  {new Date(post.updatedAt).toLocaleString('zh-CN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: false
+                  })}
+                </span>
+              </div>
+            </>
+          )}
 
           <span className="text-muted-foreground/50 hidden sm:inline">·</span>
 

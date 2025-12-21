@@ -177,6 +177,10 @@ const MediaPage: React.FC = () => {
     try {
       await api.delete(`/media/${mediaId}`)
       setMedia(prev => prev.filter(m => m.id !== mediaId))
+      // 如果删除的是当前选中的文件，关闭抽屉
+      if (selectedMedia?.id === mediaId) {
+        setSelectedMedia(null)
+      }
       success('文件已删除')
       fetchStats()
       setDeleteConfirm({ isOpen: false, references: [], usages: [], isBatch: false })
@@ -207,11 +211,19 @@ const MediaPage: React.FC = () => {
           force: true
         })
         setMedia(prev => prev.filter(m => !deleteConfirm.mediaIds?.includes(m.id)))
+        // 如果删除的文件包含当前选中的文件，关闭抽屉
+        if (selectedMedia && deleteConfirm.mediaIds.includes(selectedMedia.id)) {
+          setSelectedMedia(null)
+        }
         setSelectedIds(new Set())
         success(`成功删除 ${deleteConfirm.mediaIds.length} 个文件`)
       } else if (deleteConfirm.mediaId) {
         await api.delete(`/media/${deleteConfirm.mediaId}?force=true`)
         setMedia(prev => prev.filter(m => m.id !== deleteConfirm.mediaId))
+        // 如果删除的是当前选中的文件，关闭抽屉
+        if (selectedMedia?.id === deleteConfirm.mediaId) {
+          setSelectedMedia(null)
+        }
         success('文件已删除')
       }
       fetchStats()
@@ -675,7 +687,7 @@ const MediaPage: React.FC = () => {
 
       {/* 文件详情侧边栏 */}
       {selectedMedia && (
-        <div className="fixed inset-y-0 right-0 w-96 bg-card shadow-xl border-l border-border z-40 flex flex-col">
+        <div className="fixed top-0 right-0 bottom-0 w-96 bg-card shadow-xl border-l border-border z-50 flex flex-col">
           {/* 头部 */}
           <div className="flex items-center justify-between p-4 border-b border-border">
             <h2 className="text-lg font-semibold text-foreground truncate">文件详情</h2>

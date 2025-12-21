@@ -19,10 +19,9 @@ interface SiteConfig {
   siteName: string
   siteDescription: string
   siteLogo: string
-  siteIcon: string
-  aboutMe: string
+  ownerName?: string | null
+  ownerAvatar?: string | null
   contactEmail: string
-  avatar: string
   socialLinks: {
     github: string
     twitter: string
@@ -46,9 +45,8 @@ const defaultConfig: SiteConfig = {
   siteName: 'EternalHeart',
   siteDescription: 'A frontend enthusiast, passionate about creating',
   siteLogo: '',
-  siteIcon: '',
-  avatar: GITHUB_AVATAR_URL,
-  aboutMe: 'I am a frontend enthusiast, passionate about creating, and a frontend developer committed to transitioning into a full-stack role.',
+  ownerName: 'EternalHeart',
+  ownerAvatar: GITHUB_AVATAR_URL,
   contactEmail: 'hao131462@qq.com',
   socialLinks: {
     github: `https://github.com/${GITHUB_USERNAME}`,
@@ -147,7 +145,7 @@ const AboutPage: React.FC = () => {
               {/* 头像 - 使用 GitHub 头像 */}
               <div className="flex-shrink-0">
                 <img
-                  src={config.avatar || GITHUB_AVATAR_URL}
+                  src={config.ownerAvatar || GITHUB_AVATAR_URL}
                   alt="Avatar"
                   className="w-32 h-32 rounded-full object-cover border-4 border-primary/20 shadow-xl select-none"
                   draggable={false}

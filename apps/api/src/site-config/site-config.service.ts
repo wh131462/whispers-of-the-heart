@@ -11,8 +11,15 @@ export class SiteConfigService {
   ) { }
 
   async create(createSiteConfigDto: CreateSiteConfigDto) {
-    const config = await this.prisma.siteConfig.create({
-      data: createSiteConfigDto,
+    // 使用 upsert 确保只有一条配置记录
+    const configId = 'default';
+    const config = await this.prisma.siteConfig.upsert({
+      where: { id: configId },
+      update: createSiteConfigDto,
+      create: {
+        id: configId,
+        ...createSiteConfigDto,
+      },
     });
 
     // 同步媒体使用记录
@@ -31,26 +38,13 @@ export class SiteConfigService {
         siteName: 'Whispers of the Heart',
         siteDescription: '不知名独立开发的个人博客',
         siteLogo: null,
-        siteIcon: null,
-        aboutMe: '热爱技术，热爱生活，希望通过文字传递正能量。',
+        ownerName: null,
+        ownerAvatar: null,
         contactEmail: null,
         socialLinks: {
           github: null,
           twitter: null,
           linkedin: null,
-        },
-        seoSettings: {
-          title: 'Whispers of the Heart',
-          description: '不知名独立开发的个人博客',
-          keywords: '技术,博客,分享,知识',
-        },
-        ossConfig: {
-          provider: 'local',
-          endpoint: null,
-          accessKey: null,
-          secretKey: null,
-          bucketName: null,
-          cdnDomain: null,
         },
         commentSettings: {
           autoModeration: true,
@@ -148,9 +142,9 @@ export class SiteConfigService {
       await this.mediaUsageService.syncDirectUsage('site_config', configId, 'siteLogo', dto.siteLogo);
     }
 
-    // 同步 aboutMe（富文本内容，可能包含图片）
-    if ('aboutMe' in dto) {
-      await this.mediaUsageService.syncContentUsage('site_config', configId, 'aboutMe', dto.aboutMe);
+    // 同步 ownerAvatar
+    if ('ownerAvatar' in dto) {
+      await this.mediaUsageService.syncDirectUsage('site_config', configId, 'ownerAvatar', dto.ownerAvatar);
     }
   }
 }
