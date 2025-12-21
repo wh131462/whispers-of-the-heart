@@ -7,8 +7,10 @@ FROM node:18-alpine AS builder
 # 设置工作目录
 WORKDIR /app
 
-# 安装 pnpm
-RUN npm install -g pnpm
+# 配置国内镜像源并安装 pnpm
+RUN npm config set registry https://registry.npmmirror.com && \
+    npm install -g pnpm && \
+    pnpm config set registry https://registry.npmmirror.com
 
 # 复制 package.json 和 pnpm-lock.yaml
 COPY package.json pnpm-workspace.yaml ./
@@ -49,7 +51,8 @@ COPY --from=builder /app/apps/api/package.json ./
 COPY --from=builder /app/apps/api/prisma ./prisma
 
 # 安装生产依赖
-RUN npm install --only=production
+RUN npm config set registry https://registry.npmmirror.com && \
+    npm install --only=production
 
 # 生成 Prisma 客户端
 RUN npx prisma generate

@@ -2,8 +2,10 @@
 FROM node:18-alpine AS base
 WORKDIR /app
 
-# 安装 pnpm
-RUN npm install -g pnpm
+# 配置国内镜像源并安装 pnpm
+RUN npm config set registry https://registry.npmmirror.com && \
+    npm install -g pnpm && \
+    pnpm config set registry https://registry.npmmirror.com
 
 # 开发阶段
 FROM base AS development
