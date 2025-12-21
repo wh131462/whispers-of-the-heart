@@ -55,7 +55,7 @@ COPY --from=builder /app/apps/api/prisma ./prisma
 
 # 安装生产依赖
 RUN npm config set registry https://registry.npmmirror.com && \
-    npm install --only=production
+    npm install --omit=dev --legacy-peer-deps
 
 # 生成 Prisma 客户端
 RUN npx prisma generate
