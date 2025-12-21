@@ -31,8 +31,8 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
-    log_error "Docker Compose 未安装"
+if ! docker compose version &> /dev/null; then
+    log_error "Docker Compose 未安装，请安装 Docker 并确保包含 Compose 插件"
     exit 1
 fi
 
@@ -74,15 +74,15 @@ fi
 
 # 停止旧服务
 log_info "停止旧服务..."
-docker-compose -f docker-compose.prod.yml down 2>/dev/null || true
+docker compose -f docker-compose.prod.yml down 2>/dev/null || true
 
 # 构建镜像
 log_info "构建 Docker 镜像（这可能需要几分钟）..."
-docker-compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.prod.yml build
 
 # 启动服务
 log_info "启动服务..."
-docker-compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml up -d
 
 # 等待服务启动
 log_info "等待服务启动..."
@@ -90,7 +90,7 @@ sleep 10
 
 # 检查服务状态
 log_info "检查服务状态..."
-docker-compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml ps
 
 # 初始化数据库（首次部署）
 if [ "$2" = "--init" ] || [ "$2" = "-i" ]; then
@@ -113,8 +113,8 @@ else
 fi
 echo ""
 echo "常用命令："
-echo "  查看日志: docker-compose -f docker-compose.prod.yml logs -f"
-echo "  重启服务: docker-compose -f docker-compose.prod.yml restart"
-echo "  停止服务: docker-compose -f docker-compose.prod.yml down"
+echo "  查看日志: docker compose -f docker-compose.prod.yml logs -f"
+echo "  重启服务: docker compose -f docker-compose.prod.yml restart"
+echo "  停止服务: docker compose -f docker-compose.prod.yml down"
 echo ""
 echo "首次部署请运行: ./deploy.sh $ENV --init"
