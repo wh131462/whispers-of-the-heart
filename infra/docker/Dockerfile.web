@@ -10,7 +10,7 @@ FROM base AS development
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json ./apps/web/
 COPY packages/*/package.json ./packages/*/
-RUN pnpm install --frozen-lockfile
+RUN pnpm install
 
 COPY . .
 EXPOSE 8888
@@ -23,7 +23,7 @@ ARG VITE_API_URL=http://localhost:7777
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/web/package.json ./apps/web/
 COPY packages/*/package.json ./packages/*/
-RUN pnpm install --frozen-lockfile
+RUN pnpm install
 
 COPY . .
 

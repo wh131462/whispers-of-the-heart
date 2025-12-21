@@ -18,8 +18,11 @@ COPY packages/hooks/package.json ./packages/hooks/
 COPY packages/types/package.json ./packages/types/
 COPY packages/utils/package.json ./packages/utils/
 
+# 复制 lockfile
+COPY pnpm-lock.yaml ./
+
 # 安装依赖
-RUN pnpm install --frozen-lockfile
+RUN pnpm install
 
 # 复制源代码
 COPY . .
