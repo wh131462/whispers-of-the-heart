@@ -15,7 +15,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./infra/docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     networks:
       - whispers-network
     healthcheck:
