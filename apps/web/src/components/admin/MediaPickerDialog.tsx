@@ -28,7 +28,7 @@ const MediaPickerDialog: React.FC<MediaPickerDialogProps> = ({
   onClose,
   onSelect,
   filterType = 'all',
-  multiple = false,
+  multiple: _multiple = false,
   title = '选择媒体文件'
 }) => {
   const [media, setMedia] = useState<Media[]>([])

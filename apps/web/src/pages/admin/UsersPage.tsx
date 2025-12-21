@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Users, Search, Shield, ShieldOff, Trash2, MoreVertical } from 'lucide-react'
+import { Users, Search, Shield, ShieldOff, Trash2 } from 'lucide-react'
 import { Button, Input } from '@whispers/ui'
 import { api } from '@whispers/utils'
 

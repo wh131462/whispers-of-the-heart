@@ -117,7 +117,7 @@ const PostEditPage: React.FC = () => {
           content: apiPost.content,
           excerpt: apiPost.excerpt || '',
           tags: apiPost.tags || [],
-          published: apiPost.published || apiPost.status === 'PUBLISHED',
+          published: !!apiPost.publishedAt || apiPost.status === 'PUBLISHED',
           coverImage: apiPost.coverImage,
           createdAt: apiPost.createdAt,
           updatedAt: apiPost.updatedAt,

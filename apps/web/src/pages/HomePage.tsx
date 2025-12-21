@@ -10,10 +10,8 @@ import {
   Mail,
   Calendar,
   Eye,
-  MessageSquare,
   Heart,
   Tag,
-  Globe,
   BookOpen,
   Feather
 } from 'lucide-react'
@@ -109,7 +107,7 @@ const useTypewriter = (text: string, speed = 100, delay = 500) => {
 }
 
 // 文章时间线项
-const TimelinePost: React.FC<{ post: Post; isFirst?: boolean }> = ({ post, isFirst }) => {
+const TimelinePost: React.FC<{ post: Post; isFirst?: boolean }> = ({ post, isFirst: _isFirst }) => {
   const date = new Date(post.createdAt)
   const monthDay = date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
 
@@ -161,7 +159,7 @@ const TimelinePost: React.FC<{ post: Post; isFirst?: boolean }> = ({ post, isFir
 const HomePage: React.FC = () => {
   const navigate = useNavigate()
   const [posts, setPosts] = useState<Post[]>([])
-  const [tags, setTags] = useState<TagWithCount[]>([])
+  const [_tags, setTags] = useState<TagWithCount[]>([])
   const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)

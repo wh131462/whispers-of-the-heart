@@ -34,6 +34,7 @@ const ProfilePage: React.FC = () => {
   const [countdown, setCountdown] = useState(0)
 
   const handleSave = async () => {
+    if (!user) return
     try {
       // 这里应该调用 API 更新用户信息
       // await updateUserProfile(formData)

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -8,7 +8,6 @@ import { Eye, EyeOff, Lock, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-r
 import { api } from '@whispers/utils'
 
 const ResetPasswordPage: React.FC = () => {
-  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const [formData, setFormData] = useState({
     password: '',

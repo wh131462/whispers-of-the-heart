@@ -76,7 +76,12 @@ const PostManagementPage: React.FC = () => {
       const response = await blogApi.getPosts(params)
 
       if (response.success && response.data?.items) {
-        setPosts(response.data.items)
+        // 将 API 返回的数据转换为本地 Post 类型
+        const items = response.data.items.map((item: any) => ({
+          ...item,
+          published: !!item.publishedAt || item.status === 'PUBLISHED'
+        }))
+        setPosts(items)
       } else {
         throw new Error('获取文章列表失败')
       }
