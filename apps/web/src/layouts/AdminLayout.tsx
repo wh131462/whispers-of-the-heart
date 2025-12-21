@@ -18,6 +18,7 @@ import {
 import { Button } from '@whispers/ui'
 import { useAuthStore } from '../stores/useAuthStore'
 import { blogApi } from '@whispers/utils'
+import logoImg from '../assets/logo.png'
 
 const AdminLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false) // 移动端展开
@@ -94,9 +95,7 @@ const AdminLayout: React.FC = () => {
         {/* 头部 */}
         <div className={`flex items-center h-16 border-b ${sidebarCollapsed ? 'justify-center px-2' : 'justify-between px-6'}`}>
           <div className={`flex items-center ${sidebarCollapsed ? '' : 'space-x-2'}`}>
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
-              <span className="text-primary-foreground font-bold text-lg">W</span>
-            </div>
+            <img src={logoImg} alt="Logo" className="h-8 w-8 rounded-lg object-cover shrink-0" />
             {!sidebarCollapsed && (
               <span className="text-xl font-bold text-foreground font-serif">管理后台</span>
             )}

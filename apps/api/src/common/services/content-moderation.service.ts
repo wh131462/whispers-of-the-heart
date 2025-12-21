@@ -11,11 +11,20 @@ export interface ModerationResult {
 export class ContentModerationService {
   private readonly logger = new Logger(ContentModerationService.name);
 
+  // 默认敏感词列表
+  private readonly defaultSensitiveWords = [
+    '垃圾', '废物', '傻逼', '白痴', '智障',
+    'fuck', 'shit', 'damn', 'bitch',
+    '政治敏感词', '色情', '暴力'
+  ];
+
   /**
    * 基础内容检测
    * 检测常见的垃圾信息、敏感词等
+   * @param content 要检测的内容
+   * @param additionalBannedWords 额外的违禁词列表（来自站点配置）
    */
-  async moderateContent(content: string): Promise<ModerationResult> {
+  async moderateContent(content: string, additionalBannedWords: string[] = []): Promise<ModerationResult> {
     const reasons: string[] = [];
     let confidence = 1.0;
 
@@ -67,17 +76,13 @@ export class ContentModerationService {
       confidence -= 0.4;
     }
 
-    // 检测敏感词（基础版本）
-    const sensitiveWords = [
-      '垃圾', '废物', '傻逼', '白痴', '智障',
-      'fuck', 'shit', 'damn', 'bitch',
-      '政治敏感词', '色情', '暴力'
-    ];
-    
-    const hasSensitiveWords = sensitiveWords.some(word => 
-      content.toLowerCase().includes(word.toLowerCase())
+    // 合并默认敏感词和自定义违禁词
+    const allBannedWords = [...this.defaultSensitiveWords, ...additionalBannedWords];
+
+    const hasSensitiveWords = allBannedWords.some(word =>
+      word && content.toLowerCase().includes(word.toLowerCase())
     );
-    
+
     if (hasSensitiveWords) {
       reasons.push('包含敏感词汇');
       confidence -= 0.6;

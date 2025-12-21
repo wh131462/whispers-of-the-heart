@@ -16,6 +16,7 @@ import ProfilePage from './pages/ProfilePage'
 import { ToastProvider } from './contexts/ToastContext'
 import { apiUtils } from '@whispers/utils'
 import { useGlobalStore } from './stores/useGlobalStore'
+import { useAuthStore } from './stores/useAuthStore'
 import './i18n/config'
 import './index.css'
 import AboutPage from './pages/AboutPage'
@@ -39,17 +40,23 @@ const PageLoader = () => (
 
 function App() {
   const setError = useGlobalStore((state) => state.setError)
+  const _hasHydrated = useAuthStore((state) => state._hasHydrated)
 
-  // 初始化 API 客户端
+  // 初始化 API 客户端 - 等待 hydration 完成后再初始化
   useEffect(() => {
-    // 初始化 API 客户端,自动加载 token
-    apiUtils.initialize('auth_token')
-
     // 设置全局错误处理器
     apiUtils.setErrorHandler((error, status) => {
       setError(error)
     })
   }, [setError])
+
+  // 在 hydration 完成后初始化 API 客户端
+  useEffect(() => {
+    if (_hasHydrated) {
+      // hydration 完成后，token 已经被 onRehydrateStorage 设置到 localStorage
+      apiUtils.initialize('auth_token')
+    }
+  }, [_hasHydrated])
 
   return (
     <ToastProvider>

@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 
 export type EntityType = 'post' | 'user' | 'site_config';
-export type FieldName = 'avatar' | 'coverImage' | 'content' | 'aboutMe';
+export type FieldName = 'avatar' | 'siteLogo' | 'coverImage' | 'content' | 'aboutMe';
 
 export interface MediaUsageInfo {
   entityType: EntityType;
@@ -15,6 +15,7 @@ export interface MediaUsageInfo {
 // 字段标签映射
 const FIELD_LABELS: Record<FieldName, string> = {
   avatar: '头像',
+  siteLogo: '站点Logo',
   coverImage: '封面',
   content: '内容',
   aboutMe: '关于页面',

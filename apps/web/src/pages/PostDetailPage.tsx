@@ -15,7 +15,6 @@ import {
 } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { MarkdownRenderer } from '@whispers/ui'
-import CommentForm from '../components/CommentForm'
 import CommentList from '../components/CommentList'
 import LoginDialog from '../components/LoginDialog'
 import ConfirmDialog from '../components/ConfirmDialog'
@@ -62,7 +61,6 @@ const PostDetailPage: React.FC = () => {
   const [isBookmarked, setIsBookmarked] = useState(false)
   const [post, setPost] = useState<Post | null>(null)
   const [loading, setLoading] = useState(true)
-  const [commentRefreshKey, setCommentRefreshKey] = useState(0)
   const [commentCount, setCommentCount] = useState(0)
   const [likesCount, setLikesCount] = useState(0)
   const [isLikeLoading, setIsLikeLoading] = useState(false)
@@ -521,19 +519,8 @@ const PostDetailPage: React.FC = () => {
       </div>
 
       {/* 评论区 */}
-      <section className="space-y-6 sm:space-y-8">
-        <h2 className="text-xl sm:text-2xl font-serif font-bold">评论</h2>
-
-        <CommentForm
-          postId={post.id}
-          onCommentAdded={() => {
-            setCommentRefreshKey((prev) => prev + 1)
-            setCommentCount((prev) => prev + 1)
-          }}
-        />
-
+      <section>
         <CommentList
-          key={commentRefreshKey}
           postId={post.id}
           onCommentCountChange={setCommentCount}
         />

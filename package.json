@@ -19,7 +19,7 @@
     }
   },
   "scripts": {
-    "dev": "turbo run dev",
+    "dev": "pnpm build:packages && turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "type-check": "turbo run type-check",
@@ -28,7 +28,7 @@
     "test": "turbo run test",
 
     "dev:api": "turbo run dev --filter=api",
-    "dev:web": "turbo run dev --filter=web",
+    "dev:web": "pnpm build:packages && turbo run dev --filter=web",
 
     "build:api": "turbo run build --filter=api",
     "build:web": "turbo run build --filter=web",
@@ -48,13 +48,16 @@
     "build:development": "cross-env NODE_ENV=development turbo run build",
     "build:production": "cross-env NODE_ENV=production turbo run build",
         
-    "env:dev": "cp configs/env.development .env",
-    "env:prod": "cp configs/env.production .env",
-    
-    "dev:local": "pnpm env:dev && docker-compose -f docker-compose.dev.yml up -d && pnpm dev",
-    "dev:local:db": "docker-compose -f docker-compose.dev.yml up -d postgres redis minio pgadmin",
-    "dev:local:stop": "docker-compose -f docker-compose.dev.yml down",
-    "dev:local:clean": "docker-compose -f docker-compose.dev.yml down -v",
+    "docker:dev:up": "docker-compose --env-file configs/env.development -f docker-compose.dev.yml up -d",
+    "docker:dev:down": "docker-compose --env-file configs/env.development -f docker-compose.dev.yml down",
+    "docker:dev:logs": "docker-compose -f docker-compose.dev.yml logs -f",
+    "docker:dev:ps": "docker-compose -f docker-compose.dev.yml ps",
+    "docker:dev:reset": "docker-compose --env-file configs/env.development -f docker-compose.dev.yml down -v",
+
+    "dev:local": "pnpm docker:dev:up && pnpm dev",
+    "dev:local:db": "docker-compose --env-file configs/env.development -f docker-compose.dev.yml up -d postgres redis minio pgadmin",
+    "dev:local:stop": "pnpm docker:dev:down",
+    "dev:local:clean": "pnpm docker:dev:reset",
     
     "build:all": "pnpm packages:build && pnpm build",
     "build:prod": "pnpm env:prod && pnpm build:all",

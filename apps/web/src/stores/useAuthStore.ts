@@ -29,7 +29,6 @@ interface AuthActions {
   updateUser: (user: User) => void
   setLoading: (loading: boolean) => void
   setHasHydrated: (state: boolean) => void
-  token: string | null // alias for accessToken for compatibility
 }
 
 type AuthStore = AuthState & AuthActions
@@ -52,33 +51,42 @@ const useAuthStore = create<AuthStore>()(
 
           // 判断是邮箱还是用户名
           const isEmail = identifier.includes('@')
+
           const response = await api.post('/auth/login', {
             ...(isEmail ? { email: identifier } : { username: identifier }),
             password
           })
-          
+
           if (response.data?.success) {
+            const token = response.data.data.accessToken
+
             set({
               user: response.data.data.user,
-              accessToken: response.data.data.accessToken,
+              accessToken: token,
               refreshToken: response.data.data.refreshToken,
               isAuthenticated: true,
               isLoading: false,
             })
-            
+
             // 同时存储到localStorage，供API客户端使用
-            const token = response.data.data.accessToken
             localStorage.setItem('auth_token', token)
             // 设置API客户端的认证token
             setAuthToken(token)
             blogApi.setToken(token)
+
+            // 调试：验证 persist 保存
+            console.log('[AuthStore] Login successful, checking persist...', {
+              storedState: localStorage.getItem('auth-storage'),
+              storedToken: localStorage.getItem('auth_token'),
+            })
+
             return true
           }
-          
+
           set({ isLoading: false })
           return false
         } catch (error) {
-          console.error('Login error:', error)
+          console.error('[AuthStore] Login error:', error)
           set({ isLoading: false })
           return false
         }
@@ -175,10 +183,6 @@ const useAuthStore = create<AuthStore>()(
         }
       },
 
-      // token getter for compatibility
-      get token() {
-        return get().accessToken
-      },
     }),
     {
       name: 'auth-storage',
@@ -188,14 +192,29 @@ const useAuthStore = create<AuthStore>()(
         refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
       }),
-      onRehydrateStorage: () => (state) => {
+      onRehydrateStorage: () => (state, error) => {
+        // 调试日志
+        console.log('[AuthStore] Rehydrating...', {
+          hasState: !!state,
+          hasToken: !!state?.accessToken,
+          isAuthenticated: state?.isAuthenticated,
+          error,
+          rawStorage: localStorage.getItem('auth-storage'),
+        })
+
         // 当状态从localStorage恢复时，设置API客户端的token
         if (state?.accessToken) {
+          // 同步设置 auth_token 到 localStorage（确保 API 客户端可以读取）
+          localStorage.setItem('auth_token', state.accessToken)
+          // 设置 API 客户端的认证 token
           setAuthToken(state.accessToken)
           blogApi.setToken(state.accessToken)
+          console.log('[AuthStore] Token restored successfully')
+        } else {
+          console.log('[AuthStore] No token to restore')
         }
-        // 标记 hydration 完成 - 使用 store 的方法而不是直接 setState
-        // 延迟一个微任务以确保 store 已完全初始化
+
+        // 标记 hydration 完成
         queueMicrotask(() => {
           useAuthStore.getState().setHasHydrated(true)
         })

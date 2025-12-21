@@ -38,7 +38,9 @@ const MediaPickerDialog: React.FC<MediaPickerDialogProps> = ({
   const [selectedMedia, setSelectedMedia] = useState<Media | null>(null)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
+  // 当 filterType 不是 'all' 时，锁定为指定类型
   const [activeFilter, setActiveFilter] = useState(filterType)
+  const isFilterLocked = filterType !== 'all'
 
   useEffect(() => {
     if (isOpen) {
@@ -74,6 +76,20 @@ const MediaPickerDialog: React.FC<MediaPickerDialogProps> = ({
   const handleSearch = () => {
     setPage(1)
     fetchMedia()
+  }
+
+  // 验证媒体类型是否符合 filterType 要求
+  const isMediaTypeAllowed = (media: Media) => {
+    if (filterType === 'all') return true
+    return media.mimeType.startsWith(`${filterType}/`)
+  }
+
+  const handleMediaClick = (media: Media) => {
+    // 如果 filterType 锁定，验证类型是否匹配
+    if (isFilterLocked && !isMediaTypeAllowed(media)) {
+      return // 不允许选择不匹配的类型
+    }
+    setSelectedMedia(media)
   }
 
   const handleSelect = () => {
@@ -153,24 +169,26 @@ const MediaPickerDialog: React.FC<MediaPickerDialogProps> = ({
               />
             </div>
 
-            {/* Filters */}
-            <div className="flex gap-1 bg-muted rounded-lg p-1">
-              {(['all', 'image', 'video', 'audio'] as const).map((type) => (
-                <button
-                  key={type}
-                  onClick={() => { setActiveFilter(type); setPage(1); }}
-                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                    activeFilter === type
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {type === 'all' ? '全部' :
-                   type === 'image' ? '图片' :
-                   type === 'video' ? '视频' : '音频'}
-                </button>
-              ))}
-            </div>
+            {/* Filters - 只在 filterType 为 'all' 时显示 */}
+            {!isFilterLocked && (
+              <div className="flex gap-1 bg-muted rounded-lg p-1">
+                {(['all', 'image', 'video', 'audio'] as const).map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => { setActiveFilter(type); setPage(1); }}
+                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                      activeFilter === type
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {type === 'all' ? '全部' :
+                     type === 'image' ? '图片' :
+                     type === 'video' ? '视频' : '音频'}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Upload */}
             <label className="cursor-pointer">
@@ -178,9 +196,9 @@ const MediaPickerDialog: React.FC<MediaPickerDialogProps> = ({
                 type="file"
                 multiple
                 accept={
-                  activeFilter === 'image' ? 'image/*' :
-                  activeFilter === 'video' ? 'video/*' :
-                  activeFilter === 'audio' ? 'audio/*' :
+                  filterType === 'image' ? 'image/*' :
+                  filterType === 'video' ? 'video/*' :
+                  filterType === 'audio' ? 'audio/*' :
                   'image/*,video/*,audio/*,.pdf,.doc,.docx'
                 }
                 onChange={handleUpload}
@@ -214,14 +232,18 @@ const MediaPickerDialog: React.FC<MediaPickerDialogProps> = ({
             </div>
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
-              {media.map((item) => (
+              {media.map((item) => {
+                const isAllowed = isMediaTypeAllowed(item)
+                return (
                 <div
                   key={item.id}
-                  onClick={() => setSelectedMedia(item)}
-                  className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all group ${
-                    selectedMedia?.id === item.id
-                      ? 'border-primary ring-2 ring-primary/30 scale-[1.02]'
-                      : 'border-transparent hover:border-border hover:shadow-md'
+                  onClick={() => handleMediaClick(item)}
+                  className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all group ${
+                    !isAllowed
+                      ? 'opacity-40 cursor-not-allowed'
+                      : selectedMedia?.id === item.id
+                        ? 'border-primary ring-2 ring-primary/30 scale-[1.02] cursor-pointer'
+                        : 'border-transparent hover:border-border hover:shadow-md cursor-pointer'
                   }`}
                 >
                   <div className="w-full h-full bg-muted flex items-center justify-center">
@@ -253,7 +275,8 @@ const MediaPickerDialog: React.FC<MediaPickerDialogProps> = ({
                     <p className="text-xs text-white truncate">{item.originalName}</p>
                   </div>
                 </div>
-              ))}
+              )
+              })}
             </div>
           )}
         </div>

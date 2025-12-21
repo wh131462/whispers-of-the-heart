@@ -223,6 +223,28 @@ const PostEditPage: React.FC = () => {
     }))
   }
 
+  const handleCreateTag = async (tagName: string) => {
+    try {
+      // 生成 slug：将标签名转为小写，空格替换为连字符
+      const slug = tagName.toLowerCase().replace(/\s+/g, '-')
+      const response = await blogApi.createTag({ name: tagName, slug })
+      if (response.success && response.data) {
+        // 添加新标签到可用标签列表
+        setTags(prev => [...prev, response.data!])
+        success(`标签 "${tagName}" 创建成功`)
+      } else {
+        showError(response.message || '创建标签失败')
+      }
+    } catch (err: any) {
+      console.error('Failed to create tag:', err)
+      if (err.response?.status === 409) {
+        showError('标签已存在')
+      } else {
+        showError('创建标签失败')
+      }
+    }
+  }
+
   // 键盘快捷键
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -357,6 +379,7 @@ const PostEditPage: React.FC = () => {
                 availableTags={tags}
                 onAdd={handleAddTag}
                 onRemove={handleRemoveTag}
+                onCreate={handleCreateTag}
               />
             </PropertyRow>
 

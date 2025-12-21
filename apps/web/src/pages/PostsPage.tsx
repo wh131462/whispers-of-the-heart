@@ -120,13 +120,18 @@ const PostsPage: React.FC = () => {
   const [hasMore, setHasMore] = useState(true)
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
+  // 实际用于 API 请求的搜索词（防抖后更新）
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '')
+  // 输入框的值（即时更新）
+  const [inputValue, setInputValue] = useState(searchParams.get('search') || '')
   const [activeTag, setActiveTag] = useState(searchParams.get('tag') || '')
   const [showBackTop, setShowBackTop] = useState(false)
   const observerRef = useRef<IntersectionObserver | null>(null)
   const loadMoreRef = useRef<HTMLDivElement>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  // 用于跟踪输入法组合状态（拼音输入）
+  const isComposingRef = useRef(false)
 
   // 获取标签列表
   useEffect(() => {
@@ -155,19 +160,23 @@ const PostsPage: React.FC = () => {
       const params: Record<string, unknown> = {
         page: pageNum,
         limit: PAGE_SIZE,
-        sort: 'createdAt',
-        order: 'desc'
+        sortBy: 'createdAt',
+        sortOrder: 'desc'
       }
 
+      // 如果有搜索词或标签筛选，使用 search 端点
+      const hasFilters = searchTerm || activeTag
       if (searchTerm) {
-        params.search = searchTerm
+        params.q = searchTerm
       }
 
       if (activeTag) {
         params.tag = activeTag
       }
 
-      const response = await api.get('/blog', { params })
+      // 使用搜索端点支持标签筛选
+      const endpoint = hasFilters ? '/blog/search' : '/blog'
+      const response = await api.get(endpoint, { params })
 
       if (response.data?.success && response.data?.data) {
         const { items, totalPages, total: totalCount } = response.data.data
@@ -240,42 +249,88 @@ const PostsPage: React.FC = () => {
   // 搜索处理（防抖）
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
-    setSearchTerm(value)
+    // 只更新输入框的值，不立即触发搜索
+    setInputValue(value)
+
+    // 如果正在输入拼音，不触发搜索
+    if (isComposingRef.current) {
+      return
+    }
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
+
+    // 防抖后才更新搜索词和 URL 参数
+    searchTimeoutRef.current = setTimeout(() => {
+      setSearchTerm(value)
+      if (value) {
+        setSearchParams({ search: value, ...(activeTag ? { tag: activeTag } : {}) })
+      } else {
+        const newParams = new URLSearchParams()
+        if (activeTag) newParams.set('tag', activeTag)
+        setSearchParams(newParams)
+      }
+    }, 500)
+  }
+
+  // 输入法组合开始（拼音输入开始）
+  const handleCompositionStart = () => {
+    isComposingRef.current = true
+  }
+
+  // 输入法组合结束（拼音输入结束）
+  const handleCompositionEnd = (e: React.CompositionEvent<HTMLInputElement>) => {
+    isComposingRef.current = false
+    // 组合结束后，手动触发搜索
+    const value = e.currentTarget.value
 
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current)
     }
 
     searchTimeoutRef.current = setTimeout(() => {
+      setSearchTerm(value)
       if (value) {
-        setSearchParams({ search: value })
+        setSearchParams({ search: value, ...(activeTag ? { tag: activeTag } : {}) })
       } else {
-        searchParams.delete('search')
-        setSearchParams(searchParams)
+        const newParams = new URLSearchParams()
+        if (activeTag) newParams.set('tag', activeTag)
+        setSearchParams(newParams)
       }
     }, 500)
   }
 
   // 标签筛选
   const handleTagClick = (tagSlug: string) => {
-    if (activeTag === tagSlug) {
-      setActiveTag('')
-      searchParams.delete('tag')
-    } else {
-      setActiveTag(tagSlug)
-      searchParams.set('tag', tagSlug)
+    const newParams = new URLSearchParams()
+
+    // 保留搜索词
+    if (searchTerm) {
+      newParams.set('search', searchTerm)
     }
-    setSearchParams(searchParams)
+
+    if (activeTag === tagSlug) {
+      // 取消选中当前标签
+      setActiveTag('')
+    } else {
+      // 选中新标签
+      setActiveTag(tagSlug)
+      newParams.set('tag', tagSlug)
+    }
+
+    setSearchParams(newParams)
   }
 
   // 清除筛选
   const handleClearFilters = () => {
+    setInputValue('')
     setSearchTerm('')
     setActiveTag('')
-    setSearchParams({})
-    if (searchInputRef.current) {
-      searchInputRef.current.value = ''
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
     }
+    setSearchParams({})
   }
 
   // 返回顶部
@@ -340,19 +395,23 @@ const PostsPage: React.FC = () => {
           <Input
             ref={searchInputRef}
             placeholder="搜索文章..."
-            defaultValue={searchTerm}
+            value={inputValue}
             onChange={handleSearchChange}
+            onCompositionStart={handleCompositionStart}
+            onCompositionEnd={handleCompositionEnd}
             className="pl-10 pr-10 rounded-full bg-muted/50 border-0 focus-visible:ring-1"
           />
-          {searchTerm && (
+          {inputValue && (
             <button
               onClick={() => {
+                setInputValue('')
                 setSearchTerm('')
-                searchParams.delete('search')
-                setSearchParams(searchParams)
-                if (searchInputRef.current) {
-                  searchInputRef.current.value = ''
+                if (searchTimeoutRef.current) {
+                  clearTimeout(searchTimeoutRef.current)
                 }
+                const newParams = new URLSearchParams()
+                if (activeTag) newParams.set('tag', activeTag)
+                setSearchParams(newParams)
               }}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >

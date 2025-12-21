@@ -21,8 +21,10 @@ export { Popover, PopoverTrigger, PopoverContent } from './components/ui/popover
 export { default as MarkdownRenderer } from './components/MarkdownRenderer'
 export { default as DefaultAvatar } from './components/DefaultAvatar'
 export { Avatar, AvatarImage, AvatarFallback } from './components/Avatar'
-export { default as BlockNoteEditor } from './components/BlockNoteEditor'
-export type { BlockNoteEditorProps } from './components/BlockNoteEditor'
+export { default as BlockNoteEditor } from './components/editor/BlockNoteEditor'
+export type { BlockNoteEditorProps } from './components/editor/BlockNoteEditor'
+export { default as CommentEditor } from './components/editor/CommentEditor'
+export type { CommentEditorProps, CommentEditorRef } from './components/editor/CommentEditor'
 
 // 媒体播放器组件
 export { default as AudioPlayer } from './components/AudioPlayer'

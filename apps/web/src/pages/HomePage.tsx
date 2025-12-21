@@ -58,13 +58,14 @@ interface Post {
 interface SiteConfig {
   siteName: string
   siteDescription?: string
+  siteLogo?: string | null
+  siteIcon?: string | null
   aboutMe?: string
-  avatar?: string
+  contactEmail?: string | null
   socialLinks?: {
-    github?: string
-    twitter?: string
-    linkedin?: string
-    email?: string
+    github?: string | null
+    twitter?: string | null
+    linkedin?: string | null
   }
 }
 
@@ -105,32 +106,6 @@ const useTypewriter = (text: string, speed = 100, delay = 500) => {
   }, [text, speed, delay])
 
   return { displayText, isTyping }
-}
-
-// 一言组件
-const HitokotoDisplay: React.FC<{ hitokoto: string }> = ({ hitokoto }) => {
-  const [visible, setVisible] = useState(true)
-  const [currentText, setCurrentText] = useState(hitokoto)
-
-  useEffect(() => {
-    if (hitokoto !== currentText) {
-      setVisible(false)
-      const timeout = setTimeout(() => {
-        setCurrentText(hitokoto)
-        setVisible(true)
-      }, 300)
-      return () => clearTimeout(timeout)
-    }
-  }, [hitokoto, currentText])
-
-  return (
-    <p
-      className={`text-lg md:text-xl max-w-2xl mx-auto text-muted-foreground font-serif italic transition-all duration-300 ${visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
-        }`}
-    >
-      "{currentText}"
-    </p>
-  )
 }
 
 // 文章时间线项
@@ -192,7 +167,6 @@ const HomePage: React.FC = () => {
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [page, setPage] = useState(1)
-  const [hitokoto, setHitokoto] = useState('')
   const observerRef = useRef<IntersectionObserver | null>(null)
   const loadMoreRef = useRef<HTMLDivElement>(null)
 
@@ -203,14 +177,13 @@ const HomePage: React.FC = () => {
     300
   )
 
-  // 获取站点配置、标签和一言
+  // 获取站点配置和标签
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
         const [configResponse, tagsResponse] = await Promise.all([
           api.get('/site-config'),
-          api.get('/blog/tags'),
-          fetchHitokoto()
+          api.get('/blog/tags')
         ])
 
         if (configResponse.data?.success && configResponse.data?.data) {
@@ -302,19 +275,6 @@ const HomePage: React.FC = () => {
     }
   }, [page, fetchPosts])
 
-  const fetchHitokoto = async () => {
-    try {
-      const response = await api.get('/hitokoto')
-      if (response.data?.hitokoto) {
-        setHitokoto(response.data.hitokoto)
-      } else {
-        setHitokoto('生活不止眼前的代码，还有诗和远方。')
-      }
-    } catch {
-      setHitokoto('生活不止眼前的代码，还有诗和远方。')
-    }
-  }
-
   // 按年份分组文章
   const groupPostsByYear = (posts: Post[]) => {
     const groups: { [year: string]: Post[] } = {}
@@ -367,9 +327,9 @@ const HomePage: React.FC = () => {
         <div className="relative z-10 text-center px-4 py-16 max-w-3xl mx-auto">
           {/* 头像 */}
           <div className="mb-8">
-            {siteConfig?.avatar ? (
+            {siteConfig?.siteLogo ? (
               <img
-                src={siteConfig.avatar}
+                src={siteConfig.siteLogo}
                 alt="Avatar"
                 className="w-24 h-24 mx-auto rounded-full object-cover border-4 border-background shadow-lg"
               />
@@ -388,9 +348,11 @@ const HomePage: React.FC = () => {
             )}
           </h1>
 
-          {/* 一言 */}
-          <div className="mb-10 min-h-[3em]">
-            <HitokotoDisplay hitokoto={hitokoto || siteConfig?.siteDescription || '记录生活的点滴，分享技术的思考'} />
+          {/* 站点描述 */}
+          <div className="mb-10 min-h-[4em]">
+            <p className="max-w-2xl mx-auto text-center text-lg md:text-xl text-muted-foreground font-serif">
+              {siteConfig?.siteDescription || '记录生活的点滴，分享技术的思考'}
+            </p>
           </div>
 
           {/* 社交链接 */}
@@ -406,9 +368,9 @@ const HomePage: React.FC = () => {
                 <Github className="h-5 w-5" />
               </a>
             )}
-            {siteConfig?.socialLinks?.email && (
+            {siteConfig?.contactEmail && (
               <a
-                href={`mailto:${siteConfig.socialLinks.email}`}
+                href={`mailto:${siteConfig.contactEmail}`}
                 className="p-3 rounded-full bg-card/80 hover:bg-card shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5"
                 title="Email"
               >

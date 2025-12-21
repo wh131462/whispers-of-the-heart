@@ -3,6 +3,7 @@ import { PrismaService } from '../common/prisma/prisma.service';
 import { CreateCommentDto, UpdateCommentDto } from './dto/comment.dto';
 import { ContentModerationService } from '../common/services/content-moderation.service';
 import { MailService } from '../mail/mail.service';
+import { SiteConfigService } from '../site-config/site-config.service';
 
 // 用户编辑评论的时间限制（分钟）
 const EDIT_TIME_LIMIT_MINUTES = 15;
@@ -13,6 +14,7 @@ export class CommentService {
     private prisma: PrismaService,
     private contentModerationService: ContentModerationService,
     private mailService: MailService,
+    private siteConfigService: SiteConfigService,
   ) {}
 
   async create(createCommentDto: CreateCommentDto & { authorId?: string }) {
@@ -70,11 +72,22 @@ export class CommentService {
       }
     }
 
-    // 内容审核
-    const moderationResult = await this.contentModerationService.moderateContent(createCommentDto.content);
+    // 获取评论审核设置
+    const commentSettings = await this.siteConfigService.getCommentSettings();
+
+    // 内容审核（传入自定义违禁词）
+    const moderationResult = await this.contentModerationService.moderateContent(
+      createCommentDto.content,
+      commentSettings.bannedWords
+    );
 
     // 确保 authorId 是 string 类型
     const authorId: string = createCommentDto.authorId;
+
+    // 决定是否自动通过：
+    // - 如果开启自动审核且内容通过检测，则自动通过
+    // - 如果关闭自动审核，则需要手动审核（isApproved = false）
+    const isApproved = commentSettings.autoModeration ? moderationResult.isApproved : false;
 
     const comment = await this.prisma.comment.create({
       data: {
@@ -82,7 +95,7 @@ export class CommentService {
         postId: createCommentDto.postId,
         parentId: createCommentDto.parentId,
         authorId,
-        isApproved: moderationResult.isApproved, // 根据审核结果决定是否通过
+        isApproved,
       },
       include: {
         post: {
@@ -890,15 +903,24 @@ export class CommentService {
       throw new BadRequestException(`评论发布超过 ${EDIT_TIME_LIMIT_MINUTES} 分钟后不能编辑`);
     }
 
-    // 内容审核
-    const moderationResult = await this.contentModerationService.moderateContent(content);
+    // 获取评论审核设置
+    const commentSettings = await this.siteConfigService.getCommentSettings();
+
+    // 内容审核（传入自定义违禁词）
+    const moderationResult = await this.contentModerationService.moderateContent(
+      content,
+      commentSettings.bannedWords
+    );
+
+    // 决定是否自动通过
+    const isApproved = commentSettings.autoModeration ? moderationResult.isApproved : false;
 
     const updatedComment = await this.prisma.comment.update({
       where: { id },
       data: {
         content,
         editedAt: new Date(),
-        isApproved: moderationResult.isApproved,
+        isApproved,
       },
       include: {
         author: {

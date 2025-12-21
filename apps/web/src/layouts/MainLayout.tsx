@@ -17,21 +17,24 @@ import {
 } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { useAuthStore } from '../stores/useAuthStore'
-import { useTheme } from '../stores/useGlobalStore'
+import { useTheme, useHitokoto } from '../stores/useGlobalStore'
 import { DEFAULT_AVATAR } from '../constants/images'
 import SearchDialog from '../components/SearchDialog'
 import { api } from '@whispers/utils'
+import logoImg from '../assets/logo.png'
 
 interface SiteConfig {
   siteName: string
-  siteDescription: string
-  aboutMe: string
-  avatar: string
-  socialLinks: {
-    github: string
-    twitter: string
-    email: string
-  }
+  siteDescription?: string | null
+  siteLogo?: string | null
+  siteIcon?: string | null
+  aboutMe?: string | null
+  contactEmail?: string | null
+  socialLinks?: {
+    github?: string | null
+    twitter?: string | null
+    linkedin?: string | null
+  } | null
 }
 
 const MainLayout: React.FC = () => {
@@ -41,11 +44,11 @@ const MainLayout: React.FC = () => {
   const [showSearchDialog, setShowSearchDialog] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
-  const [hitokoto, setHitokoto] = useState('')
   const [isScrolled, setIsScrolled] = useState(false)
-  
+
   const { user, isAuthenticated, logout } = useAuthStore()
   const { theme, setTheme } = useTheme()
+  const { hitokoto, fetchHitokoto } = useHitokoto()
 
   const userMenuRef = useRef<HTMLDivElement>(null)
 
@@ -60,7 +63,7 @@ const MainLayout: React.FC = () => {
 
   useEffect(() => {
     fetchSiteConfig()
-    fetchHitokoto()
+    fetchHitokoto() // 使用全局缓存的 hitokoto
 
     // 初始化主题
     const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | 'system' | null
@@ -69,7 +72,7 @@ const MainLayout: React.FC = () => {
     } else {
       setTheme('system')
     }
-  }, [])
+  }, [fetchHitokoto, setTheme])
 
   // 监听滚动事件
   useEffect(() => {
@@ -115,25 +118,11 @@ const MainLayout: React.FC = () => {
     }
   }, [showUserMenu])
 
-  const fetchHitokoto = async () => {
-    try {
-      const response = await api.get('/hitokoto')
-      if (response.data?.hitokoto) {
-        setHitokoto(response.data.hitokoto)
-      } else {
-        setHitokoto('生活不止眼前的代码，还有诗和远方。')
-      }
-    } catch (error) {
-      console.error('Failed to fetch hitokoto:', error)
-      setHitokoto('生活不止眼前的代码，还有诗和远方。')
-    }
-  }
-
   const fetchSiteConfig = async () => {
     try {
       const response = await api.get('/site-config')
-      if (response.data) {
-        setSiteConfig(response.data)
+      if (response.data?.success && response.data?.data) {
+        setSiteConfig(response.data.data)
       }
     } catch (error) {
       console.error('Failed to fetch site config:', error)
@@ -177,19 +166,11 @@ const MainLayout: React.FC = () => {
             {/* Logo */}
             <div className="flex items-center space-x-4">
               <Link to="/" className="flex items-center space-x-2">
-                {siteConfig?.avatar ? (
-                  <img
-                    src={siteConfig.avatar}
-                    alt={siteConfig.siteName}
-                    className="h-8 w-8 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center">
-                    <span className="text-primary-foreground font-bold text-lg">
-                      {siteConfig?.siteName?.charAt(0) || 'W'}
-                    </span>
-                  </div>
-                )}
+                <img
+                  src={siteConfig?.siteLogo || logoImg}
+                  alt={siteConfig?.siteName || 'Whispers'}
+                  className="h-8 w-8 rounded-full object-cover"
+                />
                 <span className={`text-xl font-bold transition-colors ${
                   isHomePage && !isScrolled ? 'text-foreground' : 'text-primary'
                 }`}>
@@ -234,9 +215,9 @@ const MainLayout: React.FC = () => {
                 title={theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'}
               >
                 {theme === 'dark' ? (
-                  <Sun className="h-4 w-4" />
-                ) : (
                   <Moon className="h-4 w-4" />
+                ) : (
+                  <Sun className="h-4 w-4" />
                 )}
               </Button>
 
@@ -399,8 +380,11 @@ const MainLayout: React.FC = () => {
       <footer className="border-t bg-background py-8">
         <div className="container mx-auto px-4">
           <div className="text-center">
-            <p className="text-muted-foreground text-sm mb-4 italic">
-              {hitokoto || '生活不止眼前的代码，还有诗和远方。'}
+            <p className="text-muted-foreground text-sm mb-2 italic">
+              "{hitokoto?.hitokoto || '生活不止眼前的代码，还有诗和远方。'}"
+            </p>
+            <p className="text-muted-foreground text-xs mb-4">
+              —— {hitokoto?.from || '佚名'}
             </p>
             <p className="text-muted-foreground text-xs">
               &copy; 2024 {siteConfig?.siteName || 'Whispers of the Heart'}. All rights reserved.

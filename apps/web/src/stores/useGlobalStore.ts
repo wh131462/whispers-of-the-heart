@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
+import { api } from '@whispers/utils'
 
 /**
  * 全局应用状态
@@ -13,26 +14,35 @@ interface Notification {
   duration?: number
 }
 
+interface HitokotoData {
+  hitokoto: string
+  from: string
+}
+
 interface GlobalState {
   // 加载状态
   isLoading: boolean
   loadingMessage: string | null
-  
+
   // 错误状态
   error: Error | null
   errorMessage: string | null
-  
+
   // 通知
   notifications: Notification[]
-  
+
   // 主题
   theme: 'light' | 'dark' | 'system'
-  
+
   // 侧边栏状态
   sidebarOpen: boolean
-  
+
   // 模态框状态
   modals: Record<string, boolean>
+
+  // 一言（缓存）
+  hitokoto: HitokotoData | null
+  hitokotoFetched: boolean
 }
 
 interface GlobalActions {
@@ -59,6 +69,10 @@ interface GlobalActions {
   openModal: (modalId: string) => void
   closeModal: (modalId: string) => void
   toggleModal: (modalId: string) => void
+
+  // 一言
+  setHitokoto: (data: HitokotoData) => void
+  fetchHitokoto: () => Promise<void>
 }
 
 type GlobalStore = GlobalState & GlobalActions
@@ -75,6 +89,8 @@ export const useGlobalStore = create<GlobalStore>()(
       theme: 'system',
       sidebarOpen: true,
       modals: {},
+      hitokoto: null,
+      hitokotoFetched: false,
 
       // 加载状态
       setLoading: (loading, message) => {
@@ -185,6 +201,49 @@ export const useGlobalStore = create<GlobalStore>()(
           modals: { ...state.modals, [modalId]: !state.modals[modalId] },
         }))
       },
+
+      // 一言
+      setHitokoto: (data) => {
+        set({ hitokoto: data, hitokotoFetched: true })
+      },
+
+      fetchHitokoto: async () => {
+        // 如果已经获取过，不再重复请求
+        if (get().hitokotoFetched) {
+          return
+        }
+
+        try {
+          const response = await api.get('/hitokoto')
+          // API 返回结构: { success: true, data: { hitokoto: "...", from: "..." } }
+          if (response.data?.success && response.data?.data?.hitokoto) {
+            set({
+              hitokoto: {
+                hitokoto: response.data.data.hitokoto,
+                from: response.data.data.from || '未知',
+              },
+              hitokotoFetched: true,
+            })
+          } else {
+            set({
+              hitokoto: {
+                hitokoto: '生活不止眼前的代码，还有诗和远方。',
+                from: '佚名',
+              },
+              hitokotoFetched: true,
+            })
+          }
+        } catch (error) {
+          console.error('Failed to fetch hitokoto:', error)
+          set({
+            hitokoto: {
+              hitokoto: '生活不止眼前的代码，还有诗和远方。',
+              from: '佚名',
+            },
+            hitokotoFetched: true,
+          })
+        }
+      },
     }),
     { name: 'GlobalStore' }
   )
@@ -237,12 +296,20 @@ export const useModal = (modalId: string) => {
   const openModal = useGlobalStore((state) => state.openModal)
   const closeModal = useGlobalStore((state) => state.closeModal)
   const toggleModal = useGlobalStore((state) => state.toggleModal)
-  
+
   return {
     isOpen,
     open: () => openModal(modalId),
     close: () => closeModal(modalId),
     toggle: () => toggleModal(modalId),
   }
+}
+
+export const useHitokoto = () => {
+  const hitokoto = useGlobalStore((state) => state.hitokoto)
+  const hitokotoFetched = useGlobalStore((state) => state.hitokotoFetched)
+  const fetchHitokoto = useGlobalStore((state) => state.fetchHitokoto)
+
+  return { hitokoto, hitokotoFetched, fetchHitokoto }
 }
 

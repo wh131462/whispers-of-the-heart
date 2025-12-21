@@ -136,10 +136,8 @@ async function bootstrap() {
   const port = configService.get('PORT') || 7777;
   await app.listen(port);
 
-  app.getHttpAdapter().getInstance().on('listening', () => {
-    console.log(`🚀 Application is running on: http://localhost:${port}`);
-    console.log(`📚 API Documentation: http://localhost:${port}/api/docs`);
-  });
+  console.log(`🚀 Application is running on: http://localhost:${port}`);
+  console.log(`📚 API Documentation: http://localhost:${port}/api/docs`);
 }
 
 bootstrap();

@@ -319,9 +319,14 @@ model SiteConfig {
   id              String   @id @default("default")
   siteName        String   @default("Whispers of the Heart")
   siteDescription String?
+  siteLogo        String?  // 站点 Logo / 头像
+  siteIcon        String?  // 站点图标 (favicon)
   aboutMe         String?  @db.Text
-  avatar          String?
-  socialLinks     Json?    // { github: "", twitter: "", email: "" }
+  contactEmail    String?  // 联系邮箱
+  socialLinks     Json?    // { github: "", twitter: "", linkedin: "" }
+  seoSettings     Json?    // { title: "", description: "", keywords: "" }
+  ossConfig       Json?    // OSS 配置
+  commentSettings Json?    // { autoModeration: true, bannedWords: [] }
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

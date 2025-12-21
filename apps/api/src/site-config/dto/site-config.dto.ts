@@ -50,6 +50,13 @@ export class CreateSiteConfigDto {
     bucketName?: string;
     cdnDomain?: string;
   };
+
+  @IsOptional()
+  @IsObject()
+  commentSettings?: {
+    autoModeration?: boolean;
+    bannedWords?: string[];
+  };
 }
 
 export class UpdateSiteConfigDto {
@@ -102,5 +109,12 @@ export class UpdateSiteConfigDto {
     secretKey?: string;
     bucketName?: string;
     cdnDomain?: string;
+  };
+
+  @IsOptional()
+  @IsObject()
+  commentSettings?: {
+    autoModeration?: boolean;
+    bannedWords?: string[];
   };
 }

@@ -6,24 +6,26 @@ import { api } from '@whispers/utils'
 interface SiteConfig {
   siteName: string
   siteDescription: string
+  siteLogo: string
   aboutMe: string
-  avatar: string
+  contactEmail: string
   socialLinks: {
     github: string
     twitter: string
-    email: string
+    linkedin: string
   }
 }
 
 const defaultConfig: SiteConfig = {
   siteName: 'Whispers of the Heart',
   siteDescription: '',
+  siteLogo: '',
   aboutMe: '',
-  avatar: '',
+  contactEmail: '',
   socialLinks: {
     github: '',
     twitter: '',
-    email: '',
+    linkedin: '',
   },
 }
 
@@ -44,13 +46,14 @@ const SettingsPage: React.FC = () => {
     try {
       setLoading(true)
       const response = await api.get('/site-config')
-      if (response.data) {
+      if (response.data?.success && response.data?.data) {
+        const configData = response.data.data
         setConfig({
           ...defaultConfig,
-          ...response.data,
+          ...configData,
           socialLinks: {
             ...defaultConfig.socialLinks,
-            ...(response.data.socialLinks || {}),
+            ...(configData.socialLinks || {}),
           },
         })
       }
@@ -125,7 +128,7 @@ const SettingsPage: React.FC = () => {
       })
 
       if (response.data?.success && response.data?.data?.url) {
-        setConfig((prev) => ({ ...prev, avatar: response.data.data.url }))
+        setConfig((prev) => ({ ...prev, siteLogo: response.data.data.url }))
         setSuccess('头像上传成功')
         setTimeout(() => setSuccess(null), 3000)
       } else {
@@ -206,9 +209,9 @@ const SettingsPage: React.FC = () => {
             </label>
             <div className="flex items-center gap-4">
               <div className="relative">
-                {config.avatar ? (
+                {config.siteLogo ? (
                   <img
-                    src={config.avatar}
+                    src={config.siteLogo}
                     alt="头像"
                     className="h-20 w-20 rounded-full object-cover border-2 border-border"
                     onError={(e) => {
@@ -301,12 +304,12 @@ const SettingsPage: React.FC = () => {
           </div>
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">
-              邮箱
+              联系邮箱
             </label>
             <Input
               type="email"
-              value={config.socialLinks.email}
-              onChange={(e) => updateSocialLink('email', e.target.value)}
+              value={config.contactEmail}
+              onChange={(e) => updateConfig('contactEmail', e.target.value)}
               placeholder="your@email.com"
             />
           </div>

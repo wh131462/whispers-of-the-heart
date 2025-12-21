@@ -6,6 +6,7 @@ import { MailService } from '../mail/mail.service';
 import { LoginDto, RegisterDto, RefreshTokenDto, ForgotPasswordDto, ResetPasswordDto, SendRegisterCodeDto, RegisterWithCodeDto } from './dto/auth.dto';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
+import type { StringValue } from 'ms';
 
 // 生成6位数字验证码
 function generateVerificationCode(): string {
@@ -183,11 +184,11 @@ export class AuthService {
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: process.env.JWT_SECRET,
-        expiresIn: process.env.JWT_EXPIRATION_TIME || '1h',
+        expiresIn: (process.env.JWT_EXPIRATION_TIME || '1h') as StringValue,
       }),
       this.jwtService.signAsync(payload, {
         secret: process.env.REFRESH_TOKEN_SECRET,
-        expiresIn: process.env.REFRESH_TOKEN_EXPIRATION_TIME || '7d',
+        expiresIn: (process.env.REFRESH_TOKEN_EXPIRATION_TIME || '7d') as StringValue,
       }),
     ]);
 

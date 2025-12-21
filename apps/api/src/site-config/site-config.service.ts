@@ -52,12 +52,36 @@ export class SiteConfigService {
           bucketName: null,
           cdnDomain: null,
         },
+        commentSettings: {
+          autoModeration: true,
+          bannedWords: [],
+        },
         createdAt: new Date(),
         updatedAt: new Date(),
       };
     }
 
+    // 确保 commentSettings 有默认值
+    if (!config.commentSettings) {
+      (config as any).commentSettings = {
+        autoModeration: true,
+        bannedWords: [],
+      };
+    }
+
     return config;
+  }
+
+  /**
+   * 获取评论审核设置
+   */
+  async getCommentSettings(): Promise<{ autoModeration: boolean; bannedWords: string[] }> {
+    const config = await this.findOne();
+    const settings = (config as any).commentSettings || {};
+    return {
+      autoModeration: settings.autoModeration !== false, // 默认为 true
+      bannedWords: settings.bannedWords || [],
+    };
   }
 
   async update(id: string, updateSiteConfigDto: UpdateSiteConfigDto) {
@@ -121,7 +145,7 @@ export class SiteConfigService {
   private async syncSiteConfigMediaUsage(configId: string, dto: Partial<CreateSiteConfigDto | UpdateSiteConfigDto>) {
     // 同步 siteLogo
     if ('siteLogo' in dto) {
-      await this.mediaUsageService.syncDirectUsage('site_config', configId, 'avatar', dto.siteLogo);
+      await this.mediaUsageService.syncDirectUsage('site_config', configId, 'siteLogo', dto.siteLogo);
     }
 
     // 同步 aboutMe（富文本内容，可能包含图片）

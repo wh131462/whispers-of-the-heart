@@ -17,7 +17,6 @@ const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
 
     const timer = setTimeout(() => {
       if (!useAuthStore.getState()._hasHydrated) {
-        console.log('[AdminGuard] Hydration timeout, forcing hydration state')
         setHasHydrated(true)
       }
     }, 100)
@@ -48,7 +47,9 @@ const AdminGuard: React.FC<AdminGuardProps> = ({ children }) => {
     }
 
     checkAuth()
-  }, [_hasHydrated, accessToken, validateToken, logout])
+    // 只在 hydration 完成和 accessToken 变化时执行
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [_hasHydrated, accessToken])
 
   // 显示加载状态（等待 hydration 或 token 验证）
   if (!_hasHydrated || isChecking) {

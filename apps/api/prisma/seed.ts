@@ -1,5 +1,36 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import * as path from 'path';
+import * as fs from 'fs';
+import * as dotenv from 'dotenv';
+
+// 查找并加载环境配置文件
+function loadEnvConfig() {
+  const envName = process.env.NODE_ENV || 'development';
+  let configsDir = process.cwd();
+
+  // 向上查找 configs 目录
+  for (let i = 0; i < 5; i++) {
+    const configsPath = path.join(configsDir, 'configs');
+    if (fs.existsSync(configsPath)) {
+      const envFile = path.join(configsPath, `env.${envName}`);
+      const defaultEnvFile = path.join(configsPath, 'env.development');
+
+      if (fs.existsSync(envFile)) {
+        dotenv.config({ path: envFile });
+        console.log(`已加载环境配置: ${envFile}`);
+      } else if (fs.existsSync(defaultEnvFile)) {
+        dotenv.config({ path: defaultEnvFile });
+        console.log(`已加载环境配置: ${defaultEnvFile}`);
+      }
+      return;
+    }
+    configsDir = path.dirname(configsDir);
+  }
+  console.warn('未找到 configs 目录，使用默认配置');
+}
+
+loadEnvConfig();
 
 const prisma = new PrismaClient();
 
@@ -13,17 +44,36 @@ async function main() {
 
   // 创建管理员用户
   const adminPassword = await bcrypt.hash(ADMIN_PASSWORD, 10);
-  const admin = await prisma.user.upsert({
-    where: { email: ADMIN_EMAIL },
-    update: { isAdmin: true },
-    create: {
-      username: ADMIN_USERNAME,
-      email: ADMIN_EMAIL,
-      password: adminPassword,
-      isAdmin: true,
-      bio: '系统管理员',
-    },
-  });
+
+  // 先检查是否存在同 email 或 username 的用户
+  const existingByEmail = await prisma.user.findUnique({ where: { email: ADMIN_EMAIL } });
+  const existingByUsername = await prisma.user.findUnique({ where: { username: ADMIN_USERNAME } });
+
+  let admin;
+  if (existingByEmail) {
+    // 更新现有用户为管理员
+    admin = await prisma.user.update({
+      where: { email: ADMIN_EMAIL },
+      data: { isAdmin: true, password: adminPassword },
+    });
+  } else if (existingByUsername) {
+    // 更新现有用户的 email 和密码
+    admin = await prisma.user.update({
+      where: { username: ADMIN_USERNAME },
+      data: { email: ADMIN_EMAIL, isAdmin: true, password: adminPassword },
+    });
+  } else {
+    // 创建新管理员
+    admin = await prisma.user.create({
+      data: {
+        username: ADMIN_USERNAME,
+        email: ADMIN_EMAIL,
+        password: adminPassword,
+        isAdmin: true,
+        bio: '系统管理员',
+      },
+    });
+  }
 
   // 创建测试用户
   const testPassword = await bcrypt.hash('test123', 10);
