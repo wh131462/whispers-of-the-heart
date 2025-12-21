@@ -45,7 +45,7 @@ function App() {
   // 初始化 API 客户端 - 等待 hydration 完成后再初始化
   useEffect(() => {
     // 设置全局错误处理器
-    apiUtils.setErrorHandler((error, status) => {
+    apiUtils.setErrorHandler((error, _status) => {
       setError(error)
     })
   }, [setError])

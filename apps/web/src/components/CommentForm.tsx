@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useMemo } from 'react'
+import React, { useState, useCallback, useRef } from 'react'
 import { Send, LogIn } from 'lucide-react'
 import { Button } from './ui/button'
 import { useToast } from '../contexts/ToastContext'
@@ -36,11 +36,6 @@ const CommentForm: React.FC<CommentFormProps> = ({
   const { addToast } = useToast()
   const { isAuthenticated, accessToken } = useAuthStore()
   const navigate = useNavigate()
-
-  // 生成稳定的编辑器 ID，基于 postId 和 parentId
-  const editorId = useMemo(() => {
-    return parentId ? `reply-${parentId}` : `post-${postId}`
-  }, [postId, parentId])
 
   const handleContentChange = useCallback((markdown: string) => {
     setContent(markdown)
@@ -138,7 +133,6 @@ const CommentForm: React.FC<CommentFormProps> = ({
     <form onSubmit={handleFormSubmit} className="comment-form space-y-3">
       <CommentEditor
         ref={editorRef}
-        editorId={editorId}
         content=""
         onChange={handleContentChange}
         onSubmit={handleSubmit}

@@ -26,7 +26,7 @@ const AdminLayout: React.FC = () => {
   const [currentTime, setCurrentTime] = useState(new Date())
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, logout, token } = useAuthStore()
+  const { user, logout, accessToken } = useAuthStore()
 
   // 判断是否是文章编辑页面（需要全屏无侧边栏）
   const isPostEditPage = location.pathname.startsWith('/admin/posts/new') ||
@@ -34,10 +34,10 @@ const AdminLayout: React.FC = () => {
 
   // 初始化token
   useEffect(() => {
-    if (token) {
-      blogApi.setToken(token)
+    if (accessToken) {
+      blogApi.setToken(accessToken)
     }
-  }, [token])
+  }, [accessToken])
 
   // 实时更新时间
   useEffect(() => {
