@@ -48,7 +48,7 @@ export class CommentService {
     // 获取评论者信息
     const commenter = await this.prisma.user.findUnique({
       where: { id: createCommentDto.authorId },
-      select: { username: true },
+      select: { username: true, avatar: true },
     });
 
     // 检查父评论是否存在
@@ -100,6 +100,13 @@ export class CommentService {
         isApproved,
       },
       include: {
+        author: {
+          select: {
+            id: true,
+            username: true,
+            avatar: true,
+          },
+        },
         post: {
           select: {
             id: true,
@@ -113,7 +120,9 @@ export class CommentService {
             content: true,
             author: {
               select: {
+                id: true,
                 username: true,
+                avatar: true,
               },
             },
           },
@@ -124,7 +133,9 @@ export class CommentService {
             content: true,
             author: {
               select: {
+                id: true,
                 username: true,
+                avatar: true,
               },
             },
             createdAt: true,
@@ -149,6 +160,7 @@ export class CommentService {
       author: {
         id: createCommentDto.authorId,
         username: commenter?.username || '匿名用户',
+        avatar: commenter?.avatar || null,
       },
     });
 
@@ -438,6 +450,13 @@ export class CommentService {
     const comment = await this.prisma.comment.findUnique({
       where: { id },
       include: {
+        author: {
+          select: {
+            id: true,
+            username: true,
+            avatar: true,
+          },
+        },
         post: {
           select: {
             id: true,
@@ -451,7 +470,9 @@ export class CommentService {
             content: true,
             author: {
               select: {
+                id: true,
                 username: true,
+                avatar: true,
               },
             },
           },
@@ -462,7 +483,9 @@ export class CommentService {
             content: true,
             author: {
               select: {
+                id: true,
                 username: true,
+                avatar: true,
               },
             },
             createdAt: true,
@@ -492,6 +515,13 @@ export class CommentService {
       where: { id },
       data: updateCommentDto,
       include: {
+        author: {
+          select: {
+            id: true,
+            username: true,
+            avatar: true,
+          },
+        },
         post: {
           select: {
             id: true,
@@ -505,7 +535,9 @@ export class CommentService {
             content: true,
             author: {
               select: {
+                id: true,
                 username: true,
+                avatar: true,
               },
             },
           },
@@ -516,7 +548,9 @@ export class CommentService {
             content: true,
             author: {
               select: {
+                id: true,
                 username: true,
+                avatar: true,
               },
             },
             createdAt: true,
@@ -564,6 +598,13 @@ export class CommentService {
       where: { id },
       data: { isApproved: true },
       include: {
+        author: {
+          select: {
+            id: true,
+            username: true,
+            avatar: true,
+          },
+        },
         post: {
           select: {
             id: true,
@@ -577,7 +618,9 @@ export class CommentService {
             content: true,
             author: {
               select: {
+                id: true,
                 username: true,
+                avatar: true,
               },
             },
           },
@@ -588,7 +631,9 @@ export class CommentService {
             content: true,
             author: {
               select: {
+                id: true,
                 username: true,
+                avatar: true,
               },
             },
             createdAt: true,
@@ -614,6 +659,13 @@ export class CommentService {
       where: { id },
       data: { isApproved: false },
       include: {
+        author: {
+          select: {
+            id: true,
+            username: true,
+            avatar: true,
+          },
+        },
         post: {
           select: {
             id: true,
@@ -627,7 +679,9 @@ export class CommentService {
             content: true,
             author: {
               select: {
+                id: true,
                 username: true,
+                avatar: true,
               },
             },
           },
@@ -638,7 +692,9 @@ export class CommentService {
             content: true,
             author: {
               select: {
+                id: true,
                 username: true,
+                avatar: true,
               },
             },
             createdAt: true,
