@@ -144,44 +144,12 @@ jobs:
             # 确保必要目录存在
             mkdir -p infra/ssl uploads logs backups
 
-            # 检查 SSL 证书是否存在
+            # 检查 SSL 证书是否存在（证书需要在 setup-server.sh 中预先配置）
             if [ ! -f "infra/ssl/131462.wang.crt" ] || [ ! -f "infra/ssl/api.131462.wang.crt" ]; then
-                echo "SSL certificates not found. Requesting from Let's Encrypt..."
-
-                # 停止可能占用 80 端口的服务
-                docker compose -f docker-compose.ghcr.yml stop nginx 2>/dev/null || true
-                docker compose -f docker-compose.ghcr.yml rm -f nginx 2>/dev/null || true
-
-                # 安装 certbot（如果未安装）
-                if ! command -v certbot &> /dev/null; then
-                    apt-get update && apt-get install -y certbot
-                fi
-
-                # 申请证书
-                certbot certonly --standalone --non-interactive --agree-tos \
-                    --email admin@131462.wang \
-                    -d 131462.wang -d www.131462.wang \
-                    || echo "Warning: Failed to get certificate for 131462.wang"
-
-                certbot certonly --standalone --non-interactive --agree-tos \
-                    --email admin@131462.wang \
-                    -d api.131462.wang \
-                    || echo "Warning: Failed to get certificate for api.131462.wang"
-
-                # 复制证书到项目目录
-                if [ -d "/etc/letsencrypt/live/131462.wang" ]; then
-                    cp /etc/letsencrypt/live/131462.wang/fullchain.pem infra/ssl/131462.wang.crt
-                    cp /etc/letsencrypt/live/131462.wang/privkey.pem infra/ssl/131462.wang.key
-                    echo "SSL certificate for 131462.wang installed."
-                fi
-
-                if [ -d "/etc/letsencrypt/live/api.131462.wang" ]; then
-                    cp /etc/letsencrypt/live/api.131462.wang/fullchain.pem infra/ssl/api.131462.wang.crt
-                    cp /etc/letsencrypt/live/api.131462.wang/privkey.pem infra/ssl/api.131462.wang.key
-                    echo "SSL certificate for api.131462.wang installed."
-                fi
-            else
-                echo "SSL certificates already exist."
+                echo "⚠️ SSL certificates not found!"
+                echo "Please run setup-server.sh first to configure SSL certificates:"
+                echo "  ./scripts/setup-server.sh"
+                exit 1
             fi
 
             # 加载环境变量供 docker-compose 使用
