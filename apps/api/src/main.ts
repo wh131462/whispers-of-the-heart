@@ -33,7 +33,7 @@ async function bootstrap() {
   if (!existsSync(uploadsDir)) {
     mkdirSync(uploadsDir, { recursive: true });
   }
-  
+
   // CORS 配置
   const isProduction = configService.get('NODE_ENV') === 'production';
 
@@ -61,9 +61,11 @@ async function bootstrap() {
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ extended: true, limit: '50mb' }));
 
-  // 设置默认响应头为 UTF-8
+  // 设置 API 路由默认响应头为 UTF-8（仅对 /api/v1 路由生效，避免覆盖静态资源的 MIME 类型）
   app.use((req, res, next) => {
-    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    if (req.url.startsWith('/api/v1')) {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    }
     next();
   });
 
