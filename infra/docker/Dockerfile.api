@@ -32,14 +32,21 @@ COPY . .
 # 生成 Prisma 客户端 (构建前需要)
 RUN cd apps/api && npx prisma generate
 
+# 先构建依赖的 packages
+RUN pnpm --filter=@whispers/types build || true
+RUN pnpm --filter=@whispers/utils build || true
+
 # 构建后端应用
 RUN pnpm --filter=api build
+
+# 验证构建产物存在
+RUN ls -la apps/api/dist/src/ && test -f apps/api/dist/src/main.js
 
 # 生产阶段
 FROM node:22-alpine AS production
 
 # 安装必要的系统依赖
-RUN apk add --no-cache dumb-init
+RUN apk add --no-cache dumb-init su-exec
 
 # 创建应用用户
 RUN addgroup -g 1001 -S nodejs
@@ -52,24 +59,66 @@ WORKDIR /app
 COPY --from=builder /app/apps/api/dist ./dist
 COPY --from=builder /app/apps/api/package.json ./
 COPY --from=builder /app/apps/api/prisma ./prisma
+# 复制邮件模板（.hbs 文件不会被 TypeScript 编译）
+COPY --from=builder /app/apps/api/src/mail/templates ./dist/src/mail/templates
 
-# 安装生产依赖
+# 安装生产依赖并生成 Prisma 客户端
 RUN npm config set registry https://registry.npmmirror.com && \
-    npm install --omit=dev --legacy-peer-deps
-
-# 生成 Prisma 客户端
-RUN npx prisma generate
+    npm install --omit=dev --legacy-peer-deps && \
+    npx prisma@6.15.0 generate
 
 # 设置权限
 RUN chown -R nestjs:nodejs /app
 USER nestjs
 
-# 暴露端口
+# 声明内部端口（仅供 Docker 网络内部访问）
 EXPOSE 7777
 
-# 健康检查
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:7777/api/v1/admin/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+# 创建启动脚本（包含目录权限、数据库迁移和管理员账号初始化）
+USER root
+RUN echo '#!/bin/sh' > /app/start.sh && \
+    echo 'set -e' >> /app/start.sh && \
+    echo '' >> /app/start.sh && \
+    echo '# 确保 uploads 和 logs 目录存在且有正确权限' >> /app/start.sh && \
+    echo 'mkdir -p /app/uploads /app/logs' >> /app/start.sh && \
+    echo 'chown -R nestjs:nodejs /app/uploads /app/logs 2>/dev/null || true' >> /app/start.sh && \
+    echo 'chmod -R 755 /app/uploads /app/logs 2>/dev/null || true' >> /app/start.sh && \
+    echo '' >> /app/start.sh && \
+    echo 'echo "Running database migrations..."' >> /app/start.sh && \
+    echo 'npx prisma@6.15.0 db push --skip-generate 2>&1 || npx prisma@6.15.0 db push --accept-data-loss --skip-generate 2>&1 || true' >> /app/start.sh && \
+    echo '' >> /app/start.sh && \
+    echo 'echo "Checking admin account..."' >> /app/start.sh && \
+    echo 'node /app/init-admin.js 2>&1 || echo "Admin creation skipped"' >> /app/start.sh && \
+    echo '' >> /app/start.sh && \
+    echo 'echo "Starting application..."' >> /app/start.sh && \
+    echo 'exec su-exec nestjs node dist/src/main' >> /app/start.sh && \
+    chmod +x /app/start.sh
 
-# 启动应用
-CMD ["dumb-init", "node", "dist/main"]
+# 创建管理员初始化脚本
+RUN echo 'const { PrismaClient } = require("@prisma/client");' > /app/init-admin.js && \
+    echo 'const bcrypt = require("bcrypt");' >> /app/init-admin.js && \
+    echo 'async function main() {' >> /app/init-admin.js && \
+    echo '  const prisma = new PrismaClient();' >> /app/init-admin.js && \
+    echo '  try {' >> /app/init-admin.js && \
+    echo '    const email = process.env.ADMIN_EMAIL || "admin@131462.wang";' >> /app/init-admin.js && \
+    echo '    const username = process.env.ADMIN_USERNAME || "admin";' >> /app/init-admin.js && \
+    echo '    const password = process.env.ADMIN_PASSWORD || "admin123";' >> /app/init-admin.js && \
+    echo '    const existing = await prisma.user.findFirst({ where: { OR: [{ email }, { username }] } });' >> /app/init-admin.js && \
+    echo '    if (!existing) {' >> /app/init-admin.js && \
+    echo '      const hashedPassword = await bcrypt.hash(password, 10);' >> /app/init-admin.js && \
+    echo '      await prisma.user.create({ data: { email, username, password: hashedPassword, isAdmin: true, bio: "系统管理员" } });' >> /app/init-admin.js && \
+    echo '      console.log("Admin account created:", email);' >> /app/init-admin.js && \
+    echo '    } else { console.log("Admin account already exists"); }' >> /app/init-admin.js && \
+    echo '  } catch (e) { console.error("Failed to create admin:", e.message); }' >> /app/init-admin.js && \
+    echo '  finally { await prisma.$disconnect(); }' >> /app/init-admin.js && \
+    echo '}' >> /app/init-admin.js && \
+    echo 'main();' >> /app/init-admin.js && \
+    chown nestjs:nodejs /app/start.sh /app/init-admin.js
+
+# 健康检查 - 使用全局前缀 /api/v1
+# 注意：容器以 root 启动，启动脚本会设置目录权限后用 su-exec 切换到 nestjs 用户
+HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:7777/api/v1/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+
+# 启动应用（先运行迁移再启动）
+CMD ["dumb-init", "/app/start.sh"]

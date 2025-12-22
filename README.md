@@ -113,7 +113,7 @@ cp configs/env.example configs/env.development
 # 编辑 configs/env.development 填入你的配置
 
 # 4. 启动数据库服务（使用 Docker）
-docker-compose -f docker-compose.prod.yml up -d postgres redis
+docker-compose -f docker-compose.dev.yml up -d postgres minio
 
 # 5. 初始化数据库
 cd apps/api && npx prisma db push && npx prisma db seed

@@ -38,16 +38,27 @@ COPY . .
 # 设置环境变量
 ENV VITE_API_URL=${VITE_API_URL}
 
+# 先构建依赖的 packages
+RUN pnpm --filter=@whispers/types build || true
+RUN pnpm --filter=@whispers/utils build || true
+RUN pnpm --filter=@whispers/hooks build || true
+RUN pnpm --filter=@whispers/ui build || true
+
+# 构建 Web 应用
 RUN pnpm build:web
 
-# 生产阶段
-FROM nginx:alpine AS production
-COPY --from=build /app/apps/web/dist /usr/share/nginx/html
-COPY infra/nginx/web.conf /etc/nginx/conf.d/default.conf
+# 验证构建产物存在
+RUN ls -la apps/web/dist/ && test -f apps/web/dist/index.html
 
-# 健康检查
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost:8888/ || exit 1
+# 生产阶段 - 只输出构建产物，由外部 nginx 服务静态文件
+FROM alpine:latest AS production
 
-EXPOSE 8888
-CMD ["nginx", "-g", "daemon off;"]
+# 创建目标目录
+RUN mkdir -p /dist
+
+# 复制构建产物到临时目录
+COPY --from=build /app/apps/web/dist /app/dist
+
+# 启动时将文件复制到卷挂载点，然后退出
+# 使用 cp -r 确保每次都更新文件
+CMD ["sh", "-c", "rm -rf /dist/* && cp -r /app/dist/* /dist/ && echo 'Build artifacts copied to /dist' && ls -la /dist/"]

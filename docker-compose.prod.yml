@@ -1,7 +1,8 @@
-version: '3.8'
-
 services:
-  # Nginx 反向代理
+  # ============================================
+  # Nginx - 唯一对外入口
+  # 职责：反向代理 + 静态文件服务
+  # ============================================
   nginx:
     image: nginx:alpine
     container_name: whispers-nginx-prod
@@ -14,11 +15,12 @@ services:
       - ./infra/nginx/sites-available:/etc/nginx/sites-available:ro
       - ./infra/ssl:/etc/nginx/ssl:ro
       - ./uploads:/var/www/uploads:ro
+      - web_dist:/usr/share/nginx/html:ro
     networks:
       - whispers-network
     depends_on:
-      - api
-      - web
+      web:
+        condition: service_completed_successfully
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
       interval: 30s
@@ -26,7 +28,11 @@ services:
       retries: 3
       start_period: 10s
 
-  # API 后端服务
+  # ============================================
+  # API - 后端服务
+  # 职责：提供 REST API
+  # 仅通过内部网络暴露，不对外开放端口
+  # ============================================
   api:
     build:
       context: .
@@ -34,6 +40,9 @@ services:
       target: production
     container_name: whispers-api-prod
     restart: always
+    # 仅在内部网络暴露端口，不映射到宿主机
+    expose:
+      - "7777"
     environment:
       - NODE_ENV=production
     env_file:
@@ -46,18 +55,20 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
       minio:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:7777/api/v1/admin/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:7777/api/v1/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 30s
 
-  # Web 前端服务（含管理后台）
+  # ============================================
+  # Web - 前端构建服务
+  # 职责：构建静态资源，输出到共享卷
+  # 运行一次后退出，不持续运行
+  # ============================================
   web:
     build:
       context: .
@@ -66,17 +77,16 @@ services:
       args:
         - VITE_API_URL=https://api.131462.wang
     container_name: whispers-web-prod
-    restart: always
+    # 构建完成后退出，不需要重启
+    restart: "no"
+    volumes:
+      - web_dist:/dist
     networks:
       - whispers-network
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8888/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
 
-  # PostgreSQL 数据库
+  # ============================================
+  # PostgreSQL - 数据库
+  # ============================================
   postgres:
     image: postgres:15-alpine
     container_name: whispers-postgres-prod
@@ -97,26 +107,9 @@ services:
       timeout: 10s
       retries: 3
 
-  # Redis 缓存
-  redis:
-    image: redis:7-alpine
-    container_name: whispers-redis-prod
-    restart: always
-    environment:
-      TZ: Asia/Shanghai
-    volumes:
-      - redis_data:/data
-      - ./infra/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
-    networks:
-      - whispers-network
-    command: redis-server /usr/local/etc/redis/redis.conf
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # MinIO 对象存储
+  # ============================================
+  # MinIO - 对象存储
+  # ============================================
   minio:
     image: minio/minio:latest
     container_name: whispers-minio-prod
@@ -139,10 +132,10 @@ services:
 volumes:
   postgres_data:
     name: whispers_postgres_prod_data
-  redis_data:
-    name: whispers_redis_prod_data
   minio_data:
     name: whispers_minio_prod_data
+  web_dist:
+    name: whispers_web_dist
 
 networks:
   whispers-network:

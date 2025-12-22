@@ -155,8 +155,8 @@ export class MediaService {
       return existingMedia;
     }
 
-    const baseUrl = process.env.BASE_URL || 'http://localhost:7777';
-    const url = `${baseUrl}/uploads/${file.filename}`;
+    // 使用相对路径，让前端/nginx 自动拼接域名
+    const url = `/uploads/${file.filename}`;
 
     // 修复中文文件名编码问题：Multer 使用 Latin1 编码，需要转换为 UTF-8
     let originalName = file.originalname;

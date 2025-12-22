@@ -101,3 +101,5 @@ Thumbs.db
 **/uploads
 .augment/**
 workspaceContext.md
+
+release

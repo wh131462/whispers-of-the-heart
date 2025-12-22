@@ -34,36 +34,28 @@ async function bootstrap() {
     mkdirSync(uploadsDir, { recursive: true });
   }
   
-  // 启用 CORS - 从环境变量读取允许的源
-  const corsOrigins = configService.get<string>('CORS_ORIGINS') || 'http://localhost:8888,http://localhost:9999';
-  const allowedOrigins = corsOrigins.split(',').map(origin => origin.trim());
-  const isDev = configService.get('NODE_ENV') !== 'production';
+  // CORS 配置
+  const isProduction = configService.get('NODE_ENV') === 'production';
 
-  app.enableCors({
-    origin: (origin, callback) => {
-      // 允许无 origin 的请求（如同源请求、服务器端请求）
-      if (!origin) {
-        callback(null, true);
+  if (isProduction) {
+    // 生产环境：nginx 已处理 CORS，后端不添加 header（避免重复）
+    // 只需要响应 OPTIONS 预检请求
+    app.use((req, res, next) => {
+      if (req.method === 'OPTIONS') {
+        res.status(204).end();
         return;
       }
-
-      // 开发环境下允许所有 localhost 请求
-      if (isDev && (origin.includes('localhost') || origin.includes('127.0.0.1'))) {
-        callback(null, true);
-        return;
-      }
-
-      // 检查是否在允许列表中
-      if (allowedOrigins.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-  });
+      next();
+    });
+  } else {
+    // 开发环境：后端处理 CORS（无 nginx）
+    app.enableCors({
+      origin: true,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    });
+  }
 
   // 设置请求体大小限制和编码
   app.use(json({ limit: '50mb' }));
