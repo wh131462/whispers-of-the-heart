@@ -1,58 +1,58 @@
-import React, { useState } from 'react'
-import { Button } from './ui/button'
-import { Reply, MessageCircle, ChevronDown, ChevronUp } from 'lucide-react'
-import type { Comment } from '../types/comment'
-import CommentForm from './CommentForm'
-import CommentActions, { MoreActions } from './CommentActions'
-import UserAvatar from './UserAvatar'
-import { MarkdownRenderer } from '@whispers/ui'
-import { useAuthStore } from '../stores/useAuthStore'
-import { commentApi } from '../services/commentApi'
-import { useToast } from '../contexts/ToastContext'
+import React, { useState } from 'react';
+import { Button } from './ui/button';
+import { Reply, MessageCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import type { Comment } from '../types/comment';
+import CommentForm from './CommentForm';
+import CommentActions, { MoreActions } from './CommentActions';
+import UserAvatar from './UserAvatar';
+import { MarkdownRenderer } from '@whispers/ui';
+import { useAuthStore } from '../stores/useAuthStore';
+import { commentApi } from '../services/commentApi';
+import { useToast } from '../contexts/ToastContext';
 
 interface CommentItemProps {
-  comment: Comment
-  onReplyAdded: () => void
-  isReply?: boolean
+  comment: Comment;
+  onReplyAdded: () => void;
+  isReply?: boolean;
 }
 
 const CommentItem: React.FC<CommentItemProps> = ({
   comment,
   onReplyAdded,
-  isReply = false
+  isReply = false,
 }) => {
-  const [showReplyForm, setShowReplyForm] = useState(false)
-  const [showReplies, setShowReplies] = useState(true)
-  const [isLiked, setIsLiked] = useState(comment.isLiked || false)
-  const [likesCount, setLikesCount] = useState(comment.likes || 0)
-  const [isLiking, setIsLiking] = useState(false)
-  const { user, isAuthenticated } = useAuthStore()
-  const { addToast } = useToast()
+  const [showReplyForm, setShowReplyForm] = useState(false);
+  const [showReplies, setShowReplies] = useState(true);
+  const [isLiked, setIsLiked] = useState(comment.isLiked || false);
+  const [likesCount, setLikesCount] = useState(comment.likes || 0);
+  const [isLiking, setIsLiking] = useState(false);
+  const { user, isAuthenticated } = useAuthStore();
+  const { addToast } = useToast();
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
-    const diffInMinutes = Math.floor(diffInSeconds / 60)
-    const diffInHours = Math.floor(diffInMinutes / 60)
-    const diffInDays = Math.floor(diffInHours / 24)
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    const diffInMinutes = Math.floor(diffInSeconds / 60);
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    const diffInDays = Math.floor(diffInHours / 24);
 
     if (diffInSeconds < 60) {
-      return '刚刚'
+      return '刚刚';
     } else if (diffInMinutes < 60) {
-      return `${diffInMinutes}分钟前`
+      return `${diffInMinutes}分钟前`;
     } else if (diffInHours < 24) {
-      return `${diffInHours}小时前`
+      return `${diffInHours}小时前`;
     } else if (diffInDays < 7) {
-      return `${diffInDays}天前`
+      return `${diffInDays}天前`;
     } else if (diffInDays < 30) {
-      return `${Math.floor(diffInDays / 7)}周前`
+      return `${Math.floor(diffInDays / 7)}周前`;
     } else if (diffInDays < 365) {
-      return `${Math.floor(diffInDays / 30)}个月前`
+      return `${Math.floor(diffInDays / 30)}个月前`;
     } else {
-      return `${Math.floor(diffInDays / 365)}年前`
+      return `${Math.floor(diffInDays / 365)}年前`;
     }
-  }
+  };
 
   // 处理评论点赞
   const handleLike = async () => {
@@ -60,73 +60,73 @@ const CommentItem: React.FC<CommentItemProps> = ({
       addToast({
         title: '需要登录',
         description: '请先登录后再点赞',
-        variant: 'destructive'
-      })
-      return
+        variant: 'destructive',
+      });
+      return;
     }
 
-    if (isLiking) return
+    if (isLiking) return;
 
     try {
-      setIsLiking(true)
-      const result = await commentApi.toggleLike(comment.id)
-      setIsLiked(result.liked)
-      setLikesCount(result.likesCount)
+      setIsLiking(true);
+      const result = await commentApi.toggleLike(comment.id);
+      setIsLiked(result.liked);
+      setLikesCount(result.likesCount);
     } catch (error) {
-      console.error('Failed to like comment:', error)
+      console.error('Failed to like comment:', error);
       addToast({
         title: '操作失败',
         description: '点赞操作失败，请稍后重试',
-        variant: 'destructive'
-      })
+        variant: 'destructive',
+      });
     } finally {
-      setIsLiking(false)
+      setIsLiking(false);
     }
-  }
+  };
 
   // 检查是否为评论作者
-  const isAuthor = user && comment.author && user.id === comment.author.id
-  const canEdit = Boolean(isAuthor)
-  const canDelete = Boolean(isAuthor)
-  const hasReplies = comment.replies && comment.replies.length > 0
-  const replyCount = comment.replies?.length || 0
+  const isAuthor = user && comment.author && user.id === comment.author.id;
+  const canEdit = Boolean(isAuthor);
+  const canDelete = Boolean(isAuthor);
+  const hasReplies = comment.replies && comment.replies.length > 0;
+  const replyCount = comment.replies?.length || 0;
 
   // 回复单元组件（扁平化展示）
   const ReplyItem: React.FC<{ reply: Comment }> = ({ reply }) => {
-    const [replyLiked, setReplyLiked] = useState(reply.isLiked || false)
-    const [replyLikesCount, setReplyLikesCount] = useState(reply.likes || 0)
-    const [replyLiking, setReplyLiking] = useState(false)
-    const [showReplyToForm, setShowReplyToForm] = useState(false)
-    const isReplyAuthor = user && reply.author && user.id === reply.author.id
+    const [replyLiked, setReplyLiked] = useState(reply.isLiked || false);
+    const [replyLikesCount, setReplyLikesCount] = useState(reply.likes || 0);
+    const [replyLiking, setReplyLiking] = useState(false);
+    const [showReplyToForm, setShowReplyToForm] = useState(false);
+    const isReplyAuthor = user && reply.author && user.id === reply.author.id;
 
     const handleReplyLike = async () => {
       if (!isAuthenticated) {
         addToast({
           title: '需要登录',
           description: '请先登录后再点赞',
-          variant: 'destructive'
-        })
-        return
+          variant: 'destructive',
+        });
+        return;
       }
 
-      if (replyLiking) return
+      if (replyLiking) return;
 
       try {
-        setReplyLiking(true)
-        const result = await commentApi.toggleLike(reply.id)
-        setReplyLiked(result.liked)
-        setReplyLikesCount(result.likesCount)
+        setReplyLiking(true);
+        const result = await commentApi.toggleLike(reply.id);
+        setReplyLiked(result.liked);
+        setReplyLikesCount(result.likesCount);
       } catch (error) {
-        console.error('Failed to like reply:', error)
+        console.error('Failed to like reply:', error);
         addToast({
           title: '操作失败',
           description: '点赞操作失败，请稍后重试',
-          variant: 'destructive'
-        })
+          variant: 'destructive',
+        });
       } finally {
-        setReplyLiking(false)
+        setReplyLiking(false);
       }
-    }
+    };
 
     return (
       <div className="reply-item py-3 border-b border-border/50 last:border-b-0">
@@ -151,7 +151,8 @@ const CommentItem: React.FC<CommentItemProps> = ({
               </span>
               {reply.replyToUsername && (
                 <span className="text-xs text-muted-foreground">
-                  回复 <span className="text-primary">@{reply.replyToUsername}</span>
+                  回复{' '}
+                  <span className="text-primary">@{reply.replyToUsername}</span>
                 </span>
               )}
               {isReplyAuthor && (
@@ -163,7 +164,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
                 {formatDate(reply.createdAt)}
               </span>
               <span className="text-xs text-muted-foreground">
-                · {reply.location || "未知"}
+                · {reply.location || '未知'}
               </span>
               {reply.deviceInfo && (
                 <span className="text-xs text-muted-foreground">
@@ -181,7 +182,6 @@ const CommentItem: React.FC<CommentItemProps> = ({
 
             <div className="flex items-center gap-1 pt-1 -ml-2">
               <CommentActions
-                commentId={reply.id}
                 isLiked={replyLiked}
                 likesCount={replyLikesCount}
                 onLike={handleReplyLike}
@@ -213,8 +213,8 @@ const CommentItem: React.FC<CommentItemProps> = ({
                   postId={reply.postId}
                   parentId={reply.id}
                   onCommentAdded={() => {
-                    setShowReplyToForm(false)
-                    onReplyAdded()
+                    setShowReplyToForm(false);
+                    onReplyAdded();
                   }}
                   onCancel={() => setShowReplyToForm(false)}
                   placeholder={`回复 @${reply.author?.username || 'Anonymous'}...`}
@@ -225,8 +225,8 @@ const CommentItem: React.FC<CommentItemProps> = ({
           </div>
         </div>
       </div>
-    )
-  }
+    );
+  };
 
   return (
     <div className={`comment-item ${isReply ? 'is-reply' : ''}`}>
@@ -251,7 +251,9 @@ const CommentItem: React.FC<CommentItemProps> = ({
           <div className="flex-1 min-w-0 space-y-1.5">
             {/* 用户信息行 */}
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={`font-semibold ${isReply ? 'text-sm' : 'text-base'} text-foreground hover:text-primary cursor-pointer transition-colors`}>
+              <span
+                className={`font-semibold ${isReply ? 'text-sm' : 'text-base'} text-foreground hover:text-primary cursor-pointer transition-colors`}
+              >
                 {comment.author?.username || 'Anonymous'}
               </span>
               {isAuthor && (
@@ -263,7 +265,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
                 {formatDate(comment.createdAt)}
               </span>
               <span className="text-xs text-muted-foreground">
-                · {comment.location || "未知"}
+                · {comment.location || '未知'}
               </span>
               {comment.deviceInfo && (
                 <span className="text-xs text-muted-foreground">
@@ -284,7 +286,6 @@ const CommentItem: React.FC<CommentItemProps> = ({
             <div className="flex items-center gap-1 pt-1 -ml-2">
               {/* 点赞按钮 */}
               <CommentActions
-                commentId={comment.id}
                 isLiked={isLiked}
                 likesCount={likesCount}
                 onLike={handleLike}
@@ -333,13 +334,15 @@ const CommentItem: React.FC<CommentItemProps> = ({
 
       {/* 回复表单 */}
       {showReplyForm && (
-        <div className={`reply-form-container ${isReply ? 'ml-8' : 'ml-12'} mt-2 mb-3`}>
+        <div
+          className={`reply-form-container ${isReply ? 'ml-8' : 'ml-12'} mt-2 mb-3`}
+        >
           <CommentForm
             postId={comment.postId}
             parentId={comment.id}
             onCommentAdded={() => {
-              setShowReplyForm(false)
-              onReplyAdded()
+              setShowReplyForm(false);
+              onReplyAdded();
             }}
             onCancel={() => setShowReplyForm(false)}
             placeholder={`回复 @${comment.author?.username || 'Anonymous'}...`}
@@ -351,7 +354,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
       {/* 回复列表 - 抖音风格扁平化 */}
       {hasReplies && showReplies && !isReply && (
         <div className="replies-container ml-12 border-l-2 border-border/50 pl-4">
-          {comment.replies!.map((reply) => (
+          {comment.replies!.map(reply => (
             <ReplyItem key={reply.id} reply={reply} />
           ))}
         </div>
@@ -444,7 +447,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
         }
       `}</style>
     </div>
-  )
-}
+  );
+};
 
-export default CommentItem
+export default CommentItem;

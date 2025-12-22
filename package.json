@@ -73,15 +73,21 @@
     "docker:build": "cd infra/docker && docker-compose build",
     "docker:logs": "cd infra/docker && docker-compose logs -f",
     "ports": "echo '🚀 项目端口信息:' && echo '  本地开发:' && echo '    API: http://localhost:7777/api/v1' && echo '    Web: http://localhost:8888' && echo '    PostgreSQL: localhost:5432' && echo '    MinIO: http://localhost:9001' && echo '    pgAdmin: http://localhost:5050' && echo '' && echo '  生产环境:' && echo '    Web: https://whispers.example.com' && echo '    API: https://api.whispers.example.com'",
-    "health": "echo '🔍 检查服务状态...' && curl -s http://localhost:7777/api/v1/health || echo 'API 未运行' && curl -s http://localhost:8888 -o /dev/null && echo 'Web 运行正常' || echo 'Web 未运行'"
+    "health": "echo '🔍 检查服务状态...' && curl -s http://localhost:7777/api/v1/health || echo 'API 未运行' && curl -s http://localhost:8888 -o /dev/null && echo 'Web 运行正常' || echo 'Web 未运行'",
+    "prepare": "husky"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@types/node": "^22.18.0",
+    "cross-env": "^10.0.0",
     "eslint": "^9.34.0",
+    "globals": "^16.5.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
     "prettier": "^3.6.2",
     "turbo": "^2.0.0",
-    "cross-env": "^10.0.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.50.0"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [

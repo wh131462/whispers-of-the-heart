@@ -1,122 +1,66 @@
-import React, { useState } from 'react'
-import { Button } from './ui/button'
-import { Card, CardContent } from './ui/card'
-import { MoreHorizontal, Heart, Flag, Trash2, Edit, Copy } from 'lucide-react'
-import { useToast } from '../contexts/ToastContext'
-import { useAuthStore } from '../stores/useAuthStore'
-import { commentApi } from '../services/commentApi'
-import ReportCommentDialog from './ReportCommentDialog'
-import type { ReportReason } from '../types/comment'
+import React, { useState } from 'react';
+import { Button } from './ui/button';
+import { Card, CardContent } from './ui/card';
+import { MoreHorizontal, Heart, Flag, Trash2, Edit, Copy } from 'lucide-react';
+import { useToast } from '../contexts/ToastContext';
+import { useAuthStore } from '../stores/useAuthStore';
+import { commentApi } from '../services/commentApi';
+import ReportCommentDialog from './ReportCommentDialog';
+import type { ReportReason } from '../types/comment';
 
 interface CommentActionsProps {
-  commentId: string
-  isLiked?: boolean
-  likesCount?: number
-  onLike?: () => void
-  onEdit?: () => void
-  onDelete?: () => void
-  isLiking?: boolean
-  canEdit?: boolean
-  canDelete?: boolean
+  isLiked?: boolean;
+  likesCount?: number;
+  onLike?: () => void;
+  isLiking?: boolean;
 }
 
 const CommentActions: React.FC<CommentActionsProps> = ({
-  commentId,
   isLiked = false,
   likesCount = 0,
   onLike,
-  onEdit,
-  onDelete,
   isLiking = false,
-  canEdit = false,
-  canDelete = false
 }) => {
-  const [showMenu, setShowMenu] = useState(false)
-  const [showReportDialog, setShowReportDialog] = useState(false)
-  const { addToast } = useToast()
-  const { isAuthenticated } = useAuthStore()
+  const { addToast } = useToast();
 
   const handleLike = async () => {
-    if (!onLike || isLiking) return
-    
+    if (!onLike || isLiking) return;
+
     try {
-      await onLike()
+      await onLike();
     } catch (error) {
-      console.error('Failed to like comment:', error)
+      console.error('Failed to like comment:', error);
       addToast({
         title: '操作失败',
         description: '请稍后重试',
-        variant: 'destructive'
-      })
+        variant: 'destructive',
+      });
     }
-  }
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(commentId)
-    addToast({
-      title: '已复制',
-      description: '评论ID已复制到剪贴板',
-      variant: 'success'
-    })
-    setShowMenu(false)
-  }
-
-  const handleReport = () => {
-    if (!isAuthenticated) {
-      addToast({
-        title: '需要登录',
-        description: '请先登录后再举报评论',
-        variant: 'warning'
-      })
-      setShowMenu(false)
-      return
-    }
-    setShowReportDialog(true)
-    setShowMenu(false)
-  }
-
-  const handleReportSubmit = async (reason: ReportReason, details?: string) => {
-    await commentApi.reportComment(commentId, { reason, details })
-    addToast({
-      title: '举报成功',
-      description: '感谢您的反馈，我们会尽快处理',
-      variant: 'success'
-    })
-  }
+  };
 
   return (
-    <>
-      {/* 点赞按钮 */}
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={handleLike}
-        disabled={isLiking}
-        className={`h-8 px-2 text-xs ${
-          isLiked ? 'text-red-500 hover:text-red-600' : 'hover:text-red-500'
-        }`}
-      >
-        <Heart className={`h-3 w-3 mr-1 ${isLiked ? 'fill-current' : ''}`} />
-        {isLiking ? '...' : likesCount}
-      </Button>
-
-      {/* 举报对话框 */}
-      <ReportCommentDialog
-        isOpen={showReportDialog}
-        onClose={() => setShowReportDialog(false)}
-        onSubmit={handleReportSubmit}
-      />
-    </>
-  )
-}
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={handleLike}
+      disabled={isLiking}
+      className={`h-8 px-2 text-xs ${
+        isLiked ? 'text-red-500 hover:text-red-600' : 'hover:text-red-500'
+      }`}
+    >
+      <Heart className={`h-3 w-3 mr-1 ${isLiked ? 'fill-current' : ''}`} />
+      {isLiking ? '...' : likesCount}
+    </Button>
+  );
+};
 
 // 更多操作菜单组件（单独导出，放在最后）
 interface MoreActionsProps {
-  commentId: string
-  onEdit?: () => void
-  onDelete?: () => void
-  canEdit?: boolean
-  canDelete?: boolean
+  commentId: string;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  canEdit?: boolean;
+  canDelete?: boolean;
 }
 
 export const MoreActions: React.FC<MoreActionsProps> = ({
@@ -124,45 +68,45 @@ export const MoreActions: React.FC<MoreActionsProps> = ({
   onEdit,
   onDelete,
   canEdit = false,
-  canDelete = false
+  canDelete = false,
 }) => {
-  const [showMenu, setShowMenu] = useState(false)
-  const [showReportDialog, setShowReportDialog] = useState(false)
-  const { addToast } = useToast()
-  const { isAuthenticated } = useAuthStore()
+  const [showMenu, setShowMenu] = useState(false);
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const { addToast } = useToast();
+  const { isAuthenticated } = useAuthStore();
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(commentId)
+    navigator.clipboard.writeText(commentId);
     addToast({
       title: '已复制',
       description: '评论ID已复制到剪贴板',
-      variant: 'success'
-    })
-    setShowMenu(false)
-  }
+      variant: 'success',
+    });
+    setShowMenu(false);
+  };
 
   const handleReport = () => {
     if (!isAuthenticated) {
       addToast({
         title: '需要登录',
         description: '请先登录后再举报评论',
-        variant: 'warning'
-      })
-      setShowMenu(false)
-      return
+        variant: 'warning',
+      });
+      setShowMenu(false);
+      return;
     }
-    setShowReportDialog(true)
-    setShowMenu(false)
-  }
+    setShowReportDialog(true);
+    setShowMenu(false);
+  };
 
   const handleReportSubmit = async (reason: ReportReason, details?: string) => {
-    await commentApi.reportComment(commentId, { reason, details })
+    await commentApi.reportComment(commentId, { reason, details });
     addToast({
       title: '举报成功',
       description: '感谢您的反馈，我们会尽快处理',
-      variant: 'success'
-    })
-  }
+      variant: 'success',
+    });
+  };
 
   return (
     <div className="relative">
@@ -217,8 +161,8 @@ export const MoreActions: React.FC<MoreActionsProps> = ({
                     variant="ghost"
                     size="sm"
                     onClick={() => {
-                      onEdit()
-                      setShowMenu(false)
+                      onEdit();
+                      setShowMenu(false);
                     }}
                     className="w-full justify-start h-8 px-3 text-xs"
                   >
@@ -233,8 +177,8 @@ export const MoreActions: React.FC<MoreActionsProps> = ({
                     variant="ghost"
                     size="sm"
                     onClick={() => {
-                      onDelete()
-                      setShowMenu(false)
+                      onDelete();
+                      setShowMenu(false);
                     }}
                     className="w-full justify-start h-8 px-3 text-xs text-red-500 hover:text-red-600 hover:bg-red-50"
                   >
@@ -255,7 +199,7 @@ export const MoreActions: React.FC<MoreActionsProps> = ({
         onSubmit={handleReportSubmit}
       />
     </div>
-  )
-}
+  );
+};
 
-export default CommentActions
+export default CommentActions;
