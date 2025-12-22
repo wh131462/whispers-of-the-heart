@@ -25,6 +25,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "i18next": "^25.6.1",
+    "input-otp": "^1.4.2",
     "lodash.throttle": "^4.1.1",
     "lucide-react": "^0.542.0",
     "radix-ui": "^1.4.3",

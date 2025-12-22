@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
 import { ConfigService } from '@nestjs/config';
 
@@ -12,11 +12,12 @@ export interface SendMailOptions {
 }
 
 @Injectable()
-export class MailService {
+export class MailService implements OnModuleInit {
   private readonly logger = new Logger(MailService.name);
   private readonly isEnabled: boolean;
   private readonly webUrl: string;
   private readonly appName: string;
+  private isConnected: boolean = false;
 
   constructor(
     private readonly mailerService: MailerService,
@@ -35,6 +36,70 @@ export class MailService {
     } else {
       this.logger.log(`邮件服务已启用: ${mailHost}`);
     }
+  }
+
+  /**
+   * 模块初始化时验证 SMTP 连接
+   */
+  async onModuleInit() {
+    if (!this.isEnabled) {
+      this.logger.log('邮件服务未配置，跳过连接检测');
+      return;
+    }
+
+    await this.verifyConnection();
+  }
+
+  /**
+   * 验证 SMTP 连接
+   */
+  async verifyConnection(): Promise<boolean> {
+    const mailHost = this.configService.get('MAIL_HOST');
+    const mailPort = this.configService.get('MAIL_PORT');
+
+    this.logger.log(`正在验证 SMTP 连接: ${mailHost}:${mailPort}...`);
+
+    try {
+      // 获取 nodemailer transporter 并验证连接
+      const transporter = (this.mailerService as any).transporter;
+      if (transporter && typeof transporter.verify === 'function') {
+        await transporter.verify();
+        this.isConnected = true;
+        this.logger.log('✅ SMTP 连接验证成功，邮件服务就绪');
+        return true;
+      } else {
+        this.logger.warn('无法获取 transporter，跳过连接验证');
+        return false;
+      }
+    } catch (error: any) {
+      this.isConnected = false;
+      this.logger.error('❌ SMTP 连接验证失败');
+      this.logger.error(`错误信息: ${error.message}`);
+
+      // 提供具体的排错建议
+      if (error.code === 'ECONNREFUSED') {
+        this.logger.error('💡 建议: 检查 MAIL_HOST 和 MAIL_PORT 是否正确');
+      } else if (error.code === 'EAUTH' || error.responseCode === 535) {
+        this.logger.error('💡 建议: 检查 MAIL_USERNAME 和 MAIL_PASSWORD（QQ邮箱需使用授权码）');
+      } else if (error.code === 'ETIMEDOUT' || error.message?.includes('Greeting never received')) {
+        this.logger.error('💡 建议: 网络超时，检查防火墙或网络连接');
+      } else if (error.code === 'ESOCKET' || error.message?.includes('certificate')) {
+        this.logger.error('💡 建议: SSL/TLS 问题，尝试设置 MAIL_TLS_REJECT_UNAUTHORIZED=false');
+      }
+
+      this.logger.warn('邮件服务将继续运行，但发送邮件可能失败');
+      return false;
+    }
+  }
+
+  /**
+   * 获取邮件服务状态
+   */
+  getStatus(): { enabled: boolean; connected: boolean } {
+    return {
+      enabled: this.isEnabled,
+      connected: this.isConnected,
+    };
   }
 
   /**

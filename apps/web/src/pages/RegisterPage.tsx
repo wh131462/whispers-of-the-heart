@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '../components/ui/input-otp'
 import { Label } from '../components/ui/label'
 import { useAuthStore } from '../stores/useAuthStore'
 import { Eye, EyeOff, Mail, User, Lock, ArrowLeft, Loader2, CheckCircle, KeyRound } from 'lucide-react'
@@ -267,20 +268,27 @@ const RegisterPage: React.FC = () => {
             {/* 步骤 2: 输入验证码 */}
             {step === 'verify' && (
               <div className="space-y-6">
-                <div>
-                  <Label htmlFor="code" className="flex items-center space-x-2">
+                <div className="space-y-4">
+                  <Label className="flex items-center space-x-2 justify-center">
                     <KeyRound className="h-4 w-4" />
                     <span>验证码</span>
                   </Label>
-                  <Input
-                    id="code"
-                    type="text"
-                    value={formData.code}
-                    onChange={(e) => handleInputChange('code', e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    placeholder="请输入6位验证码"
-                    maxLength={6}
-                    className="mt-1 text-center text-2xl tracking-widest font-mono"
-                  />
+                  <div className="flex justify-center">
+                    <InputOTP
+                      maxLength={6}
+                      value={formData.code}
+                      onChange={(value) => handleInputChange('code', value)}
+                    >
+                      <InputOTPGroup>
+                        <InputOTPSlot index={0} />
+                        <InputOTPSlot index={1} />
+                        <InputOTPSlot index={2} />
+                        <InputOTPSlot index={3} />
+                        <InputOTPSlot index={4} />
+                        <InputOTPSlot index={5} />
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
                 </div>
 
                 <div className="text-center text-sm text-muted-foreground">

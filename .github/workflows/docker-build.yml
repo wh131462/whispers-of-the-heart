@@ -139,7 +139,8 @@ jobs:
                 echo "SSL certificates not found. Requesting from Let's Encrypt..."
 
                 # 停止可能占用 80 端口的服务
-                docker compose -f docker-compose.ghcr.yml down nginx 2>/dev/null || true
+                docker compose -f docker-compose.ghcr.yml stop nginx 2>/dev/null || true
+                docker compose -f docker-compose.ghcr.yml rm -f nginx 2>/dev/null || true
 
                 # 安装 certbot（如果未安装）
                 if ! command -v certbot &> /dev/null; then
@@ -174,16 +175,17 @@ jobs:
             fi
 
             # 登录 GHCR
-            echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+            echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u wh131462 --password-stdin
 
             # 拉取最新镜像
             echo "Pulling latest images..."
-            docker pull ghcr.io/${{ github.repository }}/api:latest
-            docker pull ghcr.io/${{ github.repository }}/web:latest
+            docker pull ghcr.io/wh131462/whispers-of-the-heart/api:latest
+            docker pull ghcr.io/wh131462/whispers-of-the-heart/web:latest
 
-            # 停止 web 容器（需要重新复制构建产物）
+            # 停止 web 和 nginx 容器（需要重新复制构建产物）
             echo "Restarting services..."
-            docker compose -f docker-compose.ghcr.yml down web nginx || true
+            docker compose -f docker-compose.ghcr.yml stop web nginx 2>/dev/null || true
+            docker compose -f docker-compose.ghcr.yml rm -f web nginx 2>/dev/null || true
 
             # 清理旧的 web_dist volume 确保获取新的构建产物
             docker volume rm whispers_web_dist 2>/dev/null || true

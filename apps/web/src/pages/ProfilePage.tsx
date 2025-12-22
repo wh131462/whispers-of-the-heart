@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
+import { InputOTP, InputOTPGroup, InputOTPSlot } from '../components/ui/input-otp'
 import { Label } from '../components/ui/label'
 import { Textarea } from '../components/ui/textarea'
 import { useAuthStore } from '../stores/useAuthStore'
@@ -426,13 +427,20 @@ const ProfilePage: React.FC = () => {
                     </p>
                     <div className="space-y-2">
                       <Label htmlFor="verifyCode">验证码</Label>
-                      <Input
-                        id="verifyCode"
-                        value={verifyCode}
-                        onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                        placeholder="请输入6位验证码"
+                      <InputOTP
                         maxLength={6}
-                      />
+                        value={verifyCode}
+                        onChange={(value) => setVerifyCode(value)}
+                      >
+                        <InputOTPGroup>
+                          <InputOTPSlot index={0} />
+                          <InputOTPSlot index={1} />
+                          <InputOTPSlot index={2} />
+                          <InputOTPSlot index={3} />
+                          <InputOTPSlot index={4} />
+                          <InputOTPSlot index={5} />
+                        </InputOTPGroup>
+                      </InputOTP>
                     </div>
                     {emailError && (
                       <p className="text-sm text-destructive">{emailError}</p>

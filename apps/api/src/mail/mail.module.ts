@@ -20,6 +20,8 @@ import { MailService } from './mail.service';
         const appName = configService.get('APP_NAME') || 'Whispers of the Heart';
 
         const isConfigured = !!(mailHost && mailUser && mailPass);
+        // 模板目录：nest-cli.json 配置了 assets，构建时自动复制 .hbs 到 dist
+        const templateDir = join(__dirname, 'templates');
 
         if (!isConfigured) {
           console.log('[MailModule] 邮件服务未配置完整，使用模拟模式');
@@ -32,7 +34,7 @@ import { MailService } from './mail.service';
               from: `"${appName}" <${mailFrom}>`,
             },
             template: {
-              dir: join(__dirname, 'templates'),
+              dir: templateDir,
               adapter: new HandlebarsAdapter(),
               options: {
                 strict: true,
@@ -47,7 +49,7 @@ import { MailService } from './mail.service';
           transport: {
             host: mailHost,
             port: mailPort,
-            secure: mailPort === 465, // 465端口使用SSL
+            secure: mailPort == 465, // 465端口使用SSL
             auth: {
               user: mailUser,
               pass: mailPass,
@@ -65,7 +67,7 @@ import { MailService } from './mail.service';
             from: `"${appName}" <${mailFrom}>`,
           },
           template: {
-            dir: join(__dirname, 'templates'),
+            dir: templateDir,
             adapter: new HandlebarsAdapter(),
             options: {
               strict: true,
@@ -78,4 +80,4 @@ import { MailService } from './mail.service';
   providers: [MailService],
   exports: [MailService],
 })
-export class MailModule {}
+export class MailModule { }
