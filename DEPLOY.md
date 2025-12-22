@@ -4,11 +4,11 @@
 
 - **方式一**：本地构建镜像 → 上传到服务器（推荐小服务器）
 - **方式二**：服务器直接构建（需要较多资源）
-- **方式三**：GitHub Actions 自动构建（CI/CD）
+- **方式三**：GitHub Actions 自动构建 + 自动部署（CI/CD，推荐）
 
 ---
 
-## 方式一：本地构建部署（推荐）
+## 方式一：本地构建部署
 
 适合 2H2G 等资源有限的服务器。
 
@@ -53,9 +53,8 @@ tar -xzvf ../whispers-release.tar.gz
 
 # 配置环境变量
 nano configs/env.production
-# 如果有缓存
 
-# 停止并删除所有 whispers 相关容器
+# 停止并删除所有 whispers 相关容器（如有缓存）
 docker rm -f whispers-nginx whispers-api whispers-web whispers-postgres whispers-minio 2>/dev/null
 # 删除旧的错误平台镜像
 docker rmi whispers-api:latest whispers-web:latest 2>/dev/null
@@ -99,35 +98,108 @@ docker compose -f docker-compose.prod.yml up -d
 
 ---
 
-## 方式三：GitHub Actions（CI/CD）
+## 方式三：GitHub Actions CI/CD（推荐）
 
-代码推送后自动构建镜像到 GHCR。
+代码推送后自动构建镜像并部署到服务器。
 
-### 1. 配置 GitHub
-
-在仓库 Settings → Secrets and variables → Actions：
-- 添加 Variable: `VITE_API_URL` = `https://api.131462.wang`
-
-### 2. 推送触发构建
+### 1. 服务器首次配置
 
 ```bash
-git push origin master
+# 在服务器上运行初始化脚本
+curl -sSL https://raw.githubusercontent.com/wh131462/whispers-of-the-heart/master/scripts/setup-server.sh | sudo bash
+
+# 或者手动创建目录
+sudo mkdir -p /opt/whispers
+cd /opt/whispers
+
+# 下载必要配置文件
+git init
+git remote add origin https://github.com/wh131462/whispers-of-the-heart.git
+git fetch origin master
+git checkout origin/master -- docker-compose.ghcr.yml
+git checkout origin/master -- infra/nginx/
+git checkout origin/master -- configs/env.production.example
+
+# 创建目录和配置
+mkdir -p uploads logs backups infra/ssl configs
+cp configs/env.production.example configs/env.production
+nano configs/env.production
 ```
 
-构建完成后镜像地址：
-- `ghcr.io/wh131462/whispers-of-the-heart/api:latest`
-- `ghcr.io/wh131462/whispers-of-the-heart/web:latest`
+### 2. 配置 GitHub Secrets
 
-### 3. 服务器拉取
+在仓库 Settings → Secrets and variables → Actions 中添加：
+
+**Secrets（必需）**：
+| 名称 | 说明 | 示例 |
+|------|------|------|
+| `SERVER_HOST` | 服务器 IP 或域名 | `1.2.3.4` |
+| `SERVER_USER` | SSH 用户名 | `root` |
+| `SERVER_SSH_KEY` | SSH 私钥 | `-----BEGIN OPENSSH PRIVATE KEY-----...` |
+| `GHCR_TOKEN` | GitHub Personal Access Token (需 packages:read 权限) | `ghp_xxxx` |
+
+**Secrets（可选）**：
+| 名称 | 说明 | 默认值 |
+|------|------|--------|
+| `SERVER_PORT` | SSH 端口 | `22` |
+| `DEPLOY_PATH` | 服务器部署路径 | `/opt/whispers` |
+
+**Variables**：
+| 名称 | 说明 | 值 |
+|------|------|-----|
+| `VITE_API_URL` | API 地址 | `https://api.131462.wang` |
+
+### 3. 创建 GitHub Environment
+
+1. 进入仓库 Settings → Environments
+2. 创建名为 `production` 的环境
+3. 可选：配置保护规则（如需要审批）
+
+### 4. 生成 SSH 密钥
 
 ```bash
+# 在本地生成密钥对
+ssh-keygen -t ed25519 -C "github-actions" -f ~/.ssh/github_actions
+
+# 将公钥添加到服务器
+ssh-copy-id -i ~/.ssh/github_actions.pub user@your-server
+
+# 将私钥内容复制到 GitHub Secrets (SERVER_SSH_KEY)
+cat ~/.ssh/github_actions
+```
+
+### 5. 生成 GHCR Token
+
+1. 进入 GitHub Settings → Developer settings → Personal access tokens → Tokens (classic)
+2. 生成新 Token，勾选 `read:packages` 权限
+3. 将 Token 保存到 `GHCR_TOKEN` Secret
+
+### 6. 触发部署
+
+```bash
+# 推送代码自动触发
+git push origin master
+
+# 或手动触发
+# 进入 Actions 页面 → Build and Deploy → Run workflow
+```
+
+### 7. 手动部署（服务器端）
+
+如果只想手动拉取镜像部署：
+
+```bash
+cd /opt/whispers
+
 # 登录 GHCR
 echo $GITHUB_TOKEN | docker login ghcr.io -u wh131462 --password-stdin
 
-# 修改 docker-compose.prod.yml 使用 image 而非 build
-# 然后拉取并启动
-docker compose -f docker-compose.prod.yml pull
-docker compose -f docker-compose.prod.yml up -d
+# 拉取最新镜像
+docker compose -f docker-compose.ghcr.yml pull
+
+# 重启服务
+docker compose -f docker-compose.ghcr.yml down web
+docker compose -f docker-compose.ghcr.yml up -d
 ```
 
 ---
@@ -174,22 +246,27 @@ MAIL_PASS=your_password
 # 安装 certbot
 apt install certbot
 
-# 申请证书
-certbot certonly --standalone -d 131462.wang -d api.131462.wang
+# 申请证书（需要先停止 nginx 或使用 webroot 模式）
+docker stop whispers-nginx
+certbot certonly --standalone -d 131462.wang -d www.131462.wang
+certbot certonly --standalone -d api.131462.wang
 
 # 复制证书
 cp /etc/letsencrypt/live/131462.wang/fullchain.pem infra/ssl/131462.wang.crt
 cp /etc/letsencrypt/live/131462.wang/privkey.pem infra/ssl/131462.wang.key
+cp /etc/letsencrypt/live/api.131462.wang/fullchain.pem infra/ssl/api.131462.wang.crt
+cp /etc/letsencrypt/live/api.131462.wang/privkey.pem infra/ssl/api.131462.wang.key
 
 # 重启 nginx
-docker restart whispers-nginx
+docker start whispers-nginx
 ```
 
 ### 证书续期
 
 ```bash
-certbot renew
-docker restart whispers-nginx
+# 添加定时任务
+crontab -e
+# 添加：0 0 1 * * certbot renew --pre-hook "docker stop whispers-nginx" --post-hook "docker start whispers-nginx"
 ```
 
 ---
@@ -198,21 +275,22 @@ docker restart whispers-nginx
 
 ```bash
 # 查看服务状态
-docker compose ps
+docker compose -f docker-compose.ghcr.yml ps
 
 # 查看日志
-docker compose logs -f api
-docker compose logs -f web
+docker compose -f docker-compose.ghcr.yml logs -f api
+docker compose -f docker-compose.ghcr.yml logs -f nginx
 
 # 重启服务
-docker compose restart api
+docker compose -f docker-compose.ghcr.yml restart api
 
 # 停止所有服务
-docker compose down
+docker compose -f docker-compose.ghcr.yml down
 
 # 更新镜像并重启
-docker compose pull
-docker compose up -d
+docker compose -f docker-compose.ghcr.yml pull
+docker compose -f docker-compose.ghcr.yml down web
+docker compose -f docker-compose.ghcr.yml up -d
 ```
 
 ---
@@ -250,6 +328,9 @@ docker network inspect whispers-network
 
 # 检查资源使用
 docker stats
+
+# 检查 GHCR 镜像
+docker images | grep ghcr.io
 ```
 
 ---
@@ -258,6 +339,6 @@ docker stats
 
 | 配置 | 说明 |
 |------|------|
-| 2H2G | 可运行，建议使用方式一（本地构建） |
+| 2H2G | 可运行，建议使用方式一（本地构建）或方式三（CI/CD） |
 | 2H4G | 可直接在服务器构建 |
 | 4H8G | 推荐配置，可同时运行多个服务 |

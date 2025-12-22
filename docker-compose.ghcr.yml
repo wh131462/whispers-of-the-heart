@@ -1,0 +1,132 @@
+# GHCR 镜像部署配置
+# 使用 GitHub Actions 预构建的镜像
+# 部署命令：docker compose -f docker-compose.ghcr.yml up -d
+
+services:
+  # ============================================
+  # Nginx - 唯一对外入口
+  # ============================================
+  nginx:
+    image: nginx:alpine
+    container_name: whispers-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/nginx/sites-available:/etc/nginx/sites-available:ro
+      - ./infra/ssl:/etc/nginx/ssl:ro
+      - ./uploads:/var/www/uploads:ro
+      - web_dist:/usr/share/nginx/html:ro
+    networks:
+      - whispers-network
+    depends_on:
+      web:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # ============================================
+  # API - 后端服务（使用 GHCR 镜像）
+  # ============================================
+  api:
+    image: ghcr.io/wh131462/whispers-of-the-heart/api:latest
+    container_name: whispers-api
+    restart: always
+    expose:
+      - "7777"
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - configs/env.production
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    networks:
+      - whispers-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:7777/api/v1/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ============================================
+  # Web - 前端构建服务（使用 GHCR 镜像）
+  # ============================================
+  web:
+    image: ghcr.io/wh131462/whispers-of-the-heart/web:latest
+    container_name: whispers-web
+    restart: "no"
+    volumes:
+      - web_dist:/dist
+    networks:
+      - whispers-network
+
+  # ============================================
+  # PostgreSQL - 数据库
+  # ============================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: whispers-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: whispers_prod
+      POSTGRES_USER: ${POSTGRES_USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: Asia/Shanghai
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    networks:
+      - whispers-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME} -d whispers_prod"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================
+  # MinIO - 对象存储
+  # ============================================
+  minio:
+    image: minio/minio:latest
+    container_name: whispers-minio
+    restart: always
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+      TZ: Asia/Shanghai
+    volumes:
+      - minio_data:/data
+    networks:
+      - whispers-network
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_data:
+    name: whispers_postgres_data
+  minio_data:
+    name: whispers_minio_data
+  web_dist:
+    name: whispers_web_dist
+
+networks:
+  whispers-network:
+    name: whispers-network
+    driver: bridge
