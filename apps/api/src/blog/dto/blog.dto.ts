@@ -58,6 +58,10 @@ export class CreateTagDto {
 
   @IsOptional()
   @IsString()
+  slug?: string;  // 可选，后端会自动生成
+
+  @IsOptional()
+  @IsString()
   color?: string;
 }
 
@@ -65,6 +69,10 @@ export class UpdateTagDto {
   @IsOptional()
   @IsString()
   name?: string;
+
+  @IsOptional()
+  @IsString()
+  slug?: string;  // 可选，后端会自动生成
 
   @IsOptional()
   @IsString()

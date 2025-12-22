@@ -225,9 +225,7 @@ const PostEditPage: React.FC = () => {
 
   const handleCreateTag = async (tagName: string) => {
     try {
-      // 生成 slug：将标签名转为小写，空格替换为连字符
-      const slug = tagName.toLowerCase().replace(/\s+/g, '-')
-      const response = await blogApi.createTag({ name: tagName, slug })
+      const response = await blogApi.createTag({ name: tagName })
       if (response.success && response.data) {
         // 添加新标签到可用标签列表
         setTags(prev => [...prev, response.data!])
