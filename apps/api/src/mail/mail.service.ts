@@ -22,15 +22,18 @@ export class MailService {
     private readonly mailerService: MailerService,
     private readonly configService: ConfigService,
   ) {
-    // 检查邮件是否配置
     const mailHost = this.configService.get('MAIL_HOST');
-    const mailUsername = this.configService.get('MAIL_USERNAME');
-    this.isEnabled = !!(mailHost && mailUsername);
-    this.webUrl = this.configService.get('WEB_URL') || 'http://localhost:8888';
+    const mailUser = this.configService.get('MAIL_USERNAME');
+    const mailPass = this.configService.get('MAIL_PASSWORD');
+    this.isEnabled = !!(mailHost && mailUser && mailPass);
+    this.webUrl = this.configService.get('WEB_URL') || 'https://131462.wang';
     this.appName = this.configService.get('APP_NAME') || 'Whispers of the Heart';
 
     if (!this.isEnabled) {
-      this.logger.warn('邮件服务未配置，将使用日志模式');
+      this.logger.warn('邮件服务未配置完整，将使用日志模式');
+      this.logger.warn('需要配置: MAIL_HOST, MAIL_USERNAME, MAIL_PASSWORD');
+    } else {
+      this.logger.log(`邮件服务已启用: ${mailHost}`);
     }
   }
 
@@ -44,13 +47,15 @@ export class MailService {
     if (!this.isEnabled) {
       this.logger.log(`[模拟发送邮件] 收件人: ${to}, 主题: ${subject}`);
       if (context) {
-        this.logger.log(`[邮件内容] ${JSON.stringify(context, null, 2)}`);
+        this.logger.debug(`[邮件内容] ${JSON.stringify(context, null, 2)}`);
       }
       return true;
     }
 
     try {
-      await this.mailerService.sendMail({
+      this.logger.debug(`正在发送邮件: ${to} - ${subject}`);
+
+      const result = await this.mailerService.sendMail({
         to,
         subject,
         template,
@@ -65,9 +70,29 @@ export class MailService {
       });
 
       this.logger.log(`邮件发送成功: ${to} - ${subject}`);
+      this.logger.debug(`邮件响应: ${JSON.stringify(result)}`);
       return true;
-    } catch (error) {
-      this.logger.error(`邮件发送失败: ${to} - ${subject}`, error);
+    } catch (error: any) {
+      // 详细的错误日志
+      this.logger.error(`邮件发送失败: ${to} - ${subject}`);
+      this.logger.error(`错误类型: ${error.name || 'Unknown'}`);
+      this.logger.error(`错误信息: ${error.message || error}`);
+
+      // 常见错误提示
+      if (error.code === 'ECONNREFUSED') {
+        this.logger.error('无法连接到 SMTP 服务器，请检查 MAIL_HOST 和 MAIL_PORT 配置');
+      } else if (error.code === 'EAUTH' || error.responseCode === 535) {
+        this.logger.error('SMTP 认证失败，请检查 MAIL_USERNAME 和 MAIL_PASSWORD 配置');
+      } else if (error.code === 'ETIMEDOUT') {
+        this.logger.error('连接 SMTP 服务器超时，请检查网络或防火墙设置');
+      } else if (error.code === 'ESOCKET') {
+        this.logger.error('Socket 错误，可能是 SSL/TLS 配置问题，尝试设置 MAIL_TLS_REJECT_UNAUTHORIZED=false');
+      }
+
+      if (error.stack) {
+        this.logger.debug(`错误堆栈: ${error.stack}`);
+      }
+
       return false;
     }
   }

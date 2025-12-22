@@ -13,18 +13,23 @@ import { MailService } from './mail.service';
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => {
         const mailHost = configService.get('MAIL_HOST');
-        const mailUsername = configService.get('MAIL_USERNAME');
-        const mailPassword = configService.get('MAIL_PASSWORD');
-        const isConfigured = !!(mailHost && mailUsername);
+        const mailUser = configService.get('MAIL_USERNAME');
+        const mailPass = configService.get('MAIL_PASSWORD');
+        const mailPort = configService.get<number>('MAIL_PORT') || 587;
+        const mailFrom = configService.get('MAIL_FROM') || `noreply@${mailHost || 'whispers.local'}`;
+        const appName = configService.get('APP_NAME') || 'Whispers of the Heart';
 
-        // 如果邮件未配置，使用一个虚拟的 transport 配置
+        const isConfigured = !!(mailHost && mailUser && mailPass);
+
         if (!isConfigured) {
+          console.log('[MailModule] 邮件服务未配置完整，使用模拟模式');
+          console.log('[MailModule] 需要配置: MAIL_HOST, MAIL_USERNAME, MAIL_PASSWORD');
           return {
             transport: {
               jsonTransport: true, // 使用 JSON transport，不会实际发送邮件
             },
             defaults: {
-              from: `"${configService.get('APP_NAME') || 'Whispers'}" <${configService.get('MAIL_FROM') || 'noreply@whispers.local'}>`,
+              from: `"${appName}" <${mailFrom}>`,
             },
             template: {
               dir: join(__dirname, 'templates'),
@@ -36,24 +41,28 @@ import { MailService } from './mail.service';
           };
         }
 
+        console.log(`[MailModule] 邮件服务已配置: ${mailHost}:${mailPort}`);
+
         return {
           transport: {
             host: mailHost,
-            port: configService.get<number>('MAIL_PORT') || 587,
-            secure: configService.get<number>('MAIL_PORT') === 465,
+            port: mailPort,
+            secure: mailPort === 465, // 465端口使用SSL
             auth: {
-              user: mailUsername,
-              pass: mailPassword,
+              user: mailUser,
+              pass: mailPass,
             },
-            // 开发环境跳过证书验证
-            ...(configService.get('NODE_ENV') !== 'production' && {
-              tls: {
-                rejectUnauthorized: false,
-              },
-            }),
+            // 连接超时设置
+            connectionTimeout: 10000,
+            greetingTimeout: 10000,
+            socketTimeout: 30000,
+            // 生产环境也可能需要跳过证书验证（自签名证书）
+            tls: {
+              rejectUnauthorized: configService.get('MAIL_TLS_REJECT_UNAUTHORIZED') !== 'false',
+            },
           },
           defaults: {
-            from: `"${configService.get('APP_NAME') || 'Whispers'}" <${configService.get('MAIL_FROM') || 'noreply@whispers.local'}>`,
+            from: `"${appName}" <${mailFrom}>`,
           },
           template: {
             dir: join(__dirname, 'templates'),
