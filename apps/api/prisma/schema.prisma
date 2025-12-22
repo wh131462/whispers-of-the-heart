@@ -21,6 +21,7 @@ model User {
   password      String
   avatar        String?
   bio           String?
+  location      String?  // 最后一次 IP 归属地
   isAdmin       Boolean  @default(false) // 简化权限：仅区分管理员和普通用户
   emailVerified Boolean  @default(false) // 邮箱是否已验证
   theme         String?  @default("system") // 主题偏好：system, light, dark
@@ -43,6 +44,7 @@ model User {
   verificationCodes   VerificationCode[]
   media               Media[]
   commentReports      CommentReport[]
+  repliedToComments   Comment[]            @relation("CommentReplyToUser") // 被回复的评论
 
   @@index([email])
   @@index([username])
@@ -160,7 +162,7 @@ model PostTag {
   @@map("post_tags")
 }
 
-// 评论模型
+// 评论模型 - 抖音风格扁平化结构
 model Comment {
   id         String    @id @default(cuid())
   content    String
@@ -175,20 +177,39 @@ model Comment {
   editedAt   DateTime?  // 最后编辑时间
   isPinned   Boolean   @default(false) // 是否置顶
 
-  // 关联关系
+  // 文章关联
   postId       String
   post         Post            @relation(fields: [postId], references: [id], onDelete: Cascade)
   authorId     String
   author       User            @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  parentId     String?
-  parent       Comment?        @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-  replies      Comment[]       @relation("CommentReplies")
+
+  // 旧字段（保留用于数据迁移，之后可移除）
+  parentId      String?
+  parent        Comment?        @relation("CommentRepliesOld", fields: [parentId], references: [id], onDelete: Cascade)
+  oldReplies    Comment[]       @relation("CommentRepliesOld")
+
+  // 抖音风格评论结构：
+  // rootId: 顶级评论ID，顶级评论为 null，回复指向顶级评论
+  // replyToId: 被回复的评论ID（可以是顶级评论或其他回复）
+  // replyToUserId: 被回复用户ID（冗余存储，方便显示 @用户名）
+  rootId        String?
+  root          Comment?        @relation("CommentRoot", fields: [rootId], references: [id], onDelete: Cascade)
+  replies       Comment[]       @relation("CommentRoot")
+
+  replyToId     String?
+  replyTo       Comment?        @relation("CommentReplyTo", fields: [replyToId], references: [id], onDelete: SetNull)
+  repliedBy     Comment[]       @relation("CommentReplyTo")
+
+  replyToUserId String?
+  replyToUser   User?           @relation("CommentReplyToUser", fields: [replyToUserId], references: [id], onDelete: SetNull)
+
   commentLikes CommentLike[]
   reports      CommentReport[]
 
   @@index([postId])
   @@index([authorId])
-  @@index([parentId])
+  @@index([rootId])
+  @@index([replyToId])
   @@index([isApproved])
   @@index([deletedAt])
   @@index([isPinned])

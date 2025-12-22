@@ -21,7 +21,7 @@ import ConfirmDialog from '../components/ConfirmDialog'
 import { blogApi } from '../services/blogApi'
 import { useAuthStore } from '../stores/useAuthStore'
 import { useToast } from '../contexts/ToastContext'
-import { api } from '@whispers/utils'
+import { api, getMediaUrl } from '@whispers/utils'
 import { FilePreviewModal, type PreviewFileLink } from '@eternalheart/react-file-preview'
 import '@eternalheart/react-file-preview/style.css'
 
@@ -408,7 +408,7 @@ const PostDetailPage: React.FC = () => {
             <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
               {post.author.avatar ? (
                 <img
-                  src={post.author.avatar}
+                  src={getMediaUrl(post.author.avatar)}
                   alt={post.author.username}
                   className="w-full h-full object-cover"
                 />

@@ -5,6 +5,8 @@ import { ContentModerationService } from '../common/services/content-moderation.
 import { MailService } from '../mail/mail.service';
 import { SiteConfigService } from '../site-config/site-config.service';
 import { NotificationGateway } from '../notification/notification.gateway';
+import { parseUserAgent } from '../common/utils/ua-parser.util';
+import { parseIPLocation } from '../common/utils/ip-location.util';
 
 // 用户编辑评论的时间限制（分钟）
 const EDIT_TIME_LIMIT_MINUTES = 15;
@@ -51,10 +53,15 @@ export class CommentService {
       select: { username: true, avatar: true },
     });
 
-    // 检查父评论是否存在
-    let parentComment: any = null;
+    // 处理回复逻辑 - 抖音风格扁平化结构
+    let replyToComment: any = null;
+    let rootId: string | null = null;
+    let replyToId: string | null = null;
+    let replyToUserId: string | null = null;
+
     if (createCommentDto.parentId) {
-      parentComment = await this.prisma.comment.findUnique({
+      // parentId 实际上是 replyToId（被回复的评论）
+      replyToComment = await this.prisma.comment.findUnique({
         where: { id: createCommentDto.parentId },
         include: {
           author: {
@@ -69,10 +76,21 @@ export class CommentService {
         },
       });
 
-      if (!parentComment) {
-        throw new NotFoundException('父评论不存在');
+      if (!replyToComment) {
+        throw new NotFoundException('被回复的评论不存在');
       }
+
+      // 设置扁平化字段
+      replyToId = replyToComment.id;
+      replyToUserId = replyToComment.authorId;
+
+      // 如果被回复的评论是顶级评论（rootId 为 null），则 rootId = 被回复评论的 id
+      // 如果被回复的评论是回复（rootId 不为 null），则 rootId = 被回复评论的 rootId
+      rootId = replyToComment.rootId || replyToComment.id;
     }
+
+    // 兼容旧代码
+    const parentComment = replyToComment;
 
     // 获取评论审核设置
     const commentSettings = await this.siteConfigService.getCommentSettings();
@@ -95,9 +113,14 @@ export class CommentService {
       data: {
         content: createCommentDto.content,
         postId: createCommentDto.postId,
-        parentId: createCommentDto.parentId,
         authorId,
         isApproved,
+        ipAddress: (createCommentDto as any).ipAddress,
+        userAgent: (createCommentDto as any).userAgent,
+        // 抖音风格扁平化字段
+        rootId,
+        replyToId,
+        replyToUserId,
       },
       include: {
         author: {
@@ -114,23 +137,20 @@ export class CommentService {
             slug: true,
           },
         },
-        parent: {
+        replyToUser: {
           select: {
             id: true,
-            content: true,
-            author: {
-              select: {
-                id: true,
-                username: true,
-                avatar: true,
-              },
-            },
+            username: true,
+            avatar: true,
           },
         },
         replies: {
+          where: { isApproved: true, deletedAt: null },
+          orderBy: { createdAt: 'asc' },
           select: {
             id: true,
             content: true,
+            createdAt: true,
             author: {
               select: {
                 id: true,
@@ -138,12 +158,30 @@ export class CommentService {
                 avatar: true,
               },
             },
-            createdAt: true,
-            isApproved: true,
+            replyToUser: {
+              select: {
+                id: true,
+                username: true,
+              },
+            },
           },
         },
       },
     });
+
+    // 更新用户的 IP 归属地（异步，不阻塞响应）
+    const ipAddress = (createCommentDto as any).ipAddress;
+    if (ipAddress && authorId) {
+      const ipLocation = parseIPLocation(ipAddress);
+      if (ipLocation?.formatted) {
+        this.prisma.user.update({
+          where: { id: authorId },
+          data: { location: ipLocation.formatted },
+        }).catch(err => {
+          console.error('Failed to update user location:', err);
+        });
+      }
+    }
 
     // 发送邮件通知（异步，不阻塞响应）
     this.sendCommentNotifications(
@@ -344,7 +382,6 @@ export class CommentService {
         orderBy.push({ createdAt: 'asc' });
         break;
       case 'popular':
-        // 按点赞数排序需要在应用层处理，这里先按时间
         orderBy.push({ createdAt: 'desc' });
         break;
       case 'newest':
@@ -352,13 +389,14 @@ export class CommentService {
         orderBy.push({ createdAt: 'desc' });
     }
 
+    // 抖音风格：只查询顶级评论（rootId 为 null）
     const [comments, total] = await Promise.all([
       this.prisma.comment.findMany({
         where: {
           postId,
-          isApproved: true, // 只显示已审核通过的评论
-          parentId: null, // 只显示顶级评论
-          deletedAt: null, // 排除软删除的评论
+          isApproved: true,
+          rootId: null, // 顶级评论
+          deletedAt: null,
         },
         skip,
         take: limit,
@@ -369,8 +407,11 @@ export class CommentService {
               id: true,
               username: true,
               avatar: true,
+              bio: true,
+              location: true,
             },
           },
+          // 扁平化获取所有回复（不再嵌套）
           replies: {
             where: { isApproved: true, deletedAt: null },
             orderBy: { createdAt: 'asc' },
@@ -379,11 +420,23 @@ export class CommentService {
               content: true,
               createdAt: true,
               editedAt: true,
+              postId: true,
+              ipAddress: true,
+              userAgent: true,
               author: {
                 select: {
                   id: true,
                   username: true,
                   avatar: true,
+                  bio: true,
+                  location: true,
+                },
+              },
+              // 被回复的用户信息（用于显示 @用户名）
+              replyToUser: {
+                select: {
+                  id: true,
+                  username: true,
                 },
               },
               _count: {
@@ -400,40 +453,69 @@ export class CommentService {
         where: {
           postId,
           isApproved: true,
-          parentId: null,
+          rootId: null,
           deletedAt: null,
         },
       }),
     ]);
 
+    // 收集所有评论ID（包括顶级和回复）用于检查点赞状态
+    const allCommentIds: string[] = [];
+    comments.forEach(c => {
+      allCommentIds.push(c.id);
+      c.replies.forEach(r => allCommentIds.push(r.id));
+    });
+
     // 检查用户是否已点赞
     let userLikedCommentIds: Set<string> = new Set();
-    if (userId) {
+    if (userId && allCommentIds.length > 0) {
       const userLikes = await this.prisma.commentLike.findMany({
         where: {
           userId,
-          commentId: { in: comments.map(c => c.id) },
+          commentId: { in: allCommentIds },
         },
         select: { commentId: true },
       });
       userLikedCommentIds = new Set(userLikes.map(l => l.commentId));
     }
 
-    // 为每个评论添加点赞状态和其他信息
-    const commentsWithLikeStatus = comments.map(comment => ({
-      ...comment,
-      likes: comment._count.commentLikes,
-      isLiked: userId ? userLikedCommentIds.has(comment.id) : false,
-      isEdited: !!(comment as any).editedAt,
-      _count: undefined, // 移除原始数据
-      replies: comment.replies.map(reply => ({
-        ...reply,
-        likes: (reply as any)._count?.commentLikes || 0,
-        isLiked: false, // 回复暂时不显示点赞状态
-        isEdited: !!(reply as any).editedAt,
+    // 处理评论数据
+    const commentsWithLikeStatus = comments.map(comment => {
+      const ipLocation = parseIPLocation(comment.ipAddress);
+      const deviceInfo = parseUserAgent(comment.userAgent);
+
+      return {
+        ...comment,
+        likes: comment._count.commentLikes,
+        isLiked: userId ? userLikedCommentIds.has(comment.id) : false,
+        isEdited: !!(comment as any).editedAt,
+        location: ipLocation?.formatted || null,
+        deviceInfo: deviceInfo?.formatted || null,
+        ipAddress: undefined,
+        userAgent: undefined,
         _count: undefined,
-      })),
-    }));
+        // 扁平化回复列表（不再嵌套）
+        replies: comment.replies.map((reply: any) => {
+          const replyIpLocation = parseIPLocation(reply.ipAddress);
+          const replyDeviceInfo = parseUserAgent(reply.userAgent);
+
+          return {
+            ...reply,
+            likes: reply._count?.commentLikes || 0,
+            isLiked: userId ? userLikedCommentIds.has(reply.id) : false,
+            isEdited: !!reply.editedAt,
+            location: replyIpLocation?.formatted || null,
+            deviceInfo: replyDeviceInfo?.formatted || null,
+            // 被回复用户名（用于显示 "回复 @xxx"）
+            replyToUsername: reply.replyToUser?.username || null,
+            ipAddress: undefined,
+            userAgent: undefined,
+            replyToUser: undefined,
+            _count: undefined,
+          };
+        }),
+      };
+    });
 
     return {
       items: commentsWithLikeStatus,
@@ -1101,7 +1183,7 @@ export class CommentService {
               id: true,
               content: true,
               author: {
-                select: { id: true, username: true },
+                select: { id: true, username: true, avatar: true },
               },
               post: {
                 select: { id: true, title: true, slug: true },
@@ -1109,7 +1191,7 @@ export class CommentService {
             },
           },
           reporter: {
-            select: { id: true, username: true },
+            select: { id: true, username: true, avatar: true },
           },
         },
       }),

@@ -22,7 +22,8 @@ import {
   Wifi,
   WifiOff
 } from 'lucide-react'
-import { api } from '@whispers/utils'
+import { api, getMediaUrl } from '@whispers/utils'
+import { DEFAULT_AVATAR } from '../../constants/images'
 import { useToastContext } from '../../contexts/ToastContext'
 import { useNotificationSocket } from '../../hooks/useNotificationSocket'
 
@@ -64,6 +65,7 @@ interface CommentReport {
     author: {
       id: string
       username: string
+      avatar?: string
     }
     post: {
       id: string
@@ -74,6 +76,7 @@ interface CommentReport {
   reporter: {
     id: string
     username: string
+    avatar?: string
   }
 }
 
@@ -520,9 +523,12 @@ const CommentManagementPage: React.FC = () => {
                 <div className="flex-1 min-w-0">
                   {/* 用户信息 */}
                   <div className="flex items-center flex-wrap gap-2 mb-2">
-                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-medium text-muted-foreground">
-                      {comment.author.username.charAt(0).toUpperCase()}
-                    </div>
+                    <img
+                      src={comment.author.avatar ? getMediaUrl(comment.author.avatar) : DEFAULT_AVATAR}
+                      alt={comment.author.username}
+                      className="w-8 h-8 rounded-full object-cover bg-muted"
+                      onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR }}
+                    />
                     <span className="font-medium text-foreground">{comment.author.username}</span>
                     <span className="text-sm text-muted-foreground">
                       {new Date(comment.createdAt).toLocaleString('zh-CN')}
@@ -707,9 +713,17 @@ const CommentManagementPage: React.FC = () => {
                   </div>
 
                   {/* 举报人信息 */}
-                  <p className="text-sm text-muted-foreground mb-2">
-                    举报人：<span className="text-foreground">{report.reporter.username}</span>
-                  </p>
+                  <div className="flex items-center gap-2 mb-2">
+                    <img
+                      src={report.reporter.avatar ? getMediaUrl(report.reporter.avatar) : DEFAULT_AVATAR}
+                      alt={report.reporter.username}
+                      className="w-6 h-6 rounded-full object-cover bg-muted"
+                      onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR }}
+                    />
+                    <span className="text-sm text-muted-foreground">
+                      举报人：<span className="text-foreground">{report.reporter.username}</span>
+                    </span>
+                  </div>
 
                   {/* 举报详情 */}
                   {report.details && (
@@ -721,6 +735,12 @@ const CommentManagementPage: React.FC = () => {
                   {/* 被举报的评论 */}
                   <div className="bg-muted/50 rounded-lg p-3">
                     <div className="flex items-center gap-2 mb-2">
+                      <img
+                        src={report.comment.author.avatar ? getMediaUrl(report.comment.author.avatar) : DEFAULT_AVATAR}
+                        alt={report.comment.author.username}
+                        className="w-5 h-5 rounded-full object-cover bg-muted"
+                        onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR }}
+                      />
                       <span className="text-sm font-medium text-foreground">
                         {report.comment.author.username}
                       </span>

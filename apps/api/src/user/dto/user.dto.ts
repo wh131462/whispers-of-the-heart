@@ -85,3 +85,24 @@ export class ChangeEmailDto {
   @MinLength(6)
   code: string;
 }
+
+export class CheckUsernameDto {
+  @IsString()
+  @MinLength(1)
+  username: string;
+}
+
+export class UpdateProfileDto {
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  username?: string;
+
+  @IsOptional()
+  @IsString()
+  bio?: string;
+
+  @IsOptional()
+  @IsString()
+  avatar?: string;
+}

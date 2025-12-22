@@ -1,8 +1,8 @@
-import { Controller, Post, Body, UseGuards, Get, Req } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Get, Req, Patch, Query } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { UserService } from '../user/user.service';
 import { LoginDto, RegisterDto, RefreshTokenDto, ForgotPasswordDto, ResetPasswordDto, SendRegisterCodeDto, RegisterWithCodeDto } from './dto/auth.dto';
-import { SendEmailChangeCodeDto, ChangeEmailDto } from '../user/dto/user.dto';
+import { SendEmailChangeCodeDto, ChangeEmailDto, CheckUsernameDto, UpdateProfileDto } from '../user/dto/user.dto';
 import { ApiResponseDto } from '../common/dto/api-response.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
@@ -87,5 +87,19 @@ export class AuthController {
   async changeEmail(@Req() req: any, @Body() changeEmailDto: ChangeEmailDto) {
     const result = await this.userService.changeEmail(req.user.sub, changeEmailDto);
     return ApiResponseDto.success(result, '邮箱更换成功');
+  }
+
+  @Get('check-username')
+  @UseGuards(JwtAuthGuard)
+  async checkUsername(@Req() req: any, @Query() query: CheckUsernameDto) {
+    const result = await this.userService.checkUsernameAvailable(query.username, req.user.sub);
+    return ApiResponseDto.success(result);
+  }
+
+  @Patch('profile')
+  @UseGuards(JwtAuthGuard)
+  async updateProfile(@Req() req: any, @Body() updateProfileDto: UpdateProfileDto) {
+    const result = await this.userService.updateProfile(req.user.sub, updateProfileDto);
+    return ApiResponseDto.success(result, '资料更新成功');
   }
 }

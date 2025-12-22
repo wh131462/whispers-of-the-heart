@@ -9,7 +9,6 @@ import {
   Settings,
   Menu,
   LogOut,
-  User,
   Tag,
   Home,
   ChevronLeft,
@@ -18,6 +17,7 @@ import {
 import { Button } from '@whispers/ui'
 import { useAuthStore } from '../stores/useAuthStore'
 import { blogApi } from '@whispers/utils'
+import UserAvatar from '../components/UserAvatar'
 import logoImg from '../assets/logo.png'
 
 const AdminLayout: React.FC = () => {
@@ -114,14 +114,30 @@ const AdminLayout: React.FC = () => {
         {/* 用户信息 */}
         <div className={`border-b ${sidebarCollapsed ? 'py-4 flex justify-center' : 'px-6 py-4'}`}>
           {sidebarCollapsed ? (
-            <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center" title={user?.username || 'Admin'}>
-              <User className="h-5 w-5 text-muted-foreground" />
-            </div>
+            <UserAvatar
+              user={{
+                id: user?.id || '',
+                username: user?.username || 'Admin',
+                avatar: user?.avatar,
+                email: user?.email,
+                isAdmin: user?.isAdmin,
+              }}
+              size={40}
+              showProfileOnClick={false}
+            />
           ) : (
             <div className="flex items-center space-x-3">
-              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0">
-                <User className="h-5 w-5 text-muted-foreground" />
-              </div>
+              <UserAvatar
+                user={{
+                  id: user?.id || '',
+                  username: user?.username || 'Admin',
+                  avatar: user?.avatar,
+                  email: user?.email,
+                  isAdmin: user?.isAdmin,
+                }}
+                size={40}
+                showProfileOnClick={false}
+              />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center space-x-2">
                   <p className="text-sm font-medium text-foreground truncate">{user?.username || 'Admin'}</p>

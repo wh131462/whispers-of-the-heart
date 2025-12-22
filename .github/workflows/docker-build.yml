@@ -116,6 +116,16 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Copy configuration files to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          source: "docker-compose.ghcr.yml,infra/nginx/"
+          target: ${{ secrets.DEPLOY_PATH || '/workspace/deploy/whispers' }}
+
       - name: Deploy to server via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -173,6 +183,11 @@ jobs:
             else
                 echo "SSL certificates already exist."
             fi
+
+            # 加载环境变量供 docker-compose 使用
+            set -a
+            source configs/env.production
+            set +a
 
             # 登录 GHCR
             echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u wh131462 --password-stdin

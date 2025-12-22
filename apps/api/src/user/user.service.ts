@@ -165,6 +165,74 @@ export class UserService {
     });
   }
 
+  // 检查用户名是否可用
+  async checkUsernameAvailable(username: string, excludeUserId?: string): Promise<{ available: boolean; message?: string }> {
+    if (!username || username.trim().length === 0) {
+      return { available: false, message: '用户名不能为空' };
+    }
+
+    if (username.length < 2) {
+      return { available: false, message: '用户名至少需要2个字符' };
+    }
+
+    if (username.length > 20) {
+      return { available: false, message: '用户名不能超过20个字符' };
+    }
+
+    const existingUser = await this.prisma.user.findUnique({
+      where: { username },
+      select: { id: true },
+    });
+
+    if (existingUser && existingUser.id !== excludeUserId) {
+      return { available: false, message: '该用户名已被使用' };
+    }
+
+    return { available: true };
+  }
+
+  // 更新当前用户资料
+  async updateProfile(userId: string, data: { username?: string; bio?: string; avatar?: string }) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('用户不存在');
+    }
+
+    // 如果更新用户名，检查是否与其他用户冲突
+    if (data.username && data.username !== user.username) {
+      const checkResult = await this.checkUsernameAvailable(data.username, userId);
+      if (!checkResult.available) {
+        throw new ConflictException(checkResult.message);
+      }
+    }
+
+    const updatedUser = await this.prisma.user.update({
+      where: { id: userId },
+      data,
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        isAdmin: true,
+        avatar: true,
+        bio: true,
+        theme: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    // 同步头像媒体使用记录
+    if ('avatar' in data) {
+      await this.mediaUsageService.syncDirectUsage('user', userId, 'avatar', data.avatar);
+    }
+
+    return updatedUser;
+  }
+
   async update(id: string, updateUserDto: UpdateUserDto) {
     const { password, ...updateData } = updateUserDto;
 

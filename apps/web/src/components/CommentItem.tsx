@@ -3,8 +3,9 @@ import { Button } from './ui/button'
 import { Reply, MessageCircle, ChevronDown, ChevronUp } from 'lucide-react'
 import type { Comment } from '../types/comment'
 import CommentForm from './CommentForm'
-import CommentActions from './CommentActions'
-import { MarkdownRenderer, Avatar, AvatarImage, AvatarFallback } from '@whispers/ui'
+import CommentActions, { MoreActions } from './CommentActions'
+import UserAvatar from './UserAvatar'
+import { MarkdownRenderer } from '@whispers/ui'
 import { useAuthStore } from '../stores/useAuthStore'
 import { commentApi } from '../services/commentApi'
 import { useToast } from '../contexts/ToastContext'
@@ -15,7 +16,11 @@ interface CommentItemProps {
   isReply?: boolean
 }
 
-const CommentItem: React.FC<CommentItemProps> = ({ comment, onReplyAdded, isReply = false }) => {
+const CommentItem: React.FC<CommentItemProps> = ({
+  comment,
+  onReplyAdded,
+  isReply = false
+}) => {
   const [showReplyForm, setShowReplyForm] = useState(false)
   const [showReplies, setShowReplies] = useState(true)
   const [isLiked, setIsLiked] = useState(comment.isLiked || false)
@@ -86,24 +91,161 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, onReplyAdded, isRepl
   const hasReplies = comment.replies && comment.replies.length > 0
   const replyCount = comment.replies?.length || 0
 
+  // 回复单元组件（扁平化展示）
+  const ReplyItem: React.FC<{ reply: Comment }> = ({ reply }) => {
+    const [replyLiked, setReplyLiked] = useState(reply.isLiked || false)
+    const [replyLikesCount, setReplyLikesCount] = useState(reply.likes || 0)
+    const [replyLiking, setReplyLiking] = useState(false)
+    const [showReplyToForm, setShowReplyToForm] = useState(false)
+    const isReplyAuthor = user && reply.author && user.id === reply.author.id
+
+    const handleReplyLike = async () => {
+      if (!isAuthenticated) {
+        addToast({
+          title: '需要登录',
+          description: '请先登录后再点赞',
+          variant: 'destructive'
+        })
+        return
+      }
+
+      if (replyLiking) return
+
+      try {
+        setReplyLiking(true)
+        const result = await commentApi.toggleLike(reply.id)
+        setReplyLiked(result.liked)
+        setReplyLikesCount(result.likesCount)
+      } catch (error) {
+        console.error('Failed to like reply:', error)
+        addToast({
+          title: '操作失败',
+          description: '点赞操作失败，请稍后重试',
+          variant: 'destructive'
+        })
+      } finally {
+        setReplyLiking(false)
+      }
+    }
+
+    return (
+      <div className="reply-item py-3 border-b border-border/50 last:border-b-0">
+        <div className="flex gap-3">
+          <UserAvatar
+            user={{
+              id: reply.author?.id || '',
+              username: reply.author?.username || 'Anonymous',
+              avatar: reply.author?.avatar,
+              bio: reply.author?.bio,
+              location: reply.author?.location || reply.location,
+            }}
+            size={28}
+            showProfileOnClick={!!reply.author}
+            cardPosition="right"
+          />
+
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-semibold text-sm text-foreground hover:text-primary cursor-pointer transition-colors">
+                {reply.author?.username || 'Anonymous'}
+              </span>
+              {reply.replyToUsername && (
+                <span className="text-xs text-muted-foreground">
+                  回复 <span className="text-primary">@{reply.replyToUsername}</span>
+                </span>
+              )}
+              {isReplyAuthor && (
+                <span className="px-1.5 py-0.5 text-[10px] font-medium bg-primary/10 text-primary rounded">
+                  作者
+                </span>
+              )}
+              <span className="text-xs text-muted-foreground">
+                {formatDate(reply.createdAt)}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                · {reply.location || "未知"}
+              </span>
+              {reply.deviceInfo && (
+                <span className="text-xs text-muted-foreground">
+                  · {reply.deviceInfo}
+                </span>
+              )}
+            </div>
+
+            <div className="comment-body">
+              <MarkdownRenderer
+                content={reply.content}
+                className="prose-compact text-sm"
+              />
+            </div>
+
+            <div className="flex items-center gap-1 pt-1 -ml-2">
+              <CommentActions
+                commentId={reply.id}
+                isLiked={replyLiked}
+                likesCount={replyLikesCount}
+                onLike={handleReplyLike}
+                isLiking={replyLiking}
+              />
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowReplyToForm(!showReplyToForm)}
+                className={`h-8 px-2 text-xs text-muted-foreground hover:text-primary ${showReplyToForm ? 'bg-accent text-primary' : ''}`}
+              >
+                <Reply className="h-3.5 w-3.5 mr-1" />
+                回复
+              </Button>
+
+              {/* 更多操作放最后 */}
+              <MoreActions
+                commentId={reply.id}
+                canEdit={Boolean(isReplyAuthor)}
+                canDelete={Boolean(isReplyAuthor)}
+              />
+            </div>
+
+            {/* 回复表单 */}
+            {showReplyToForm && (
+              <div className="reply-form-container mt-2">
+                <CommentForm
+                  postId={reply.postId}
+                  parentId={reply.id}
+                  onCommentAdded={() => {
+                    setShowReplyToForm(false)
+                    onReplyAdded()
+                  }}
+                  onCancel={() => setShowReplyToForm(false)}
+                  placeholder={`回复 @${reply.author?.username || 'Anonymous'}...`}
+                  compact
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={`comment-item ${isReply ? 'is-reply' : ''}`}>
       {/* 主评论区域 */}
       <div className={`comment-content group ${isReply ? 'py-3' : 'py-4'}`}>
         <div className="flex gap-3">
           {/* 头像 */}
-          <div className="flex-shrink-0">
-            <Avatar size={isReply ? 28 : 36} className="ring-2 ring-background shadow-sm">
-              <AvatarImage
-                src={comment.author?.avatar || undefined}
-                alt={comment.author?.username || 'Anonymous'}
-              />
-              <AvatarFallback
-                username={comment.author?.username || 'Anonymous'}
-                variant="simple"
-              />
-            </Avatar>
-          </div>
+          <UserAvatar
+            user={{
+              id: comment.author?.id || '',
+              username: comment.author?.username || 'Anonymous',
+              avatar: comment.author?.avatar,
+              bio: comment.author?.bio,
+              location: comment.author?.location || comment.location,
+            }}
+            size={isReply ? 28 : 36}
+            showProfileOnClick={!!comment.author}
+            cardPosition="right"
+          />
 
           {/* 评论内容 */}
           <div className="flex-1 min-w-0 space-y-1.5">
@@ -120,6 +262,14 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, onReplyAdded, isRepl
               <span className="text-xs text-muted-foreground">
                 {formatDate(comment.createdAt)}
               </span>
+              <span className="text-xs text-muted-foreground">
+                · {comment.location || "未知"}
+              </span>
+              {comment.deviceInfo && (
+                <span className="text-xs text-muted-foreground">
+                  · {comment.deviceInfo}
+                </span>
+              )}
             </div>
 
             {/* 评论内容 - 支持Markdown */}
@@ -139,8 +289,6 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, onReplyAdded, isRepl
                 likesCount={likesCount}
                 onLike={handleLike}
                 isLiking={isLiking}
-                canEdit={canEdit}
-                canDelete={canDelete}
               />
 
               {/* 回复按钮 */}
@@ -154,7 +302,7 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, onReplyAdded, isRepl
                 回复
               </Button>
 
-              {/* 展开/收起回复 */}
+              {/* 展开/收起回复 - 只在顶级评论显示 */}
               {hasReplies && !isReply && (
                 <Button
                   variant="ghost"
@@ -171,6 +319,13 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, onReplyAdded, isRepl
                   )}
                 </Button>
               )}
+
+              {/* 更多操作放最后 */}
+              <MoreActions
+                commentId={comment.id}
+                canEdit={canEdit}
+                canDelete={canDelete}
+              />
             </div>
           </div>
         </div>
@@ -193,16 +348,11 @@ const CommentItem: React.FC<CommentItemProps> = ({ comment, onReplyAdded, isRepl
         </div>
       )}
 
-      {/* 回复列表 */}
-      {hasReplies && showReplies && (
-        <div className={`replies-container ${isReply ? 'ml-8' : 'ml-12'} border-l-2 border-border/50 pl-4`}>
+      {/* 回复列表 - 抖音风格扁平化 */}
+      {hasReplies && showReplies && !isReply && (
+        <div className="replies-container ml-12 border-l-2 border-border/50 pl-4">
           {comment.replies!.map((reply) => (
-            <CommentItem
-              key={reply.id}
-              comment={reply}
-              onReplyAdded={onReplyAdded}
-              isReply
-            />
+            <ReplyItem key={reply.id} reply={reply} />
           ))}
         </div>
       )}

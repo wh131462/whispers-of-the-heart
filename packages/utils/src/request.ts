@@ -410,3 +410,27 @@ export const getEnvironment = () => {
     adminUrl: env.VITE_ADMIN_URL,
   }
 }
+
+/**
+ * 获取媒体文件的完整 URL（头像、封面图等）
+ * 与 getFullUrl 不同，此函数不会添加 /api/v1 前缀
+ * @param url 媒体文件路径，如 /uploads/xxx.jpg
+ * @returns 完整的 URL
+ */
+export function getMediaUrl(url: string | null | undefined): string {
+  // 如果为空，返回空字符串
+  if (!url) {
+    return ''
+  }
+
+  // 如果已经是完整的 URL（包含协议），直接返回
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+    return url
+  }
+
+  // 如果是相对路径（以 / 开头），拼接 API base URL（不加 /api/v1）
+  const baseUrl = getApiBaseUrl().replace(/\/api\/v1\/?$/, '').replace(/\/$/, '')
+  const cleanUrl = url.startsWith('/') ? url : `/${url}`
+
+  return `${baseUrl}${cleanUrl}`
+}

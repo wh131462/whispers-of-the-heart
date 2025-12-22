@@ -194,6 +194,75 @@ export class AdminController {
     }
   }
 
+  // ==================== 评论统计接口 ====================
+  @Get('comments/stats')
+  async getCommentStats() {
+    try {
+      const stats = await this.commentService.getStats();
+      return {
+        success: true,
+        data: stats,
+        message: '获取评论统计成功'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        message: error.message || '获取评论统计失败'
+      };
+    }
+  }
+
+  // ==================== 评论回收站接口 ====================
+  @Get('comments/trash')
+  async getTrashComments(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    try {
+      const pageNum = parseInt(page || '1') || 1;
+      const limitNum = parseInt(limit || '20') || 20;
+      const result = await this.commentService.getTrash(pageNum, limitNum);
+      return {
+        success: true,
+        data: result,
+        message: '获取回收站评论成功'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        message: error.message || '获取回收站评论失败'
+      };
+    }
+  }
+
+  // ==================== 评论举报接口 ====================
+  @Get('comments/reports')
+  async getCommentReports(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('status') status?: string,
+  ) {
+    try {
+      const pageNum = parseInt(page || '1') || 1;
+      const limitNum = parseInt(limit || '20') || 20;
+      const result = await this.commentService.getReports(pageNum, limitNum, status || 'pending');
+      return {
+        success: true,
+        data: result,
+        message: '获取举报列表成功'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        message: error.message || '获取举报列表失败'
+      };
+    }
+  }
+
+  // 注意：参数化路由必须放在具体路由之后
   @Get('comments/:id')
   async getCommentById(@Param('id') id: string) {
     try {
@@ -284,49 +353,6 @@ export class AdminController {
     }
   }
 
-  // ==================== 评论统计接口 ====================
-  @Get('comments/stats')
-  async getCommentStats() {
-    try {
-      const stats = await this.commentService.getStats();
-      return {
-        success: true,
-        data: stats,
-        message: '获取评论统计成功'
-      };
-    } catch (error) {
-      return {
-        success: false,
-        data: null,
-        message: error.message || '获取评论统计失败'
-      };
-    }
-  }
-
-  // ==================== 评论回收站接口 ====================
-  @Get('comments/trash')
-  async getTrashComments(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-  ) {
-    try {
-      const pageNum = parseInt(page || '1') || 1;
-      const limitNum = parseInt(limit || '20') || 20;
-      const result = await this.commentService.getTrash(pageNum, limitNum);
-      return {
-        success: true,
-        data: result,
-        message: '获取回收站评论成功'
-      };
-    } catch (error) {
-      return {
-        success: false,
-        data: null,
-        message: error.message || '获取回收站评论失败'
-      };
-    }
-  }
-
   @Patch('comments/:id/soft-delete')
   async softDeleteComment(@Param('id') id: string) {
     try {
@@ -396,31 +422,6 @@ export class AdminController {
         success: false,
         data: null,
         message: error.message || '操作失败'
-      };
-    }
-  }
-
-  // ==================== 评论举报接口 ====================
-  @Get('comments/reports')
-  async getCommentReports(
-    @Query('page') page?: string,
-    @Query('limit') limit?: string,
-    @Query('status') status?: string,
-  ) {
-    try {
-      const pageNum = parseInt(page || '1') || 1;
-      const limitNum = parseInt(limit || '20') || 20;
-      const result = await this.commentService.getReports(pageNum, limitNum, status || 'pending');
-      return {
-        success: true,
-        data: result,
-        message: '获取举报列表成功'
-      };
-    } catch (error) {
-      return {
-        success: false,
-        data: null,
-        message: error.message || '获取举报列表失败'
       };
     }
   }

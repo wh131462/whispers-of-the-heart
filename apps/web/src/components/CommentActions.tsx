@@ -3,6 +3,10 @@ import { Button } from './ui/button'
 import { Card, CardContent } from './ui/card'
 import { MoreHorizontal, Heart, Flag, Trash2, Edit, Copy } from 'lucide-react'
 import { useToast } from '../contexts/ToastContext'
+import { useAuthStore } from '../stores/useAuthStore'
+import { commentApi } from '../services/commentApi'
+import ReportCommentDialog from './ReportCommentDialog'
+import type { ReportReason } from '../types/comment'
 
 interface CommentActionsProps {
   commentId: string
@@ -28,7 +32,9 @@ const CommentActions: React.FC<CommentActionsProps> = ({
   canDelete = false
 }) => {
   const [showMenu, setShowMenu] = useState(false)
+  const [showReportDialog, setShowReportDialog] = useState(false)
   const { addToast } = useToast()
+  const { isAuthenticated } = useAuthStore()
 
   const handleLike = async () => {
     if (!onLike || isLiking) return
@@ -56,16 +62,30 @@ const CommentActions: React.FC<CommentActionsProps> = ({
   }
 
   const handleReport = () => {
-    addToast({
-      title: '举报功能',
-      description: '举报功能正在开发中',
-      variant: 'default'
-    })
+    if (!isAuthenticated) {
+      addToast({
+        title: '需要登录',
+        description: '请先登录后再举报评论',
+        variant: 'warning'
+      })
+      setShowMenu(false)
+      return
+    }
+    setShowReportDialog(true)
     setShowMenu(false)
   }
 
+  const handleReportSubmit = async (reason: ReportReason, details?: string) => {
+    await commentApi.reportComment(commentId, { reason, details })
+    addToast({
+      title: '举报成功',
+      description: '感谢您的反馈，我们会尽快处理',
+      variant: 'success'
+    })
+  }
+
   return (
-    <div className="relative">
+    <>
       {/* 点赞按钮 */}
       <Button
         variant="ghost"
@@ -80,14 +100,80 @@ const CommentActions: React.FC<CommentActionsProps> = ({
         {isLiking ? '...' : likesCount}
       </Button>
 
+      {/* 举报对话框 */}
+      <ReportCommentDialog
+        isOpen={showReportDialog}
+        onClose={() => setShowReportDialog(false)}
+        onSubmit={handleReportSubmit}
+      />
+    </>
+  )
+}
+
+// 更多操作菜单组件（单独导出，放在最后）
+interface MoreActionsProps {
+  commentId: string
+  onEdit?: () => void
+  onDelete?: () => void
+  canEdit?: boolean
+  canDelete?: boolean
+}
+
+export const MoreActions: React.FC<MoreActionsProps> = ({
+  commentId,
+  onEdit,
+  onDelete,
+  canEdit = false,
+  canDelete = false
+}) => {
+  const [showMenu, setShowMenu] = useState(false)
+  const [showReportDialog, setShowReportDialog] = useState(false)
+  const { addToast } = useToast()
+  const { isAuthenticated } = useAuthStore()
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(commentId)
+    addToast({
+      title: '已复制',
+      description: '评论ID已复制到剪贴板',
+      variant: 'success'
+    })
+    setShowMenu(false)
+  }
+
+  const handleReport = () => {
+    if (!isAuthenticated) {
+      addToast({
+        title: '需要登录',
+        description: '请先登录后再举报评论',
+        variant: 'warning'
+      })
+      setShowMenu(false)
+      return
+    }
+    setShowReportDialog(true)
+    setShowMenu(false)
+  }
+
+  const handleReportSubmit = async (reason: ReportReason, details?: string) => {
+    await commentApi.reportComment(commentId, { reason, details })
+    addToast({
+      title: '举报成功',
+      description: '感谢您的反馈，我们会尽快处理',
+      variant: 'success'
+    })
+  }
+
+  return (
+    <div className="relative">
       {/* 更多操作按钮 */}
       <Button
         variant="ghost"
         size="sm"
         onClick={() => setShowMenu(!showMenu)}
-        className="h-8 px-2 text-xs"
+        className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground"
       >
-        <MoreHorizontal className="h-3 w-3" />
+        <MoreHorizontal className="h-3.5 w-3.5" />
       </Button>
 
       {/* 操作菜单 */}
@@ -98,7 +184,7 @@ const CommentActions: React.FC<CommentActionsProps> = ({
             className="fixed inset-0 z-10"
             onClick={() => setShowMenu(false)}
           />
-          
+
           {/* 菜单内容 */}
           <Card className="absolute right-0 top-8 z-20 w-48 shadow-lg">
             <CardContent className="p-1">
@@ -161,6 +247,13 @@ const CommentActions: React.FC<CommentActionsProps> = ({
           </Card>
         </>
       )}
+
+      {/* 举报对话框 */}
+      <ReportCommentDialog
+        isOpen={showReportDialog}
+        onClose={() => setShowReportDialog(false)}
+        onSubmit={handleReportSubmit}
+      />
     </div>
   )
 }

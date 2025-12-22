@@ -10,8 +10,13 @@ export class AdminService {
       const [
         totalUsers,
         totalPosts,
+        publishedPosts,
+        draftPosts,
         totalComments,
+        pendingComments,
         totalMedia,
+        totalViews,
+        totalTags,
         recentPosts,
         recentComments,
         monthlyStats,
@@ -25,11 +30,26 @@ export class AdminService {
         // 总文章数
         this.prisma.post.count(),
 
+        // 已发布文章数
+        this.prisma.post.count({ where: { published: true } }),
+
+        // 草稿数
+        this.prisma.post.count({ where: { published: false } }),
+
         // 总评论数
-        this.prisma.comment.count(),
+        this.prisma.comment.count({ where: { deletedAt: null } }),
+
+        // 待审核评论数
+        this.prisma.comment.count({ where: { isApproved: false, deletedAt: null } }),
 
         // 总媒体数
         this.prisma.media.count(),
+
+        // 总浏览量
+        this.prisma.post.aggregate({ _sum: { views: true } }).then(r => r._sum.views || 0),
+
+        // 总标签数
+        this.prisma.tag.count(),
 
         // 最近文章
         this.prisma.post.findMany({
@@ -87,8 +107,13 @@ export class AdminService {
       return {
         totalUsers,
         totalPosts,
+        publishedPosts,
+        draftPosts,
         totalComments,
+        pendingComments,
         totalMedia,
+        totalViews,
+        totalTags,
 
         userGrowth: userGrowth > 0 ? `+${userGrowth}%` : `${userGrowth}%`,
         postGrowth: postGrowth > 0 ? `+${postGrowth}%` : `${postGrowth}%`,

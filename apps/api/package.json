@@ -42,12 +42,14 @@
     "@prisma/client": "6.15.0",
     "@types/bcrypt": "^6.0.0",
     "@types/multer": "^2.0.0",
+    "@types/ua-parser-js": "^0.7.39",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
     "dotenv": "^16.6.1",
     "handlebars": "^4.7.8",
+    "ip2region": "^2.3.0",
     "multer": "^2.0.2",
     "nest-winston": "^1.10.2",
     "nodemailer": "^7.0.11",
@@ -57,6 +59,7 @@
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "socket.io": "^4.8.1",
+    "ua-parser-js": "^2.0.7",
     "winston": "^3.18.3"
   },
   "devDependencies": {

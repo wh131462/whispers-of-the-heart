@@ -20,7 +20,7 @@ import { useAuthStore } from '../stores/useAuthStore'
 import { useTheme, useHitokoto } from '../stores/useGlobalStore'
 import { DEFAULT_AVATAR } from '../constants/images'
 import SearchDialog from '../components/SearchDialog'
-import { api } from '@whispers/utils'
+import { api, getMediaUrl } from '@whispers/utils'
 import logoImg from '../assets/logo.png'
 
 interface SiteConfig {
@@ -243,11 +243,11 @@ const MainLayout: React.FC = () => {
                     onClick={() => setShowUserMenu(!showUserMenu)}
                   >
                     <img
-                      src={user.avatar || DEFAULT_AVATAR}
+                      src={getMediaUrl(user.avatar) || DEFAULT_AVATAR}
                       alt={user.username}
                       className="h-8 w-8 rounded-full object-cover"
                       onError={(e) => {
-                        e.currentTarget.src = '/default-avatar.png'
+                        e.currentTarget.src = DEFAULT_AVATAR
                       }}
                     />
                     <span className="hidden sm:block text-sm font-medium">

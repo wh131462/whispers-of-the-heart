@@ -1,4 +1,4 @@
-import type { CreateCommentData, CommentResponse, CommentListResponse } from '../types/comment'
+import type { CreateCommentData, CommentResponse, CommentListResponse, ReportCommentData } from '../types/comment'
 import { useAuthStore } from '../stores/useAuthStore'
 import { api, setAuthToken, removeAuthToken } from '@whispers/utils'
 
@@ -51,6 +51,13 @@ export class CommentApiService {
   async getLikeStatus(commentId: string): Promise<LikeStatusResponse> {
     this.setAuthIfAvailable()
     const response = await api.get(`/comments/${commentId}/like-status`)
+    return response.data.data
+  }
+
+  // 举报评论
+  async reportComment(commentId: string, data: ReportCommentData): Promise<{ message: string; reportId: string }> {
+    this.setAuthIfAvailable()
+    const response = await api.post(`/comments/${commentId}/report`, data)
     return response.data.data
   }
 }

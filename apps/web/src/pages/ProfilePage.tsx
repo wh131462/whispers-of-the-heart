@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
@@ -6,9 +6,9 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '../components/ui/input-ot
 import { Label } from '../components/ui/label'
 import { Textarea } from '../components/ui/textarea'
 import { useAuthStore } from '../stores/useAuthStore'
-import { User, Mail, Calendar, Edit, Save, X, Upload, Loader2, CheckCircle } from 'lucide-react'
+import { User, Mail, Calendar, Edit, Save, X, Upload, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
 import { DEFAULT_AVATAR } from '../constants/images'
-import { api } from '@whispers/utils'
+import { api, getMediaUrl } from '@whispers/utils'
 
 // 更换邮箱步骤
 type EmailChangeStep = 'idle' | 'input' | 'verify' | 'success'
@@ -34,15 +34,114 @@ const ProfilePage: React.FC = () => {
   const [emailLoading, setEmailLoading] = useState(false)
   const [countdown, setCountdown] = useState(0)
 
+  // 用户名校验状态
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'unavailable'>('idle')
+  const [usernameError, setUsernameError] = useState<string | null>(null)
+  const usernameCheckTimer = useRef<NodeJS.Timeout | null>(null)
+
+  // 检查用户名是否可用（防抖）
+  const checkUsername = useCallback((username: string) => {
+    // 清除之前的定时器
+    if (usernameCheckTimer.current) {
+      clearTimeout(usernameCheckTimer.current)
+    }
+
+    // 如果用户名没变，不需要检查
+    if (username === user?.username) {
+      setUsernameStatus('idle')
+      setUsernameError(null)
+      return
+    }
+
+    // 基本验证
+    if (!username || username.trim().length === 0) {
+      setUsernameStatus('unavailable')
+      setUsernameError('用户名不能为空')
+      return
+    }
+
+    if (username.length < 2) {
+      setUsernameStatus('unavailable')
+      setUsernameError('用户名至少需要2个字符')
+      return
+    }
+
+    if (username.length > 20) {
+      setUsernameStatus('unavailable')
+      setUsernameError('用户名不能超过20个字符')
+      return
+    }
+
+    setUsernameStatus('checking')
+    setUsernameError(null)
+
+    // 防抖：500ms 后发起请求
+    usernameCheckTimer.current = setTimeout(async () => {
+      try {
+        const response = await api.get('/auth/check-username', { params: { username } })
+        if (response.data?.data?.available) {
+          setUsernameStatus('available')
+          setUsernameError(null)
+        } else {
+          setUsernameStatus('unavailable')
+          setUsernameError(response.data?.data?.message || '该用户名已被使用')
+        }
+      } catch (err) {
+        console.error('Check username failed:', err)
+        setUsernameStatus('unavailable')
+        setUsernameError('检查用户名失败')
+      }
+    }, 500)
+  }, [user?.username])
+
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      if (usernameCheckTimer.current) {
+        clearTimeout(usernameCheckTimer.current)
+      }
+    }
+  }, [])
+
+  // 处理用户名输入变化
+  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newUsername = e.target.value
+    setFormData({ ...formData, username: newUsername })
+    checkUsername(newUsername)
+  }
+
   const handleSave = async () => {
     if (!user) return
+
+    // 如果用户名正在检查或不可用，不允许保存
+    if (usernameStatus === 'checking') {
+      return
+    }
+
+    if (usernameStatus === 'unavailable') {
+      return
+    }
+
     try {
-      // 这里应该调用 API 更新用户信息
-      // await updateUserProfile(formData)
-      updateUser({ ...user, ...formData })
-      setIsEditing(false)
-    } catch (error) {
+      const response = await api.patch('/auth/profile', {
+        username: formData.username,
+        bio: formData.bio,
+        avatar: formData.avatar,
+      })
+
+      if (response.data?.success) {
+        updateUser({ ...user, ...response.data.data })
+        setIsEditing(false)
+        setUsernameStatus('idle')
+        setUsernameError(null)
+      }
+    } catch (error: unknown) {
       console.error('Failed to update profile:', error)
+      const err = error as { response?: { data?: { message?: string } } }
+      if (err.response?.data?.message) {
+        setUsernameError(err.response.data.message)
+        setUsernameStatus('unavailable')
+      }
     }
   }
 
@@ -54,6 +153,8 @@ const ProfilePage: React.FC = () => {
     })
     setIsEditing(false)
     setAvatarError(false)
+    setUsernameStatus('idle')
+    setUsernameError(null)
   }
 
   const handleAvatarError = () => {
@@ -110,7 +211,7 @@ const ProfilePage: React.FC = () => {
     if (avatarError || !formData.avatar) {
       return DEFAULT_AVATAR
     }
-    return formData.avatar
+    return getMediaUrl(formData.avatar)
   }
 
   // 开始更换邮箱流程
@@ -155,7 +256,7 @@ const ProfilePage: React.FC = () => {
       setEmailLoading(true)
       setEmailError(null)
 
-      const response = await api.post('/user/send-email-change-code', { newEmail })
+      const response = await api.post('/auth/send-email-change-code', { newEmail })
 
       if (response.data?.success) {
         setEmailChangeStep('verify')
@@ -198,7 +299,7 @@ const ProfilePage: React.FC = () => {
       setEmailLoading(true)
       setEmailError(null)
 
-      const response = await api.post('/user/change-email', {
+      const response = await api.post('/auth/change-email', {
         newEmail,
         code: verifyCode
       })
@@ -346,12 +447,43 @@ const ProfilePage: React.FC = () => {
               <div className="space-y-2">
                 <Label htmlFor="username">用户名</Label>
                 {isEditing ? (
-                  <Input
-                    id="username"
-                    value={formData.username}
-                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                    placeholder="请输入用户名"
-                  />
+                  <div className="space-y-1.5">
+                    <div className="relative">
+                      <Input
+                        id="username"
+                        value={formData.username}
+                        onChange={handleUsernameChange}
+                        placeholder="请输入用户名"
+                        className={
+                          usernameStatus === 'unavailable' ? 'border-destructive pr-10' :
+                          usernameStatus === 'available' ? 'border-green-500 pr-10' : ''
+                        }
+                      />
+                      {/* 校验状态图标 */}
+                      {usernameStatus === 'checking' && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        </div>
+                      )}
+                      {usernameStatus === 'available' && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                        </div>
+                      )}
+                      {usernameStatus === 'unavailable' && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <AlertCircle className="h-4 w-4 text-destructive" />
+                        </div>
+                      )}
+                    </div>
+                    {/* 错误提示 */}
+                    {usernameError && (
+                      <p className="text-xs text-destructive">{usernameError}</p>
+                    )}
+                    {usernameStatus === 'available' && (
+                      <p className="text-xs text-green-500">用户名可用</p>
+                    )}
+                  </div>
                 ) : (
                   <div className="p-3 bg-muted rounded-md">
                     {formData.username || '未设置'}
