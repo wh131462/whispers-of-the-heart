@@ -147,7 +147,30 @@ export class MediaService {
     // 检查是否已存在相同内容的文件
     const existingMedia = await this.findByHash(fileHash);
     if (existingMedia) {
-      // 删除刚上传的重复文件
+      // 如果旧文件物理上不存在，使用新上传的文件更新记录
+      const oldFilePath = path.join(process.cwd(), 'uploads', existingMedia.filename);
+      if (!fs.existsSync(oldFilePath)) {
+        // 旧文件不存在，更新记录使用新文件
+        const url = `/uploads/${file.filename}`;
+        return this.prisma.media.update({
+          where: { id: existingMedia.id },
+          data: {
+            filename: file.filename,
+            url,
+            thumbnail: file.mimetype.startsWith('image/') ? url : existingMedia.thumbnail,
+          },
+          include: {
+            uploader: {
+              select: {
+                id: true,
+                username: true,
+                avatar: true,
+              },
+            },
+          },
+        });
+      }
+      // 旧文件存在，删除新上传的重复文件
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }

@@ -124,6 +124,7 @@ volumes:
   minio_data:
     name: whispers_minio_data
   web_dist:
+    # 每次部署时由 CI/CD 脚本删除并重建，确保获取最新构建产物
     name: whispers_web_dist
 
 networks:

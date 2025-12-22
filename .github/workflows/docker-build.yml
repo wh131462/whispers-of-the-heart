@@ -131,6 +131,48 @@ jobs:
             # 进入部署目录
             cd ${{ secrets.DEPLOY_PATH || '/workspace/deploy/whispers' }}
 
+            # 确保必要目录存在
+            mkdir -p infra/ssl uploads logs backups
+
+            # 检查 SSL 证书是否存在
+            if [ ! -f "infra/ssl/131462.wang.crt" ] || [ ! -f "infra/ssl/api.131462.wang.crt" ]; then
+                echo "SSL certificates not found. Requesting from Let's Encrypt..."
+
+                # 停止可能占用 80 端口的服务
+                docker compose -f docker-compose.ghcr.yml down nginx 2>/dev/null || true
+
+                # 安装 certbot（如果未安装）
+                if ! command -v certbot &> /dev/null; then
+                    apt-get update && apt-get install -y certbot
+                fi
+
+                # 申请证书
+                certbot certonly --standalone --non-interactive --agree-tos \
+                    --email admin@131462.wang \
+                    -d 131462.wang -d www.131462.wang \
+                    || echo "Warning: Failed to get certificate for 131462.wang"
+
+                certbot certonly --standalone --non-interactive --agree-tos \
+                    --email admin@131462.wang \
+                    -d api.131462.wang \
+                    || echo "Warning: Failed to get certificate for api.131462.wang"
+
+                # 复制证书到项目目录
+                if [ -d "/etc/letsencrypt/live/131462.wang" ]; then
+                    cp /etc/letsencrypt/live/131462.wang/fullchain.pem infra/ssl/131462.wang.crt
+                    cp /etc/letsencrypt/live/131462.wang/privkey.pem infra/ssl/131462.wang.key
+                    echo "SSL certificate for 131462.wang installed."
+                fi
+
+                if [ -d "/etc/letsencrypt/live/api.131462.wang" ]; then
+                    cp /etc/letsencrypt/live/api.131462.wang/fullchain.pem infra/ssl/api.131462.wang.crt
+                    cp /etc/letsencrypt/live/api.131462.wang/privkey.pem infra/ssl/api.131462.wang.key
+                    echo "SSL certificate for api.131462.wang installed."
+                fi
+            else
+                echo "SSL certificates already exist."
+            fi
+
             # 登录 GHCR
             echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
@@ -139,14 +181,19 @@ jobs:
             docker pull ghcr.io/${{ github.repository }}/api:latest
             docker pull ghcr.io/${{ github.repository }}/web:latest
 
-            # 使用 GHCR 配置重启服务
+            # 停止 web 容器（需要重新复制构建产物）
             echo "Restarting services..."
-            docker compose -f docker-compose.ghcr.yml down web || true
+            docker compose -f docker-compose.ghcr.yml down web nginx || true
+
+            # 清理旧的 web_dist volume 确保获取新的构建产物
+            docker volume rm whispers_web_dist 2>/dev/null || true
+
+            # 启动所有服务
             docker compose -f docker-compose.ghcr.yml up -d
 
             # 等待服务健康
             echo "Waiting for services to be healthy..."
-            sleep 10
+            sleep 15
 
             # 验证部署
             docker compose -f docker-compose.ghcr.yml ps
