@@ -5,7 +5,7 @@
 
 set -e
 
-DEPLOY_DIR="${DEPLOY_PATH:-/opt/whispers}"
+DEPLOY_DIR="${DEPLOY_PATH:-/workspace/deploy/whispers}"
 REPO_URL="https://github.com/wh131462/whispers-of-the-heart.git"
 
 echo "========================================="

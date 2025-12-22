@@ -109,8 +109,8 @@ docker compose -f docker-compose.prod.yml up -d
 curl -sSL https://raw.githubusercontent.com/wh131462/whispers-of-the-heart/master/scripts/setup-server.sh | sudo bash
 
 # 或者手动创建目录
-sudo mkdir -p /opt/whispers
-cd /opt/whispers
+sudo mkdir -p /workspace/deploy/whispers
+cd /workspace/deploy/whispers
 
 # 下载必要配置文件
 git init
@@ -142,7 +142,7 @@ nano configs/env.production
 | 名称 | 说明 | 默认值 |
 |------|------|--------|
 | `SERVER_PORT` | SSH 端口 | `22` |
-| `DEPLOY_PATH` | 服务器部署路径 | `/opt/whispers` |
+| `DEPLOY_PATH` | 服务器部署路径 | `/workspace/deploy/whispers` |
 
 **Variables**：
 | 名称 | 说明 | 值 |
@@ -189,7 +189,7 @@ git push origin master
 如果只想手动拉取镜像部署：
 
 ```bash
-cd /opt/whispers
+cd /workspace/deploy/whispers
 
 # 登录 GHCR
 echo $GITHUB_TOKEN | docker login ghcr.io -u wh131462 --password-stdin

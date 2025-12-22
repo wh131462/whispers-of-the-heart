@@ -129,7 +129,7 @@ jobs:
             set -e
 
             # 进入部署目录
-            cd ${{ secrets.DEPLOY_PATH || '/opt/whispers' }}
+            cd ${{ secrets.DEPLOY_PATH || '/workspace/deploy/whispers' }}
 
             # 登录 GHCR
             echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
