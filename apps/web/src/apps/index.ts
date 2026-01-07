@@ -12,6 +12,14 @@ export const appRegistry: AppMeta[] = [
     tags: ['工具', '硬件'],
     component: lazy(() => import('./keyboard-tester')),
   },
+  {
+    id: 'calculator',
+    name: '计算器',
+    description: '多功能计算器，支持标准、科学、程序员三种模式',
+    icon: 'Calculator',
+    tags: ['工具', '计算'],
+    component: lazy(() => import('./calculator')),
+  },
 ];
 
 export function getAppById(id: string): AppMeta | undefined {
