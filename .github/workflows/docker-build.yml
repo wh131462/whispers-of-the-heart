@@ -118,14 +118,29 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Copy configuration files to server
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull and save images
+        run: |
+          docker pull ghcr.io/wh131462/whispers-of-the-heart/api:latest
+          docker pull ghcr.io/wh131462/whispers-of-the-heart/web:latest
+          docker save ghcr.io/wh131462/whispers-of-the-heart/api:latest | gzip > api-image.tar.gz
+          docker save ghcr.io/wh131462/whispers-of-the-heart/web:latest | gzip > web-image.tar.gz
+          ls -lh *.tar.gz
+
+      - name: Copy files to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
-          source: "docker-compose.ghcr.yml,infra/nginx/"
+          source: "docker-compose.ghcr.yml,infra/nginx/,api-image.tar.gz,web-image.tar.gz"
           target: ${{ secrets.DEPLOY_PATH || '/workspace/deploy/whispers' }}
 
       - name: Deploy to server via SSH
@@ -137,7 +152,7 @@ jobs:
           port: ${{ secrets.SERVER_PORT || 22 }}
           debug: true
           script_stop: true
-          command_timeout: 60m
+          command_timeout: 30m
           script: |
             set -e
 
@@ -147,61 +162,33 @@ jobs:
             # 确保必要目录存在
             mkdir -p infra/ssl uploads logs backups
 
-            # 检查 SSL 证书是否存在（证书需要在 setup-server.sh 中预先配置）
+            # 检查 SSL 证书是否存在
             if [ ! -f "infra/ssl/131462.wang.crt" ] || [ ! -f "infra/ssl/api.131462.wang.crt" ]; then
                 echo "⚠️ SSL certificates not found!"
-                echo "Please run setup-server.sh first to configure SSL certificates:"
-                echo "  ./scripts/setup-server.sh"
+                echo "Please run setup-server.sh first to configure SSL certificates"
                 exit 1
             fi
 
-            # 加载环境变量供 docker-compose 使用
+            # 加载环境变量
             set -a
             source configs/env.production
             set +a
 
-            # 登录 GHCR
-            echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u wh131462 --password-stdin
+            # 从文件加载镜像（比从 ghcr.io 拉取快得多）
+            echo "Loading images from files..."
+            gunzip -c api-image.tar.gz | docker load
+            gunzip -c web-image.tar.gz | docker load
 
-            # 带重试的镜像拉取函数
-            pull_with_retry() {
-              local image=$1
-              local max_attempts=3
-              local attempt=1
-              while [ $attempt -le $max_attempts ]; do
-                echo "Pulling $image (attempt $attempt/$max_attempts)..."
-                if timeout 600 docker pull "$image"; then
-                  echo "✅ Successfully pulled $image"
-                  return 0
-                fi
-                echo "⚠️ Pull failed, retrying..."
-                attempt=$((attempt + 1))
-                sleep 10
-              done
-              echo "❌ Failed to pull $image after $max_attempts attempts"
-              return 1
-            }
+            # 清理镜像文件
+            rm -f api-image.tar.gz web-image.tar.gz
 
-            # 并行拉取镜像
-            echo "Pulling latest images..."
-            pull_with_retry ghcr.io/wh131462/whispers-of-the-heart/api:latest &
-            PID_API=$!
-            pull_with_retry ghcr.io/wh131462/whispers-of-the-heart/web:latest &
-            PID_WEB=$!
-
-            # 等待拉取完成
-            wait $PID_API || exit 1
-            wait $PID_WEB || exit 1
-
-            # 停止 web 和 nginx 容器（需要重新复制构建产物）
+            # 停止旧容器
             echo "Restarting services..."
             docker compose -f docker-compose.ghcr.yml stop web nginx 2>/dev/null || true
             docker compose -f docker-compose.ghcr.yml rm -f web nginx 2>/dev/null || true
-
-            # 清理旧的 web_dist volume 确保获取新的构建产物
             docker volume rm whispers_web_dist 2>/dev/null || true
 
-            # 启动所有服务
+            # 启动服务
             docker compose -f docker-compose.ghcr.yml up -d
 
             # 等待服务健康
