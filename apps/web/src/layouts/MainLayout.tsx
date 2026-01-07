@@ -14,6 +14,7 @@ import {
   Bookmark,
   Sun,
   Moon,
+  LayoutGrid,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useAuthStore } from '../stores/useAuthStore';
@@ -311,6 +312,22 @@ const MainLayout: React.FC = () => {
 
             {/* 右侧操作区 */}
             <div className="flex items-center space-x-2">
+              {/* 应用中心入口 */}
+              <Link to="/apps">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={
+                    isHomePage && !isScrolled
+                      ? 'text-foreground hover:bg-foreground/10'
+                      : ''
+                  }
+                  title="应用中心"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </Button>
+              </Link>
+
               {/* 主题切换按钮 */}
               <Button
                 variant="ghost"

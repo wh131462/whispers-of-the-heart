@@ -62,6 +62,7 @@ whispers-of-the-heart/
 | 用户管理 | 个人资料/头像/通知设置      | `apps/api/src/user/`        |
 | 站点配置 | Logo/社交链接/评论设置      | `apps/api/src/site-config/` |
 | 管理后台 | 文章/评论/用户/媒体管理     | `apps/web/src/pages/admin/` |
+| 应用中心 | 独立小工具/键盘检测器等     | `apps/web/src/apps/`        |
 
 ## 端口配置
 
@@ -94,6 +95,7 @@ whispers-of-the-heart/
 | Prisma模型 | `apps/api/prisma/schema.prisma`           |
 | UI组件     | `packages/ui/src/components/`             |
 | 前端页面   | `apps/web/src/pages/`                     |
+| 应用中心   | `apps/web/src/apps/`                      |
 | 状态管理   | `apps/web/src/stores/`                    |
 | API工具    | `packages/utils/src/`                     |
 
@@ -128,5 +130,5 @@ pnpm type-check            # TypeScript类型检查
 
 ---
 
-**最后更新**: 2025-12-25
+**最后更新**: 2026-01-07
 **维护者**: wh131462

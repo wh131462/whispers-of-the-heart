@@ -8,6 +8,99 @@
 
 ## 📝 会话日志
 
+### 2026-01-07 - 应用中心模块开发
+
+**任务概览**:
+新增应用中心模块，用于存放独立的小工具应用。首个应用为 108 键键盘检测器。
+
+**实施内容**:
+
+#### 1. 应用中心架构 ✅
+
+**新建文件**:
+
+- `apps/web/src/apps/types.ts` - 应用元数据类型定义
+- `apps/web/src/apps/index.ts` - 应用注册表
+- `apps/web/src/pages/apps/AppsPage.tsx` - 应用列表页
+- `apps/web/src/pages/apps/AppDetailPage.tsx` - 应用详情/运行页
+
+**架构设计**:
+
+```typescript
+// 应用注册机制
+export type AppMeta = {
+  id: string; // 路由标识
+  name: string; // 应用名称
+  description: string; // 应用描述
+  icon: string; // lucide-react 图标名
+  tags?: string[]; // 标签分类
+  component: LazyExoticComponent<ComponentType>; // 懒加载组件
+};
+
+// 新增应用只需在 appRegistry 添加配置
+export const appRegistry: AppMeta[] = [
+  {
+    id: 'keyboard-tester',
+    name: '键盘检测器',
+    icon: 'Keyboard',
+    tags: ['工具', '硬件'],
+    component: lazy(() => import('./keyboard-tester')),
+  },
+];
+```
+
+#### 2. 路由配置 ✅
+
+**修改文件**: `apps/web/src/App.tsx`
+
+```typescript
+<Route path="apps" element={<AppsPage />} />
+<Route path="apps/:appId" element={<AppDetailPage />} />
+```
+
+#### 3. 导航入口 ✅
+
+**修改文件**: `apps/web/src/layouts/MainLayout.tsx`
+
+- 在顶部导航栏右侧添加应用中心入口
+- 位置：主题切换按钮左侧
+- 图标：LayoutGrid (lucide-react)
+
+#### 4. 键盘检测器应用 ✅
+
+**新建文件**: `apps/web/src/apps/keyboard-tester/index.tsx`
+
+**功能特性**:
+
+- 完整 108 键键盘布局（主键盘 + 系统键 + 编辑键 + 方向键 + 数字小键盘）
+- 实时检测按键按下/释放状态
+- 已测试按键显示为绿色
+- 检测进度显示（已测试/总数 + 百分比）
+- 按键详细信息面板（key, code, keyCode, location）
+- 重置功能
+
+**布局细节**:
+
+- 使用固定宽度容器确保各行对齐
+- 跨多行/列的按键自动补偿 gap 宽度
+- 数字小键盘 + 和 Enter 键跨两行
+
+**关键代码位置**:
+
+- 应用注册: `apps/web/src/apps/index.ts`
+- 键盘检测器: `apps/web/src/apps/keyboard-tester/index.tsx`
+- 应用列表页: `apps/web/src/pages/apps/AppsPage.tsx`
+- 应用详情页: `apps/web/src/pages/apps/AppDetailPage.tsx`
+- 导航入口: `apps/web/src/layouts/MainLayout.tsx:315-328`
+
+**扩展新应用**:
+
+1. 在 `apps/web/src/apps/` 下创建应用目录
+2. 在 `apps/web/src/apps/index.ts` 的 `appRegistry` 添加配置
+3. 无需修改路由或其他文件
+
+---
+
 ### 2025-12-26 - BlockNote编辑器优化与功能扩展
 
 **任务概览**:
@@ -383,23 +476,35 @@ Response: {
 
 ## 🎯 当前上下文（最近3次会话）
 
-### 会话 #2: 2025-12-25
+### 会话 #3: 2026-01-07
+
+**主题**: 应用中心模块开发
+**关键文件**:
+
+- `apps/web/src/apps/` (新建目录)
+- `apps/web/src/pages/apps/` (新建目录)
+- `apps/web/src/layouts/MainLayout.tsx`
+- `apps/web/src/App.tsx`
+  **状态**: 已完成
+
+### 会话 #2: 2025-12-26
+
+**主题**: BlockNote编辑器优化与功能扩展
+**关键文件**:
+
+- `packages/ui/src/components/editor/`
+- `packages/ui/src/components/VideoPlayer.tsx`
+- `packages/ui/src/components/MindMapRenderer.tsx`
+  **状态**: 已完成
+
+### 会话 #1: 2025-12-25
 
 **主题**: 修复点赞/收藏状态反显功能
 **关键文件**:
 
-- `apps/api/src/auth/guards/optional-jwt-auth.guard.ts` (新建)
-- `apps/api/src/blog/blog.controller.ts`
-- `apps/api/src/comment/comment.controller.ts`
+- `apps/api/src/auth/guards/optional-jwt-auth.guard.ts`
 - `apps/web/src/pages/PostDetailPage.tsx`
-- `apps/web/src/components/CommentList.tsx`
-  **状态**: 已完成（需重启API服务）
-
-### 会话 #1: 2025-12-25
-
-**主题**: 完善AI协作文档体系
-**关键文件**: `.ai/*`
-**状态**: 已完成
+  **状态**: 已完成
 
 ---
 
@@ -456,6 +561,9 @@ Response: {
 | API工具        | `packages/utils/src/`                                 | API客户端等                 |
 | 邮件模板       | `apps/api/src/mail/templates/`                        | Handlebars模板              |
 | 环境配置       | `configs/env.*`                                       | 环境变量配置                |
+| 应用注册表     | `apps/web/src/apps/index.ts`                          | 小工具应用注册              |
+| 键盘检测器     | `apps/web/src/apps/keyboard-tester/index.tsx`         | 108键键盘检测应用           |
+| 应用列表页     | `apps/web/src/pages/apps/AppsPage.tsx`                | 应用中心入口页              |
 
 ---
 
