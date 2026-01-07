@@ -24,6 +24,7 @@ env:
 jobs:
   build-api:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -60,11 +61,12 @@ jobs:
           push: true
           tags: ${{ steps.meta-api.outputs.tags }}
           labels: ${{ steps.meta-api.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
 
   build-web:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
@@ -101,8 +103,8 @@ jobs:
           push: true
           tags: ${{ steps.meta-web.outputs.tags }}
           labels: ${{ steps.meta-web.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
           build-args: |
             VITE_API_URL=${{ vars.VITE_API_URL || 'https://api.131462.wang' }}
 
@@ -135,7 +137,7 @@ jobs:
           port: ${{ secrets.SERVER_PORT || 22 }}
           debug: true
           script_stop: true
-          command_timeout: 30m
+          command_timeout: 60m
           script: |
             set -e
 
@@ -161,10 +163,35 @@ jobs:
             # 登录 GHCR
             echo ${{ secrets.GHCR_TOKEN }} | docker login ghcr.io -u wh131462 --password-stdin
 
-            # 拉取最新镜像
+            # 带重试的镜像拉取函数
+            pull_with_retry() {
+              local image=$1
+              local max_attempts=3
+              local attempt=1
+              while [ $attempt -le $max_attempts ]; do
+                echo "Pulling $image (attempt $attempt/$max_attempts)..."
+                if timeout 600 docker pull "$image"; then
+                  echo "✅ Successfully pulled $image"
+                  return 0
+                fi
+                echo "⚠️ Pull failed, retrying..."
+                attempt=$((attempt + 1))
+                sleep 10
+              done
+              echo "❌ Failed to pull $image after $max_attempts attempts"
+              return 1
+            }
+
+            # 并行拉取镜像
             echo "Pulling latest images..."
-            docker pull ghcr.io/wh131462/whispers-of-the-heart/api:latest
-            docker pull ghcr.io/wh131462/whispers-of-the-heart/web:latest
+            pull_with_retry ghcr.io/wh131462/whispers-of-the-heart/api:latest &
+            PID_API=$!
+            pull_with_retry ghcr.io/wh131462/whispers-of-the-heart/web:latest &
+            PID_WEB=$!
+
+            # 等待拉取完成
+            wait $PID_API || exit 1
+            wait $PID_WEB || exit 1
 
             # 停止 web 和 nginx 容器（需要重新复制构建产物）
             echo "Restarting services..."

@@ -2,10 +2,8 @@
 FROM node:22-alpine AS base
 WORKDIR /app
 
-# 配置国内镜像源并安装 pnpm
-RUN npm config set registry https://registry.npmmirror.com && \
-    npm install -g pnpm && \
-    pnpm config set registry https://registry.npmmirror.com
+# 安装 pnpm（使用 corepack 更快）
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # 开发阶段
 FROM base AS development
@@ -15,7 +13,7 @@ COPY packages/ui/package.json ./packages/ui/
 COPY packages/hooks/package.json ./packages/hooks/
 COPY packages/types/package.json ./packages/types/
 COPY packages/utils/package.json ./packages/utils/
-RUN pnpm install
+RUN pnpm install --frozen-lockfile
 
 COPY . .
 EXPOSE 8888
@@ -31,18 +29,15 @@ COPY packages/ui/package.json ./packages/ui/
 COPY packages/hooks/package.json ./packages/hooks/
 COPY packages/types/package.json ./packages/types/
 COPY packages/utils/package.json ./packages/utils/
-RUN pnpm install
+RUN pnpm install --frozen-lockfile
 
 COPY . .
 
 # 设置环境变量
 ENV VITE_API_URL=${VITE_API_URL}
 
-# 先构建依赖的 packages
-RUN pnpm --filter=@whispers/types build || true
-RUN pnpm --filter=@whispers/utils build || true
-RUN pnpm --filter=@whispers/hooks build || true
-RUN pnpm --filter=@whispers/ui build || true
+# 并行构建依赖的 packages（使用 turbo 自动处理依赖关系）
+RUN pnpm turbo run build --filter=@whispers/types --filter=@whispers/utils --filter=@whispers/hooks --filter=@whispers/ui --concurrency=4 || true
 
 # 构建 Web 应用
 RUN pnpm build:web
