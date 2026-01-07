@@ -33,29 +33,31 @@ export function Board({ board, selectedCell, onCellClick }: BoardProps) {
   return (
     <div
       className={cn(
-        'grid bg-zinc-800 gap-px p-px rounded-lg',
+        'inline-grid rounded-lg overflow-hidden',
         'border-2 border-zinc-800'
       )}
       style={{
-        gridTemplateColumns: `repeat(${BOARD_SIZE}, 1fr)`,
+        gridTemplateColumns: `repeat(${BOARD_SIZE}, 40px)`,
+        gridTemplateRows: `repeat(${BOARD_SIZE}, 40px)`,
       }}
     >
       {board.map((row, rowIdx) =>
         row.map((cell, colIdx) => {
-          const isRightBorder =
-            (colIdx + 1) % BOX_SIZE === 0 && colIdx < BOARD_SIZE - 1;
-          const isBottomBorder =
-            (rowIdx + 1) % BOX_SIZE === 0 && rowIdx < BOARD_SIZE - 1;
+          // 九宫格粗线边框
+          const isLeftBoxBorder = colIdx % BOX_SIZE === 0 && colIdx > 0;
+          const isTopBoxBorder = rowIdx % BOX_SIZE === 0 && rowIdx > 0;
 
           return (
             <div
               key={`${rowIdx}-${colIdx}`}
               className={cn(
-                'w-10 h-10 flex items-center justify-center',
+                'flex items-center justify-center',
                 'bg-white cursor-pointer select-none',
                 'transition-colors duration-100',
-                isRightBorder && 'mr-0.5',
-                isBottomBorder && 'mb-0.5',
+                'border-r border-b border-zinc-300',
+                // 九宫格粗线
+                isLeftBoxBorder && 'border-l-2 border-l-zinc-800',
+                isTopBoxBorder && 'border-t-2 border-t-zinc-800',
                 getHighlightClass(rowIdx, colIdx),
                 !cell.isFixed && 'hover:bg-blue-50'
               )}

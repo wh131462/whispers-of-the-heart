@@ -22,7 +22,7 @@ export function Board({
     <div
       className={cn(
         'relative bg-emerald-700 rounded-lg',
-        'border-4 border-emerald-900'
+        'border-4 border-emerald-900 box-content'
       )}
       style={{ width: boardSize, height: boardSize }}
     >

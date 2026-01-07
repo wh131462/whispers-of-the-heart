@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import { useFireworks } from '@/components/ui/confetti';
 import type { Player } from '../types';
 import { PLAYER_NAMES } from '../types';
 
@@ -17,6 +19,15 @@ export function GameOverModal({
   whiteCount,
   onReset,
 }: GameOverModalProps) {
+  const { fire } = useFireworks();
+
+  useEffect(() => {
+    // 只有胜利时（非平局）才触发烟花
+    if (isOpen && winner && winner !== 'draw') {
+      fire();
+    }
+  }, [isOpen, winner, fire]);
+
   if (!isOpen) return null;
 
   const getWinnerText = () => {

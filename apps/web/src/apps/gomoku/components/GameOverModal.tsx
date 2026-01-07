@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import { useFireworks } from '@/components/ui/confetti';
 import type { Player, GameStatus } from '../types';
 import { PLAYER_NAMES } from '../types';
 
@@ -9,6 +11,14 @@ type GameOverModalProps = {
 };
 
 export function GameOverModal({ status, winner, onReset }: GameOverModalProps) {
+  const { fire } = useFireworks();
+
+  useEffect(() => {
+    if (status === 'won' && winner) {
+      fire();
+    }
+  }, [status, winner, fire]);
+
   if (status !== 'won' || !winner) return null;
 
   return (

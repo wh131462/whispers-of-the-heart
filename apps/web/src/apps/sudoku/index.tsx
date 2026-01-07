@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { RotateCcw, Lightbulb, PencilLine } from 'lucide-react';
 import {
@@ -7,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useFireworks } from '@/components/ui/confetti';
 import { Board } from './components/Board';
 import { NumberPad } from './components/NumberPad';
 import { useSudoku } from './hooks/useSudoku';
@@ -29,9 +31,16 @@ export default function Sudoku() {
     toggleNoteMode,
     getHint,
   } = useSudoku();
+  const { fire } = useFireworks();
 
   const isWon = state.status === 'won' && state.mistakes < MAX_MISTAKES;
   const isLost = state.status === 'won' && state.mistakes >= MAX_MISTAKES;
+
+  useEffect(() => {
+    if (isWon) {
+      fire();
+    }
+  }, [isWon, fire]);
 
   return (
     <div className="w-full max-w-fit mx-auto p-4">

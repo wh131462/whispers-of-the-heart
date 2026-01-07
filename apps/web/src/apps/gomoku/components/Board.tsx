@@ -31,10 +31,10 @@ export function Board({
     >
       {/* 棋盘线 */}
       <svg
-        className="absolute inset-0"
-        style={{ padding: 20 }}
-        width={boardPixelSize - 40}
-        height={boardPixelSize - 40}
+        className="absolute"
+        style={{ left: 20, top: 20 }}
+        width={(BOARD_SIZE - 1) * CELL_SIZE}
+        height={(BOARD_SIZE - 1) * CELL_SIZE}
       >
         {/* 横线 */}
         {Array(BOARD_SIZE)

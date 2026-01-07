@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { Trophy, Frown, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useFireworks } from '@/components/ui/confetti';
 import type { GameStatus } from '../types';
 
 interface GameOverModalProps {
@@ -13,6 +15,14 @@ export function GameOverModal({
   timeElapsed,
   onPlayAgain,
 }: GameOverModalProps) {
+  const { fire } = useFireworks();
+
+  useEffect(() => {
+    if (status === 'won') {
+      fire();
+    }
+  }, [status, fire]);
+
   if (status !== 'won' && status !== 'lost') {
     return null;
   }

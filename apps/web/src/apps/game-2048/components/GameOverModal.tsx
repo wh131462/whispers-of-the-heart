@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import { useFireworks } from '@/components/ui/confetti';
 import type { GameStatus } from '../types';
 import { RotateCcw, Play } from 'lucide-react';
 
@@ -15,6 +17,14 @@ export function GameOverModal({
   onReset,
   onContinue,
 }: GameOverModalProps) {
+  const { fire } = useFireworks();
+
+  useEffect(() => {
+    if (status === 'won') {
+      fire();
+    }
+  }, [status, fire]);
+
   if (status !== 'won' && status !== 'lost') return null;
 
   const isWon = status === 'won';
