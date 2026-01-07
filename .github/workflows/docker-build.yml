@@ -135,6 +135,7 @@ jobs:
           port: ${{ secrets.SERVER_PORT || 22 }}
           debug: true
           script_stop: true
+          command_timeout: 30m
           script: |
             set -e
 
