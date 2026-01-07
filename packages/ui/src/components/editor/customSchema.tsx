@@ -1,21 +1,30 @@
-import React, { useState, useCallback, useRef, useEffect, memo } from 'react'
-import { createReactBlockSpec, ReactCustomBlockRenderProps } from '@blocknote/react'
-import { BlockNoteSchema, defaultBlockSpecs } from '@blocknote/core'
-import CodeMirror from '@uiw/react-codemirror'
-import { javascript } from '@codemirror/lang-javascript'
-import { python } from '@codemirror/lang-python'
-import { java } from '@codemirror/lang-java'
-import { cpp } from '@codemirror/lang-cpp'
-import { html } from '@codemirror/lang-html'
-import { css } from '@codemirror/lang-css'
-import { json } from '@codemirror/lang-json'
-import { xml } from '@codemirror/lang-xml'
-import { sql } from '@codemirror/lang-sql'
-import { markdown } from '@codemirror/lang-markdown'
-import { php } from '@codemirror/lang-php'
-import { rust } from '@codemirror/lang-rust'
-import { go } from '@codemirror/lang-go'
-import { Copy, Check, ChevronDown } from 'lucide-react'
+import React, { useState, useCallback, useRef, useEffect, memo } from 'react';
+import {
+  createReactBlockSpec,
+  ReactCustomBlockRenderProps,
+} from '@blocknote/react';
+import { BlockNoteSchema, defaultBlockSpecs } from '@blocknote/core';
+import CodeMirror from '@uiw/react-codemirror';
+import { javascript } from '@codemirror/lang-javascript';
+import { python } from '@codemirror/lang-python';
+import { java } from '@codemirror/lang-java';
+import { cpp } from '@codemirror/lang-cpp';
+import { html } from '@codemirror/lang-html';
+import { css } from '@codemirror/lang-css';
+import { json } from '@codemirror/lang-json';
+import { xml } from '@codemirror/lang-xml';
+import { sql } from '@codemirror/lang-sql';
+import { markdown } from '@codemirror/lang-markdown';
+import { php } from '@codemirror/lang-php';
+import { rust } from '@codemirror/lang-rust';
+import { go } from '@codemirror/lang-go';
+import { Copy, Check, ChevronDown } from 'lucide-react';
+import {
+  MindMapBlock,
+  CustomImageBlock,
+  CustomVideoBlock,
+  CustomAudioBlock,
+} from './blocks';
 
 // Language extensions map
 const languageExtensions: Record<string, ReturnType<typeof javascript>> = {
@@ -45,12 +54,25 @@ const languageExtensions: Record<string, ReturnType<typeof javascript>> = {
   rs: rust(),
   go: go(),
   golang: go(),
-}
+};
 
 const SUPPORTED_LANGUAGES = [
-  'javascript', 'typescript', 'python', 'java', 'cpp', 'c',
-  'html', 'css', 'json', 'xml', 'sql', 'markdown', 'php', 'rust', 'go'
-]
+  'javascript',
+  'typescript',
+  'python',
+  'java',
+  'cpp',
+  'c',
+  'html',
+  'css',
+  'json',
+  'xml',
+  'sql',
+  'markdown',
+  'php',
+  'rust',
+  'go',
+];
 
 // Inline CodeMirror code block component
 const CodeBlockComponent = memo(function CodeBlockComponent({
@@ -59,81 +81,134 @@ const CodeBlockComponent = memo(function CodeBlockComponent({
   onCodeChange,
   onLanguageChange,
   editable = true,
+  editor,
+  block,
 }: {
-  code: string
-  language: string
-  onCodeChange: (code: string) => void
-  onLanguageChange: (language: string) => void
-  editable?: boolean
+  code: string;
+  language: string;
+  onCodeChange: (code: string) => void;
+  onLanguageChange: (language: string) => void;
+  editable?: boolean;
+  editor?: any;
+  block?: any;
 }) {
-  const [isCopied, setIsCopied] = useState(false)
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
-  const [inputValue, setInputValue] = useState(language)
-  const dropdownRef = useRef<HTMLDivElement>(null)
-  const lastCodeRef = useRef(code)
-  const lastLanguageRef = useRef(language)
+  const [isCopied, setIsCopied] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [inputValue, setInputValue] = useState(language);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const lastCodeRef = useRef(code);
+  const lastLanguageRef = useRef(language);
 
   useEffect(() => {
-    setInputValue(language)
-    lastLanguageRef.current = language
-  }, [language])
+    setInputValue(language);
+    lastLanguageRef.current = language;
+  }, [language]);
 
   useEffect(() => {
-    lastCodeRef.current = code
-  }, [code])
+    lastCodeRef.current = code;
+  }, [code]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false)
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsDropdownOpen(false);
       }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleCodeChange = useCallback(
     (value: string) => {
       if (value !== lastCodeRef.current) {
-        lastCodeRef.current = value
-        onCodeChange(value)
+        lastCodeRef.current = value;
+        onCodeChange(value);
       }
     },
     [onCodeChange]
-  )
+  );
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setInputValue(value)
-    setIsDropdownOpen(true)
+    const value = e.target.value;
+    setInputValue(value);
+    setIsDropdownOpen(true);
     if (value !== lastLanguageRef.current) {
-      lastLanguageRef.current = value
-      onLanguageChange(value)
+      lastLanguageRef.current = value;
+      onLanguageChange(value);
     }
-  }
+  };
 
   const handleSelectLanguage = (lang: string) => {
-    setInputValue(lang)
-    setIsDropdownOpen(false)
+    setInputValue(lang);
+    setIsDropdownOpen(false);
     if (lang !== lastLanguageRef.current) {
-      lastLanguageRef.current = lang
-      onLanguageChange(lang)
+      lastLanguageRef.current = lang;
+      onLanguageChange(lang);
     }
-  }
+  };
 
-  const filteredLanguages = SUPPORTED_LANGUAGES.filter((lang) =>
+  const filteredLanguages = SUPPORTED_LANGUAGES.filter(lang =>
     lang.toLowerCase().includes(inputValue.toLowerCase())
-  )
+  );
 
   const handleCopyCode = useCallback(() => {
-    navigator.clipboard.writeText(code)
-    setIsCopied(true)
-    setTimeout(() => setIsCopied(false), 2000)
-  }, [code])
+    navigator.clipboard.writeText(code);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
+  }, [code]);
 
   const getLanguageExtension = (lang: string) => {
-    return languageExtensions[lang.toLowerCase()] || javascript({ jsx: true })
-  }
+    return languageExtensions[lang.toLowerCase()] || javascript({ jsx: true });
+  };
+
+  // 处理空代码块删除
+  const handleContainerKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (!editable || !editor || !block) return;
+
+      // 当代码为空且按下Backspace或Delete时，删除当前块
+      if ((e.key === 'Backspace' || e.key === 'Delete') && code.trim() === '') {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // 获取所有块
+        const allBlocks = editor.document;
+        const currentIndex = allBlocks.findIndex((b: any) => b.id === block.id);
+
+        // 确定删除后要聚焦的块（优先上一个块，否则下一个块）
+        let targetBlock = null;
+        if (currentIndex > 0) {
+          targetBlock = allBlocks[currentIndex - 1];
+        } else if (currentIndex < allBlocks.length - 1) {
+          targetBlock = allBlocks[currentIndex + 1];
+        }
+
+        // 删除当前块
+        editor.removeBlocks([block]);
+
+        // 将焦点移动到目标块
+        if (targetBlock) {
+          // 使用 setTimeout 确保 DOM 更新后再设置焦点
+          setTimeout(() => {
+            try {
+              editor.setTextCursorPosition(targetBlock.id, 'end');
+              editor.focus();
+            } catch {
+              // 如果目标块不支持文本光标（如媒体块），只聚焦编辑器
+              editor.focus();
+            }
+          }, 0);
+        } else {
+          // 如果没有目标块，至少保持编辑器焦点
+          setTimeout(() => editor.focus(), 0);
+        }
+      }
+    },
+    [code, editable, editor, block]
+  );
 
   return (
     <div className="bn-custom-code-block" contentEditable={false}>
@@ -153,7 +228,7 @@ const CodeBlockComponent = memo(function CodeBlockComponent({
           </div>
           {isDropdownOpen && filteredLanguages.length > 0 && (
             <div className="language-dropdown">
-              {filteredLanguages.map((lang) => (
+              {filteredLanguages.map(lang => (
                 <div
                   key={lang}
                   onClick={() => handleSelectLanguage(lang)}
@@ -185,7 +260,7 @@ const CodeBlockComponent = memo(function CodeBlockComponent({
         </button>
       </div>
 
-      <div className="code-editor-container">
+      <div className="code-editor-container" onKeyDown={handleContainerKeyDown}>
         <CodeMirror
           value={code}
           extensions={[getLanguageExtension(inputValue)]}
@@ -341,16 +416,21 @@ const CodeBlockComponent = memo(function CodeBlockComponent({
         }
       `}</style>
     </div>
-  )
-})
+  );
+});
 
 // 代码块导出 HTML 组件 (用于 markdown 转换)
 // 注意：这个组件在单独的 React root 中渲染，需要确保同步获取最新 props
-const CodeBlockExternalHTML: React.FC<ReactCustomBlockRenderProps<any, any, any>> = ({ block }) => {
-  const { language = 'javascript', code = '' } = block.props
+const CodeBlockExternalHTML: React.FC<
+  ReactCustomBlockRenderProps<any, any, any>
+> = ({ block }) => {
+  const { language = 'javascript', code = '' } = block.props;
   // Debug: 查看导出时的 block 结构
-  console.log('[CodeBlock toExternalHTML] block:', JSON.stringify(block, null, 2))
-  console.log('[CodeBlock toExternalHTML] code:', code)
+  console.log(
+    '[CodeBlock toExternalHTML] block:',
+    JSON.stringify(block, null, 2)
+  );
+  console.log('[CodeBlock toExternalHTML] code:', code);
 
   // 如果 code 为空，返回一个带有特殊标记的元素，这样可以在后处理中识别
   if (!code) {
@@ -358,15 +438,15 @@ const CodeBlockExternalHTML: React.FC<ReactCustomBlockRenderProps<any, any, any>
       <pre data-empty-code="true">
         <code className={`language-${language}`}></code>
       </pre>
-    )
+    );
   }
 
   return (
     <pre>
       <code className={`language-${language}`}>{code}</code>
     </pre>
-  )
-}
+  );
+};
 
 // Create the custom code block spec factory - ONLY ONCE at module level
 const createCustomCodeBlock = createReactBlockSpec(
@@ -380,26 +460,28 @@ const createCustomCodeBlock = createReactBlockSpec(
   },
   {
     render: (props: ReactCustomBlockRenderProps<any, any, any>) => {
-      const { block, editor } = props
-      const { language = 'javascript', code = '' } = block.props
+      const { block, editor } = props;
+      const { language = 'javascript', code = '' } = block.props;
 
       return (
         <CodeBlockComponent
           code={code}
           language={language}
           editable={editor.isEditable}
-          onCodeChange={(newCode) => {
+          editor={editor}
+          block={block}
+          onCodeChange={newCode => {
             editor.updateBlock(block, {
               props: { ...block.props, code: newCode },
-            })
+            });
           }}
-          onLanguageChange={(newLanguage) => {
+          onLanguageChange={newLanguage => {
             editor.updateBlock(block, {
               props: { ...block.props, language: newLanguage },
-            })
+            });
           }}
         />
-      )
+      );
     },
     // 导出为 HTML (用于 markdown 转换) - 使用 React 组件
     toExternalHTML: CodeBlockExternalHTML,
@@ -407,34 +489,42 @@ const createCustomCodeBlock = createReactBlockSpec(
     parse: (element: HTMLElement) => {
       // 解析 <pre><code> 结构
       if (element.tagName === 'PRE') {
-        const codeEl = element.querySelector('code')
+        const codeEl = element.querySelector('code');
         if (codeEl) {
-          const className = codeEl.className || ''
-          const langMatch = className.match(/language-(\w+)/)
-          const language = langMatch ? langMatch[1] : 'javascript'
-          const code = codeEl.textContent || ''
-          return { language, code }
+          const className = codeEl.className || '';
+          // 排除 markmap 代码块，由 MindMapBlock 处理
+          if (className.includes('language-markmap')) {
+            return undefined;
+          }
+          const langMatch = className.match(/language-(\w+)/);
+          const language = langMatch ? langMatch[1] : 'javascript';
+          const code = codeEl.textContent || '';
+          return { language, code };
         }
         // 直接是 <pre> 没有 <code>
         return {
           language: 'javascript',
-          code: element.textContent || ''
-        }
+          code: element.textContent || '',
+        };
       }
-      return undefined
+      return undefined;
     },
   }
-)
+);
 
 // Invoke the factory ONCE to create the block spec
-const CustomCodeBlock = createCustomCodeBlock()
+const CustomCodeBlock = createCustomCodeBlock();
 
 // Create schema ONLY ONCE at module level - this is the key to avoiding plugin conflicts
 export const customSchema = BlockNoteSchema.create({
   blockSpecs: {
     ...defaultBlockSpecs,
     codeBlock: CustomCodeBlock,
+    mindMap: MindMapBlock,
+    customImage: CustomImageBlock,
+    customVideo: CustomVideoBlock,
+    customAudio: CustomAudioBlock,
   },
-})
+});
 
-export type CustomSchemaType = typeof customSchema
+export type CustomSchemaType = typeof customSchema;

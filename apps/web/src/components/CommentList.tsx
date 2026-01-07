@@ -1,88 +1,113 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import { Button } from './ui/button'
-import { MessageCircle, Loader2, RefreshCw, TrendingUp, Clock } from 'lucide-react'
-import type { Comment } from '../types/comment'
-import { commentApi } from '../services/commentApi'
-import CommentItem from './CommentItem'
-import CommentForm from './CommentForm'
+import React, { useState, useEffect, useCallback } from 'react';
+import { Button } from './ui/button';
+import {
+  MessageCircle,
+  Loader2,
+  RefreshCw,
+  TrendingUp,
+  Clock,
+} from 'lucide-react';
+import type { Comment } from '../types/comment';
+import { commentApi } from '../services/commentApi';
+import CommentItem from './CommentItem';
+import CommentForm from './CommentForm';
+import { useAuthStore } from '../stores/useAuthStore';
 
-type SortType = 'latest' | 'popular'
+type SortType = 'latest' | 'popular';
 
 interface CommentListProps {
-  postId: string
-  onCommentCountChange?: (count: number) => void
+  postId: string;
+  onCommentCountChange?: (count: number) => void;
 }
 
-const CommentList: React.FC<CommentListProps> = ({ postId, onCommentCountChange }) => {
-  const [comments, setComments] = useState<Comment[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [page, setPage] = useState(1)
-  const [hasMore, setHasMore] = useState(false)
-  const [total, setTotal] = useState(0)
-  const [sortBy, setSortBy] = useState<SortType>('latest')
+const CommentList: React.FC<CommentListProps> = ({
+  postId,
+  onCommentCountChange,
+}) => {
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [sortBy, setSortBy] = useState<SortType>('latest');
+  const { isAuthenticated } = useAuthStore();
 
-  const loadComments = useCallback(async (pageNum = 1, append = false) => {
-    try {
-      if (append) {
-        setLoadingMore(true)
-      } else {
-        setLoading(true)
-      }
-
-      const response = await commentApi.getPostComments(postId, pageNum, 10)
-
-      if (response.success && response.data) {
-        const newComments = response.data.items
-        setComments(prev => append ? [...prev, ...newComments] : newComments)
-        setHasMore(response.data.hasNext)
-        setTotal(response.data.total)
-
-        // 通知父组件评论数量变化
-        if (onCommentCountChange && !append) {
-          onCommentCountChange(response.data.total)
+  const loadComments = useCallback(
+    async (pageNum = 1, append = false) => {
+      try {
+        if (append) {
+          setLoadingMore(true);
+        } else {
+          setLoading(true);
         }
-      } else {
-        console.error('Failed to load comments:', response.message)
+
+        const response = await commentApi.getPostComments(postId, pageNum, 10);
+
+        if (response.success && response.data) {
+          const newComments = response.data.items;
+          setComments(prev =>
+            append ? [...prev, ...newComments] : newComments
+          );
+          setHasMore(response.data.hasNext);
+          setTotal(response.data.total);
+
+          // 通知父组件评论数量变化
+          if (onCommentCountChange && !append) {
+            onCommentCountChange(response.data.total);
+          }
+        } else {
+          console.error('Failed to load comments:', response.message);
+        }
+      } catch (error) {
+        console.error('Failed to load comments:', error);
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
       }
-    } catch (error) {
-      console.error('Failed to load comments:', error)
-    } finally {
-      setLoading(false)
-      setLoadingMore(false)
-    }
-  }, [postId, onCommentCountChange])
+    },
+    [postId, onCommentCountChange]
+  );
 
   useEffect(() => {
-    loadComments(1, false)
-  }, [loadComments])
+    loadComments(1, false);
+  }, [loadComments]);
+
+  // 监听登录状态变化，重新加载评论以获取点赞状态
+  useEffect(() => {
+    if (comments.length > 0) {
+      // 重新加载当前页的评论
+      loadComments(1, false);
+      setPage(1);
+    }
+  }, [isAuthenticated]);
 
   const handleLoadMore = () => {
-    const nextPage = page + 1
-    setPage(nextPage)
-    loadComments(nextPage, true)
-  }
+    const nextPage = page + 1;
+    setPage(nextPage);
+    loadComments(nextPage, true);
+  };
 
   const handleCommentAdded = () => {
-    setPage(1)
-    loadComments(1, false)
-  }
+    setPage(1);
+    loadComments(1, false);
+  };
 
   const handleRefresh = () => {
-    setPage(1)
-    loadComments(1, false)
-  }
+    setPage(1);
+    loadComments(1, false);
+  };
 
   // 按热度排序（点赞数 + 回复数）
   const sortedComments = [...comments].sort((a, b) => {
     if (sortBy === 'popular') {
-      const scoreA = (a.likes || 0) + (a.replies?.length || 0)
-      const scoreB = (b.likes || 0) + (b.replies?.length || 0)
-      return scoreB - scoreA
+      const scoreA = (a.likes || 0) + (a.replies?.length || 0);
+      const scoreB = (b.likes || 0) + (b.replies?.length || 0);
+      return scoreB - scoreA;
     }
     // 默认按时间排序（API已经按时间排序）
-    return 0
-  })
+    return 0;
+  });
 
   return (
     <div className="comment-section">
@@ -133,17 +158,16 @@ const CommentList: React.FC<CommentListProps> = ({ postId, onCommentCountChange 
               className="h-8 w-8"
               title="刷新评论"
             >
-              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+              />
             </Button>
           </div>
         </div>
 
         {/* 评论输入框 */}
         <div className="comment-form-wrapper mb-8">
-          <CommentForm
-            postId={postId}
-            onCommentAdded={handleCommentAdded}
-          />
+          <CommentForm postId={postId} onCommentAdded={handleCommentAdded} />
         </div>
       </div>
 
@@ -172,11 +196,12 @@ const CommentList: React.FC<CommentListProps> = ({ postId, onCommentCountChange 
       {/* 评论列表 */}
       {!loading && comments.length > 0 && (
         <div className="space-y-4">
-          {sortedComments.map((comment) => (
+          {sortedComments.map(comment => (
             <CommentItem
               key={comment.id}
               comment={comment}
               onReplyAdded={handleCommentAdded}
+              onCommentDeleted={handleCommentAdded}
             />
           ))}
 
@@ -245,7 +270,7 @@ const CommentList: React.FC<CommentListProps> = ({ postId, onCommentCountChange 
         }
       `}</style>
     </div>
-  )
-}
+  );
+};
 
-export default CommentList
+export default CommentList;

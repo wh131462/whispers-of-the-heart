@@ -1,21 +1,23 @@
-import React, { useRef, useEffect } from 'react'
-import './VideoPlayer.css'
-import { cn } from '../lib/utils'
+import React, { useRef, useEffect, useState } from 'react';
+import videojs from 'video.js';
+import 'video.js/dist/video-js.css';
+import './VideoPlayer.css';
+import { cn } from '../lib/utils';
 
 export interface VideoPlayerProps {
-  src: string
-  title?: string
-  className?: string
-  autoPlay?: boolean
-  loop?: boolean
-  poster?: string
-  qualities?: Array<{ label: string; src: string }>
-  onError?: (error: string) => void
-  onLoadStart?: () => void
-  onLoadedData?: () => void
-  onPlay?: () => void
-  onPause?: () => void
-  onEnded?: () => void
+  src: string;
+  title?: string;
+  className?: string;
+  autoPlay?: boolean;
+  loop?: boolean;
+  poster?: string;
+  qualities?: Array<{ label: string; src: string }>;
+  onError?: (error: string) => void;
+  onLoadStart?: () => void;
+  onLoadedData?: () => void;
+  onPlay?: () => void;
+  onPause?: () => void;
+  onEnded?: () => void;
 }
 
 export const VideoPlayer: React.FC<VideoPlayerProps> = ({
@@ -30,68 +32,131 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onLoadedData,
   onPlay,
   onPause,
-  onEnded
+  onEnded,
 }) => {
-  const videoRef = useRef<HTMLVideoElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const playerRef = useRef<any>(null);
+  const [isReady, setIsReady] = useState(false);
 
-  // 事件处理
   useEffect(() => {
-    const video = videoRef.current
-    if (!video) return
+    // 确保videojs只初始化一次
+    if (!playerRef.current && videoRef.current) {
+      const videoElement = videoRef.current;
 
-    const handleLoadStart = () => onLoadStart?.()
-    const handleLoadedData = () => onLoadedData?.()
-    const handlePlay = () => onPlay?.()
-    const handlePause = () => onPause?.()
-    const handleEnded = () => onEnded?.()
-    const handleError = () => {
-      const errorMsg = '视频加载失败'
-      onError?.(errorMsg)
+      // 初始化video.js
+      const player = videojs(videoElement, {
+        controls: true,
+        autoplay: autoPlay,
+        loop: loop,
+        poster: poster,
+        fluid: true,
+        responsive: true,
+        preload: 'auto',
+        html5: {
+          vhs: {
+            enableLowInitialPlaylist: true,
+            smoothQualityChange: true,
+          },
+        },
+      });
+
+      playerRef.current = player;
+
+      // 设置视频源
+      player.src({
+        src,
+        type: getVideoType(src),
+      });
+
+      // 事件监听
+      player.on('loadstart', () => {
+        onLoadStart?.();
+      });
+
+      player.on('loadeddata', () => {
+        setIsReady(true);
+        onLoadedData?.();
+      });
+
+      player.on('play', () => {
+        onPlay?.();
+      });
+
+      player.on('pause', () => {
+        onPause?.();
+      });
+
+      player.on('ended', () => {
+        onEnded?.();
+      });
+
+      player.on('error', () => {
+        const errorMsg = '视频加载失败';
+        onError?.(errorMsg);
+      });
+
+      // 监听准备就绪
+      player.ready(() => {
+        console.log('Video.js player is ready');
+      });
     }
 
-    video.addEventListener('loadstart', handleLoadStart)
-    video.addEventListener('loadeddata', handleLoadedData)
-    video.addEventListener('play', handlePlay)
-    video.addEventListener('pause', handlePause)
-    video.addEventListener('ended', handleEnded)
-    video.addEventListener('error', handleError)
-
+    // 清理
     return () => {
-      video.removeEventListener('loadstart', handleLoadStart)
-      video.removeEventListener('loadeddata', handleLoadedData)
-      video.removeEventListener('play', handlePlay)
-      video.removeEventListener('pause', handlePause)
-      video.removeEventListener('ended', handleEnded)
-      video.removeEventListener('error', handleError)
+      if (playerRef.current) {
+        playerRef.current.dispose();
+        playerRef.current = null;
+        setIsReady(false);
+      }
+    };
+  }, []);
+
+  // 当src改变时更新源
+  useEffect(() => {
+    if (playerRef.current && isReady) {
+      playerRef.current.src({
+        src,
+        type: getVideoType(src),
+      });
     }
-  }, [onError, onLoadStart, onLoadedData, onPlay, onPause, onEnded])
+  }, [src, isReady]);
+
+  // 获取视频MIME类型
+  const getVideoType = (url: string): string => {
+    const ext = url.split('.').pop()?.toLowerCase();
+    const typeMap: Record<string, string> = {
+      mp4: 'video/mp4',
+      webm: 'video/webm',
+      ogg: 'video/ogg',
+      ogv: 'video/ogg',
+      m3u8: 'application/x-mpegURL',
+      mpd: 'application/dash+xml',
+    };
+    return typeMap[ext || ''] || 'video/mp4';
+  };
 
   return (
     <div
       className={cn(
-        'relative bg-gray-900 dark:bg-black rounded-lg overflow-hidden border border-gray-700 shadow-xl w-full aspect-video',
+        'relative bg-gray-900 dark:bg-black rounded-lg overflow-hidden border border-gray-700 shadow-xl w-full',
         className
       )}
       role="region"
       aria-label="视频播放器"
+      data-vjs-player
     >
       {title && (
-        <div className="vjs-title-bar">
+        <div className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-b from-black/70 to-transparent px-4 py-3 text-white text-sm font-medium">
           {title}
         </div>
       )}
       <video
         ref={videoRef}
-        src={src}
-        poster={poster}
-        autoPlay={autoPlay}
-        loop={loop}
+        className="video-js vjs-big-play-centered vjs-theme-whispers"
         playsInline
-        controls
-        className="w-full h-full"
       />
     </div>
-  )
-}
+  );
+};
 
-export default VideoPlayer
+export default VideoPlayer;

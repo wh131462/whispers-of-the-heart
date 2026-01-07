@@ -1,26 +1,198 @@
-/* VideoPlayer 自定义样式 */
+/* VideoPlayer 自定义样式 - Video.js 主题 */
 
-/* 标题栏样式 */
-.vjs-title-bar {
+/* Whispers主题 - 符合产品调性的深色设计 */
+.vjs-theme-whispers {
+  font-family: inherit;
+}
+
+/* 播放器容器 */
+.vjs-theme-whispers.video-js {
+  background-color: #000;
+  border-radius: 0;
+}
+
+/* 大播放按钮 */
+.vjs-theme-whispers .vjs-big-play-button {
+  width: 3.5rem;
+  height: 3.5rem;
+  line-height: 3.5rem;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  background-color: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  top: 50%;
+  left: 50%;
+  margin-top: -1.75rem;
+  margin-left: -1.75rem;
+  transition: all 0.3s ease;
+}
+
+.vjs-theme-whispers .vjs-big-play-button:hover {
+  background-color: rgba(0, 0, 0, 0.8);
+  border-color: #fff;
+  transform: scale(1.1);
+}
+
+.vjs-theme-whispers .vjs-big-play-button .vjs-icon-placeholder:before {
+  font-size: 1.5rem;
+}
+
+/* 控制栏 */
+.vjs-theme-whispers .vjs-control-bar {
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent);
+  height: 3.5rem;
+  padding: 0 0.75rem;
+  backdrop-filter: blur(8px);
+}
+
+/* 按钮样式 */
+.vjs-theme-whispers .vjs-button {
+  color: rgba(255, 255, 255, 0.9);
+  transition: color 0.2s ease;
+}
+
+.vjs-theme-whispers .vjs-button:hover {
+  color: #fff;
+}
+
+/* 进度条 */
+.vjs-theme-whispers .vjs-progress-control {
   position: absolute;
-  top: 0;
+  top: -0.5rem;
   left: 0;
   right: 0;
-  padding: 1.5rem;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), transparent);
-  color: white;
-  font-size: 1.125rem;
-  font-weight: 600;
-  z-index: 10;
+  width: 100%;
+  height: 0.5rem;
+}
+
+.vjs-theme-whispers .vjs-progress-holder {
+  height: 0.25rem;
+  margin: 0;
+  border-radius: 0.125rem;
+  background-color: rgba(255, 255, 255, 0.2);
+  transition: height 0.2s ease;
+}
+
+.vjs-theme-whispers .vjs-progress-control:hover .vjs-progress-holder {
+  height: 0.5rem;
+}
+
+/* 已加载进度 */
+.vjs-theme-whispers .vjs-load-progress {
+  background-color: rgba(255, 255, 255, 0.3);
+  border-radius: 0.125rem;
+}
+
+.vjs-theme-whispers .vjs-load-progress div {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* 播放进度 */
+.vjs-theme-whispers .vjs-play-progress {
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  border-radius: 0.125rem;
+}
+
+.vjs-theme-whispers .vjs-play-progress:before {
+  font-size: 0.75rem;
+  top: -0.25rem;
+  right: -0.375rem;
+}
+
+/* 音量控制 */
+.vjs-theme-whispers .vjs-volume-panel {
+  transition: width 0.3s ease;
+}
+
+.vjs-theme-whispers .vjs-volume-bar {
+  background-color: rgba(255, 255, 255, 0.2);
+  height: 0.25rem;
+  margin: 1.25rem 0.5rem;
+}
+
+.vjs-theme-whispers .vjs-volume-level {
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  height: 0.25rem;
+}
+
+/* 时间显示 */
+.vjs-theme-whispers .vjs-time-control {
+  font-size: 0.875rem;
+  line-height: 3.5rem;
+  min-width: 2.5rem;
+  padding: 0 0.5rem;
+}
+
+.vjs-theme-whispers .vjs-current-time,
+.vjs-theme-whispers .vjs-duration {
+  display: block;
+}
+
+/* 全屏按钮 */
+.vjs-theme-whispers .vjs-fullscreen-control {
+  order: 10;
+}
+
+/* 加载动画 */
+.vjs-theme-whispers .vjs-loading-spinner {
+  border-color: rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+}
+
+/* 错误提示 */
+.vjs-theme-whispers .vjs-error-display {
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.vjs-theme-whispers .vjs-error-display:before {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
+.vjs-theme-whispers .vjs-error-display .vjs-modal-dialog-content {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* 悬浮状态 */
+.vjs-theme-whispers.vjs-has-started.vjs-user-inactive.vjs-playing .vjs-control-bar {
+  opacity: 0;
   transition: opacity 0.3s ease;
-  pointer-events: none;
+}
+
+.vjs-theme-whispers.vjs-has-started.vjs-user-active.vjs-playing .vjs-control-bar {
+  opacity: 1;
+  transition: opacity 0.3s ease;
 }
 
 /* 响应式设计 */
 @media (max-width: 640px) {
-  .vjs-title-bar {
-    font-size: 1rem;
-    padding: 1rem;
+  .vjs-theme-whispers .vjs-big-play-button {
+    width: 3rem;
+    height: 3rem;
+    line-height: 3rem;
+    margin-top: -1.5rem;
+    margin-left: -1.5rem;
+  }
+
+  .vjs-theme-whispers .vjs-big-play-button .vjs-icon-placeholder:before {
+    font-size: 1.25rem;
+  }
+
+  .vjs-theme-whispers .vjs-control-bar {
+    height: 3rem;
+    padding: 0 0.5rem;
+  }
+
+  .vjs-theme-whispers .vjs-time-control {
+    font-size: 0.75rem;
+    line-height: 3rem;
+    min-width: 2rem;
+    padding: 0 0.25rem;
   }
 }
 
+/* 暗色模式优化 */
+.dark .vjs-theme-whispers {
+  /* 暗色模式下保持一致的样式 */
+}

@@ -1,37 +1,45 @@
-import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
-import { api, setAuthToken, removeAuthToken, blogApi } from '@whispers/utils'
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import {
+  api,
+  setAuthToken,
+  removeAuthToken,
+  blogApi,
+  setTokenRefreshHandler,
+  setAuthExpiredHandler,
+  apiClient,
+} from '@whispers/utils';
 
 interface User {
-  id: string
-  username: string
-  email: string
-  isAdmin: boolean
-  avatar?: string
-  bio?: string
-  theme?: string
+  id: string;
+  username: string;
+  email: string;
+  isAdmin: boolean;
+  avatar?: string;
+  bio?: string;
+  theme?: string;
 }
 
 interface AuthState {
-  user: User | null
-  accessToken: string | null
-  refreshToken: string | null
-  isAuthenticated: boolean
-  isLoading: boolean
-  _hasHydrated: boolean
+  user: User | null;
+  accessToken: string | null;
+  refreshToken: string | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  _hasHydrated: boolean;
 }
 
 interface AuthActions {
-  login: (identifier: string, password: string) => Promise<boolean>
-  logout: () => void
-  refreshAuth: () => Promise<boolean>
-  validateToken: () => Promise<boolean>
-  updateUser: (user: User) => void
-  setLoading: (loading: boolean) => void
-  setHasHydrated: (state: boolean) => void
+  login: (identifier: string, password: string) => Promise<boolean>;
+  logout: () => void;
+  refreshAuth: () => Promise<boolean>;
+  validateToken: () => Promise<boolean>;
+  updateUser: (user: User) => void;
+  setLoading: (loading: boolean) => void;
+  setHasHydrated: (state: boolean) => void;
 }
 
-type AuthStore = AuthState & AuthActions
+type AuthStore = AuthState & AuthActions;
 
 const useAuthStore = create<AuthStore>()(
   persist(
@@ -47,18 +55,18 @@ const useAuthStore = create<AuthStore>()(
       // 登录（支持用户名或邮箱）
       login: async (identifier: string, password: string) => {
         try {
-          set({ isLoading: true })
+          set({ isLoading: true });
 
           // 判断是邮箱还是用户名
-          const isEmail = identifier.includes('@')
+          const isEmail = identifier.includes('@');
 
           const response = await api.post('/auth/login', {
             ...(isEmail ? { email: identifier } : { username: identifier }),
-            password
-          })
+            password,
+          });
 
           if (response.data?.success) {
-            const token = response.data.data.accessToken
+            const token = response.data.data.accessToken;
 
             set({
               user: response.data.data.user,
@@ -66,29 +74,29 @@ const useAuthStore = create<AuthStore>()(
               refreshToken: response.data.data.refreshToken,
               isAuthenticated: true,
               isLoading: false,
-            })
+            });
 
             // 同时存储到localStorage，供API客户端使用
-            localStorage.setItem('auth_token', token)
+            localStorage.setItem('auth_token', token);
             // 设置API客户端的认证token
-            setAuthToken(token)
-            blogApi.setToken(token)
+            setAuthToken(token);
+            blogApi.setToken(token);
 
             // 调试：验证 persist 保存
             console.log('[AuthStore] Login successful, checking persist...', {
               storedState: localStorage.getItem('auth-storage'),
               storedToken: localStorage.getItem('auth_token'),
-            })
+            });
 
-            return true
+            return true;
           }
 
-          set({ isLoading: false })
-          return false
+          set({ isLoading: false });
+          return false;
         } catch (error) {
-          console.error('[AuthStore] Login error:', error)
-          set({ isLoading: false })
-          return false
+          console.error('[AuthStore] Login error:', error);
+          set({ isLoading: false });
+          return false;
         }
       },
 
@@ -100,93 +108,92 @@ const useAuthStore = create<AuthStore>()(
           refreshToken: null,
           isAuthenticated: false,
           isLoading: false,
-        })
+        });
 
         // 同时清除localStorage中的token
-        localStorage.removeItem('auth_token')
+        localStorage.removeItem('auth_token');
         // 清除API客户端的认证token
-        removeAuthToken()
-        blogApi.clearToken()
+        removeAuthToken();
+        blogApi.clearToken();
       },
 
       // 刷新认证
       refreshAuth: async () => {
-        const { refreshToken } = get()
-        if (!refreshToken) return false
+        const { refreshToken } = get();
+        if (!refreshToken) return false;
 
         try {
-          const response = await api.post('/auth/refresh', { refreshToken })
-          
+          const response = await api.post('/auth/refresh', { refreshToken });
+
           if (response.data?.success) {
-            const token = response.data.data.accessToken
+            const token = response.data.data.accessToken;
             set({
               user: response.data.data.user,
               accessToken: token,
               refreshToken: response.data.data.refreshToken,
               isAuthenticated: true,
-            })
+            });
 
             // 同时更新localStorage中的token
-            localStorage.setItem('auth_token', token)
+            localStorage.setItem('auth_token', token);
             // 更新API客户端的认证token
-            setAuthToken(token)
-            blogApi.setToken(token)
-            return true
+            setAuthToken(token);
+            blogApi.setToken(token);
+            return true;
           }
-          
+
           // 刷新失败，清除认证状态
-          get().logout()
-          return false
+          get().logout();
+          return false;
         } catch (error) {
-          console.error('Refresh auth error:', error)
-          get().logout()
-          return false
+          console.error('Refresh auth error:', error);
+          get().logout();
+          return false;
         }
       },
 
       // 更新用户信息
       updateUser: (user: User) => {
-        set({ user })
+        set({ user });
       },
 
       // 设置加载状态
       setLoading: (loading: boolean) => {
-        set({ isLoading: loading })
+        set({ isLoading: loading });
       },
 
       // 设置 hydration 状态
       setHasHydrated: (state: boolean) => {
-        set({ _hasHydrated: state })
+        set({ _hasHydrated: state });
       },
 
       // 验证token有效性
       validateToken: async () => {
-        const { accessToken } = get()
-        if (!accessToken) return false
+        const { accessToken } = get();
+        if (!accessToken) return false;
 
         try {
           // 确保在请求前设置 token（解决 rehydration 竞争条件）
-          setAuthToken(accessToken)
-          blogApi.setToken(accessToken)
+          setAuthToken(accessToken);
+          blogApi.setToken(accessToken);
 
-          const response = await api.get('/auth/me')
+          const response = await api.get('/auth/me');
 
           if (response.data?.success) {
             // 更新用户信息
-            set({ user: response.data.data })
-            return true
+            set({ user: response.data.data });
+            return true;
           }
-          return false
+          return false;
         } catch (error) {
-          console.error('Token validation error:', error)
-          return false
+          console.error('Token validation error:', error);
+          return false;
         }
       },
-
     }),
     {
       name: 'auth-storage',
-      partialize: (state) => ({
+      partialize: state => ({
         user: state.user,
         accessToken: state.accessToken,
         refreshToken: state.refreshToken,
@@ -200,27 +207,86 @@ const useAuthStore = create<AuthStore>()(
           isAuthenticated: state?.isAuthenticated,
           error,
           rawStorage: localStorage.getItem('auth-storage'),
-        })
+        });
 
         // 当状态从localStorage恢复时，设置API客户端的token
         if (state?.accessToken) {
           // 同步设置 auth_token 到 localStorage（确保 API 客户端可以读取）
-          localStorage.setItem('auth_token', state.accessToken)
+          localStorage.setItem('auth_token', state.accessToken);
           // 设置 API 客户端的认证 token
-          setAuthToken(state.accessToken)
-          blogApi.setToken(state.accessToken)
-          console.log('[AuthStore] Token restored successfully')
+          setAuthToken(state.accessToken);
+          blogApi.setToken(state.accessToken);
+          console.log('[AuthStore] Token restored successfully');
         } else {
-          console.log('[AuthStore] No token to restore')
+          console.log('[AuthStore] No token to restore');
         }
 
         // 标记 hydration 完成
         queueMicrotask(() => {
-          useAuthStore.getState().setHasHydrated(true)
-        })
+          useAuthStore.getState().setHasHydrated(true);
+        });
       },
     }
   )
-)
+);
 
-export { useAuthStore }
+// 注册 401 自动刷新处理器
+const setupAuthHandlers = () => {
+  // Token 刷新处理器
+  setTokenRefreshHandler(async () => {
+    const { refreshToken } = useAuthStore.getState();
+    if (!refreshToken) {
+      console.log('[AuthStore] No refresh token available');
+      return null;
+    }
+
+    try {
+      // 临时跳过 401 拦截，避免刷新请求本身触发循环
+      apiClient.setSkipAuthRefresh(true);
+
+      const response = await api.post('/auth/refresh', { refreshToken });
+
+      apiClient.setSkipAuthRefresh(false);
+
+      if (response.data?.success) {
+        const newAccessToken = response.data.data.accessToken;
+        const newRefreshToken = response.data.data.refreshToken;
+
+        // 更新 store 状态
+        useAuthStore.setState({
+          accessToken: newAccessToken,
+          refreshToken: newRefreshToken,
+          user: response.data.data.user,
+          isAuthenticated: true,
+        });
+
+        // 更新 localStorage
+        localStorage.setItem('auth_token', newAccessToken);
+
+        // 更新 API 客户端
+        setAuthToken(newAccessToken);
+        blogApi.setToken(newAccessToken);
+
+        console.log('[AuthStore] Token refreshed successfully');
+        return newAccessToken;
+      }
+
+      return null;
+    } catch (error) {
+      apiClient.setSkipAuthRefresh(false);
+      console.error('[AuthStore] Token refresh failed:', error);
+      return null;
+    }
+  });
+
+  // 认证过期处理器（刷新失败时调用）
+  setAuthExpiredHandler(() => {
+    console.log('[AuthStore] Auth expired, logging out...');
+    useAuthStore.getState().logout();
+  });
+};
+
+// 初始化时注册处理器
+setupAuthHandlers();
+
+export { useAuthStore };

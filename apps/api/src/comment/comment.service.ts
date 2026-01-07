@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { CreateCommentDto, UpdateCommentDto } from './dto/comment.dto';
 import { ContentModerationService } from '../common/services/content-moderation.service';
@@ -96,10 +101,11 @@ export class CommentService {
     const commentSettings = await this.siteConfigService.getCommentSettings();
 
     // 内容审核（传入自定义违禁词）
-    const moderationResult = await this.contentModerationService.moderateContent(
-      createCommentDto.content,
-      commentSettings.bannedWords
-    );
+    const moderationResult =
+      await this.contentModerationService.moderateContent(
+        createCommentDto.content,
+        commentSettings.bannedWords,
+      );
 
     // 确保 authorId 是 string 类型
     const authorId: string = createCommentDto.authorId;
@@ -107,7 +113,9 @@ export class CommentService {
     // 决定是否自动通过：
     // - 如果开启自动审核且内容通过检测，则自动通过
     // - 如果关闭自动审核，则需要手动审核（isApproved = false）
-    const isApproved = commentSettings.autoModeration ? moderationResult.isApproved : false;
+    const isApproved = commentSettings.autoModeration
+      ? moderationResult.isApproved
+      : false;
 
     const comment = await this.prisma.comment.create({
       data: {
@@ -174,12 +182,14 @@ export class CommentService {
     if (ipAddress && authorId) {
       const ipLocation = parseIPLocation(ipAddress);
       if (ipLocation?.formatted) {
-        this.prisma.user.update({
-          where: { id: authorId },
-          data: { location: ipLocation.formatted },
-        }).catch(err => {
-          console.error('Failed to update user location:', err);
-        });
+        this.prisma.user
+          .update({
+            where: { id: authorId },
+            data: { location: ipLocation.formatted },
+          })
+          .catch((err) => {
+            console.error('Failed to update user location:', err);
+          });
       }
     }
 
@@ -349,9 +359,13 @@ export class CommentService {
     ]);
 
     // 转换数据格式，将isApproved转换为status字段
-    const formattedComments = comments.map(comment => ({
+    const formattedComments = comments.map((comment) => ({
       ...comment,
-      status: comment.deletedAt ? 'DELETED' : comment.isApproved ? 'APPROVED' : 'PENDING',
+      status: comment.deletedAt
+        ? 'DELETED'
+        : comment.isApproved
+          ? 'APPROVED'
+          : 'PENDING',
       // 添加IP地址字段（如果存在）
       ipAddress: comment.ipAddress || null,
       // 新增字段
@@ -369,11 +383,17 @@ export class CommentService {
     };
   }
 
-  async findByPostId(postId: string, page = 1, limit = 10, userId?: string, sortBy: 'newest' | 'oldest' | 'popular' = 'newest') {
+  async findByPostId(
+    postId: string,
+    page = 1,
+    limit = 10,
+    userId?: string,
+    sortBy: 'newest' | 'oldest' | 'popular' = 'newest',
+  ) {
     const skip = (page - 1) * limit;
 
     // 根据排序方式设置排序规则
-    let orderBy: any[] = [];
+    const orderBy: any[] = [];
     // 置顶评论始终在最前面
     orderBy.push({ isPinned: 'desc' });
 
@@ -461,9 +481,9 @@ export class CommentService {
 
     // 收集所有评论ID（包括顶级和回复）用于检查点赞状态
     const allCommentIds: string[] = [];
-    comments.forEach(c => {
+    comments.forEach((c) => {
       allCommentIds.push(c.id);
-      c.replies.forEach(r => allCommentIds.push(r.id));
+      c.replies.forEach((r) => allCommentIds.push(r.id));
     });
 
     // 检查用户是否已点赞
@@ -476,11 +496,11 @@ export class CommentService {
         },
         select: { commentId: true },
       });
-      userLikedCommentIds = new Set(userLikes.map(l => l.commentId));
+      userLikedCommentIds = new Set(userLikes.map((l) => l.commentId));
     }
 
     // 处理评论数据
-    const commentsWithLikeStatus = comments.map(comment => {
+    const commentsWithLikeStatus = comments.map((comment) => {
       const ipLocation = parseIPLocation(comment.ipAddress);
       const deviceInfo = parseUserAgent(comment.userAgent);
 
@@ -657,10 +677,7 @@ export class CommentService {
     // 删除评论及其所有回复
     await this.prisma.comment.deleteMany({
       where: {
-        OR: [
-          { id },
-          { parentId: id },
-        ],
+        OR: [{ id }, { parentId: id }],
       },
     });
 
@@ -854,7 +871,7 @@ export class CommentService {
     if (!userId) {
       return {
         liked: false,
-        likesCount
+        likesCount,
       };
     }
 
@@ -976,10 +993,7 @@ export class CommentService {
     // 删除评论及其所有回复
     await this.prisma.comment.deleteMany({
       where: {
-        OR: [
-          { id },
-          { parentId: id },
-        ],
+        OR: [{ id }, { parentId: id }],
       },
     });
 
@@ -1021,6 +1035,37 @@ export class CommentService {
     };
   }
 
+  // ===== 新增功能：用户删除评论 =====
+
+  /**
+   * 用户删除自己的评论（软删除）
+   */
+  async userDelete(id: string, userId: string) {
+    const comment = await this.prisma.comment.findUnique({
+      where: { id },
+    });
+
+    if (!comment) {
+      throw new NotFoundException('评论不存在');
+    }
+
+    if (comment.authorId !== userId) {
+      throw new ForbiddenException('您只能删除自己的评论');
+    }
+
+    if (comment.deletedAt) {
+      throw new BadRequestException('评论已被删除');
+    }
+
+    // 软删除评论
+    await this.prisma.comment.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+
+    return { message: '评论已删除' };
+  }
+
   // ===== 新增功能：用户编辑评论 =====
 
   /**
@@ -1049,20 +1094,25 @@ export class CommentService {
     const diffMinutes = (now.getTime() - createdAt.getTime()) / (1000 * 60);
 
     if (diffMinutes > EDIT_TIME_LIMIT_MINUTES) {
-      throw new BadRequestException(`评论发布超过 ${EDIT_TIME_LIMIT_MINUTES} 分钟后不能编辑`);
+      throw new BadRequestException(
+        `评论发布超过 ${EDIT_TIME_LIMIT_MINUTES} 分钟后不能编辑`,
+      );
     }
 
     // 获取评论审核设置
     const commentSettings = await this.siteConfigService.getCommentSettings();
 
     // 内容审核（传入自定义违禁词）
-    const moderationResult = await this.contentModerationService.moderateContent(
-      content,
-      commentSettings.bannedWords
-    );
+    const moderationResult =
+      await this.contentModerationService.moderateContent(
+        content,
+        commentSettings.bannedWords,
+      );
 
     // 决定是否自动通过
-    const isApproved = commentSettings.autoModeration ? moderationResult.isApproved : false;
+    const isApproved = commentSettings.autoModeration
+      ? moderationResult.isApproved
+      : false;
 
     const updatedComment = await this.prisma.comment.update({
       where: { id },
@@ -1255,8 +1305,12 @@ export class CommentService {
       pendingReports,
     ] = await Promise.all([
       this.prisma.comment.count({ where: { deletedAt: null } }),
-      this.prisma.comment.count({ where: { isApproved: false, deletedAt: null } }),
-      this.prisma.comment.count({ where: { isApproved: true, deletedAt: null } }),
+      this.prisma.comment.count({
+        where: { isApproved: false, deletedAt: null },
+      }),
+      this.prisma.comment.count({
+        where: { isApproved: true, deletedAt: null },
+      }),
       this.prisma.comment.count({ where: { deletedAt: { not: null } } }),
       this.prisma.commentReport.count({ where: { status: 'pending' } }),
     ]);

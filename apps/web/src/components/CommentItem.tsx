@@ -1,30 +1,89 @@
 import React, { useState } from 'react';
 import { Button } from './ui/button';
-import { Reply, MessageCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import {
+  Reply,
+  MessageCircle,
+  ChevronDown,
+  ChevronUp,
+  MapPin,
+  Monitor,
+} from 'lucide-react';
+import {
+  FaWindows,
+  FaApple,
+  FaLinux,
+  FaAndroid,
+  FaChrome,
+  FaUbuntu,
+} from 'react-icons/fa';
+import { Tooltip } from 'antd';
 import type { Comment } from '../types/comment';
 import CommentForm from './CommentForm';
 import CommentActions, { MoreActions } from './CommentActions';
 import UserAvatar from './UserAvatar';
+import ConfirmDialog from './ConfirmDialog';
 import { MarkdownRenderer } from '@whispers/ui';
 import { useAuthStore } from '../stores/useAuthStore';
 import { commentApi } from '../services/commentApi';
 import { useToast } from '../contexts/ToastContext';
 
+// 操作系统信息类型
+interface DeviceInfo {
+  icon: React.ReactNode;
+  full: string;
+}
+
+// 解析设备信息并返回图标和完整信息
+const parseDeviceInfo = (deviceInfo: string): DeviceInfo => {
+  if (!deviceInfo) return { icon: null, full: '' };
+
+  const iconClass = 'h-3 w-3';
+
+  // 操作系统映射到图标
+  if (deviceInfo.includes('Windows')) {
+    return { icon: <FaWindows className={iconClass} />, full: deviceInfo };
+  }
+  if (deviceInfo.includes('Mac OS') || deviceInfo.includes('macOS')) {
+    return { icon: <FaApple className={iconClass} />, full: deviceInfo };
+  }
+  if (deviceInfo.includes('iOS')) {
+    return { icon: <FaApple className={iconClass} />, full: deviceInfo };
+  }
+  if (deviceInfo.includes('Android')) {
+    return { icon: <FaAndroid className={iconClass} />, full: deviceInfo };
+  }
+  if (deviceInfo.includes('Ubuntu')) {
+    return { icon: <FaUbuntu className={iconClass} />, full: deviceInfo };
+  }
+  if (deviceInfo.includes('Linux')) {
+    return { icon: <FaLinux className={iconClass} />, full: deviceInfo };
+  }
+  if (deviceInfo.includes('Chrome OS')) {
+    return { icon: <FaChrome className={iconClass} />, full: deviceInfo };
+  }
+
+  // 默认图标
+  return { icon: <Monitor className={iconClass} />, full: deviceInfo };
+};
+
 interface CommentItemProps {
   comment: Comment;
   onReplyAdded: () => void;
+  onCommentDeleted?: () => void;
   isReply?: boolean;
 }
 
 const CommentItem: React.FC<CommentItemProps> = ({
   comment,
   onReplyAdded,
+  onCommentDeleted,
   isReply = false,
 }) => {
   const [showReplyForm, setShowReplyForm] = useState(false);
   const [showReplies, setShowReplies] = useState(true);
   const [isLiked, setIsLiked] = useState(comment.isLiked || false);
   const [likesCount, setLikesCount] = useState(comment.likes || 0);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isLiking, setIsLiking] = useState(false);
   const { user, isAuthenticated } = useAuthStore();
   const { addToast } = useToast();
@@ -84,6 +143,26 @@ const CommentItem: React.FC<CommentItemProps> = ({
     }
   };
 
+  // 处理删除评论
+  const handleDelete = async () => {
+    try {
+      await commentApi.deleteComment(comment.id);
+      addToast({
+        title: '删除成功',
+        description: '评论已删除',
+        variant: 'success',
+      });
+      onCommentDeleted?.();
+    } catch (error) {
+      console.error('Failed to delete comment:', error);
+      addToast({
+        title: '删除失败',
+        description: '删除评论失败，请稍后重试',
+        variant: 'destructive',
+      });
+    }
+  };
+
   // 检查是否为评论作者
   const isAuthor = user && comment.author && user.id === comment.author.id;
   const canEdit = Boolean(isAuthor);
@@ -97,6 +176,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
     const [replyLikesCount, setReplyLikesCount] = useState(reply.likes || 0);
     const [replyLiking, setReplyLiking] = useState(false);
     const [showReplyToForm, setShowReplyToForm] = useState(false);
+    const [showReplyDeleteConfirm, setShowReplyDeleteConfirm] = useState(false);
     const isReplyAuthor = user && reply.author && user.id === reply.author.id;
 
     const handleReplyLike = async () => {
@@ -125,6 +205,25 @@ const CommentItem: React.FC<CommentItemProps> = ({
         });
       } finally {
         setReplyLiking(false);
+      }
+    };
+
+    const handleReplyDelete = async () => {
+      try {
+        await commentApi.deleteComment(reply.id);
+        addToast({
+          title: '删除成功',
+          description: '回复已删除',
+          variant: 'success',
+        });
+        onReplyAdded(); // 刷新评论列表
+      } catch (error) {
+        console.error('Failed to delete reply:', error);
+        addToast({
+          title: '删除失败',
+          description: '删除回复失败，请稍后重试',
+          variant: 'destructive',
+        });
       }
     };
 
@@ -163,14 +262,6 @@ const CommentItem: React.FC<CommentItemProps> = ({
               <span className="text-xs text-muted-foreground">
                 {formatDate(reply.createdAt)}
               </span>
-              <span className="text-xs text-muted-foreground">
-                · {reply.location || '未知'}
-              </span>
-              {reply.deviceInfo && (
-                <span className="text-xs text-muted-foreground">
-                  · {reply.deviceInfo}
-                </span>
-              )}
             </div>
 
             <div className="comment-body">
@@ -198,11 +289,27 @@ const CommentItem: React.FC<CommentItemProps> = ({
                 回复
               </Button>
 
+              {/* IP 属地 */}
+              <span className="flex items-center gap-1 text-xs text-muted-foreground px-2">
+                <MapPin className="h-3 w-3" />
+                {reply.location || '未知'}
+              </span>
+
+              {/* 系统信息图标 */}
+              {reply.deviceInfo && (
+                <Tooltip title={parseDeviceInfo(reply.deviceInfo).full}>
+                  <span className="text-muted-foreground cursor-default">
+                    {parseDeviceInfo(reply.deviceInfo).icon}
+                  </span>
+                </Tooltip>
+              )}
+
               {/* 更多操作放最后 */}
               <MoreActions
                 commentId={reply.id}
                 canEdit={Boolean(isReplyAuthor)}
                 canDelete={Boolean(isReplyAuthor)}
+                onDelete={() => setShowReplyDeleteConfirm(true)}
               />
             </div>
 
@@ -222,6 +329,18 @@ const CommentItem: React.FC<CommentItemProps> = ({
                 />
               </div>
             )}
+
+            {/* 删除回复确认弹窗 */}
+            <ConfirmDialog
+              isOpen={showReplyDeleteConfirm}
+              onClose={() => setShowReplyDeleteConfirm(false)}
+              onConfirm={handleReplyDelete}
+              title="删除回复"
+              description="确定要删除这条回复吗？此操作不可恢复。"
+              confirmText="删除"
+              cancelText="取消"
+              variant="danger"
+            />
           </div>
         </div>
       </div>
@@ -264,14 +383,6 @@ const CommentItem: React.FC<CommentItemProps> = ({
               <span className="text-xs text-muted-foreground">
                 {formatDate(comment.createdAt)}
               </span>
-              <span className="text-xs text-muted-foreground">
-                · {comment.location || '未知'}
-              </span>
-              {comment.deviceInfo && (
-                <span className="text-xs text-muted-foreground">
-                  · {comment.deviceInfo}
-                </span>
-              )}
             </div>
 
             {/* 评论内容 - 支持Markdown */}
@@ -321,11 +432,27 @@ const CommentItem: React.FC<CommentItemProps> = ({
                 </Button>
               )}
 
+              {/* IP 属地 */}
+              <span className="flex items-center gap-1 text-xs text-muted-foreground px-2">
+                <MapPin className="h-3 w-3" />
+                {comment.location || '未知'}
+              </span>
+
+              {/* 系统信息图标 */}
+              {comment.deviceInfo && (
+                <Tooltip title={parseDeviceInfo(comment.deviceInfo).full}>
+                  <span className="text-muted-foreground cursor-default">
+                    {parseDeviceInfo(comment.deviceInfo).icon}
+                  </span>
+                </Tooltip>
+              )}
+
               {/* 更多操作放最后 */}
               <MoreActions
                 commentId={comment.id}
                 canEdit={canEdit}
                 canDelete={canDelete}
+                onDelete={() => setShowDeleteConfirm(true)}
               />
             </div>
           </div>
@@ -353,7 +480,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
 
       {/* 回复列表 - 抖音风格扁平化 */}
       {hasReplies && showReplies && !isReply && (
-        <div className="replies-container ml-12 border-l-2 border-border/50 pl-4">
+        <div className="replies-container ml-12 pl-4">
           {comment.replies!.map(reply => (
             <ReplyItem key={reply.id} reply={reply} />
           ))}
@@ -446,6 +573,18 @@ const CommentItem: React.FC<CommentItemProps> = ({
           }
         }
       `}</style>
+
+      {/* 删除评论确认弹窗 */}
+      <ConfirmDialog
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDelete}
+        title="删除评论"
+        description="确定要删除这条评论吗？此操作不可恢复。"
+        confirmText="删除"
+        cancelText="取消"
+        variant="danger"
+      />
     </div>
   );
 };

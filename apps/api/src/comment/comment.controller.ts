@@ -8,7 +8,7 @@ import {
   Query,
   Patch,
   UseGuards,
-  Req
+  Req,
 } from '@nestjs/common';
 import { CommentService } from './comment.service';
 import {
@@ -22,6 +22,7 @@ import {
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { ApiResponseDto } from '../common/dto/api-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/roles.guard';
 
 @Controller('comments')
@@ -31,24 +32,28 @@ export class CommentController {
   // 管理接口 - 获取所有评论
   @Get()
   @UseGuards(JwtAuthGuard, AdminGuard)
-  async findAll(@Query() query: PaginationDto & { status?: string; postId?: string }) {
+  async findAll(
+    @Query() query: PaginationDto & { status?: string; postId?: string },
+  ) {
     const { page = 1, limit = 10, search, status, postId } = query;
     const comments = await this.commentService.findAll(
       Number(page),
       Number(limit),
       search,
       status,
-      postId
+      postId,
     );
     return ApiResponseDto.success(comments, '获取评论列表成功');
   }
 
-  // 公开接口 - 获取文章评论
+  // 公开接口 - 获取文章评论（可选认证）
   @Get('post/:postId')
+  @UseGuards(OptionalJwtAuthGuard)
   async getPostComments(
     @Param('postId') postId: string,
-    @Query() query: PaginationDto & { sortBy?: 'newest' | 'oldest' | 'popular' },
-    @Req() req: any
+    @Query()
+    query: PaginationDto & { sortBy?: 'newest' | 'oldest' | 'popular' },
+    @Req() req: any,
   ) {
     const { page = 1, limit = 10, sortBy = 'newest' } = query;
     const userId = req.user?.sub || null;
@@ -66,12 +71,13 @@ export class CommentController {
   @Post()
   @UseGuards(JwtAuthGuard)
   async create(@Body() createCommentDto: CreateCommentDto, @Req() req: any) {
-    const ipAddress = req.ip ||
-                     req.connection?.remoteAddress ||
-                     req.socket?.remoteAddress ||
-                     req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
-                     req.headers['x-real-ip'] ||
-                     'unknown';
+    const ipAddress =
+      req.ip ||
+      req.connection?.remoteAddress ||
+      req.socket?.remoteAddress ||
+      req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+      req.headers['x-real-ip'] ||
+      'unknown';
 
     const userAgent = req.headers['user-agent'] || 'unknown';
 
@@ -82,7 +88,7 @@ export class CommentController {
       ...createCommentDto,
       authorId,
       ipAddress,
-      userAgent
+      userAgent,
     };
 
     const comment = await this.commentService.create(commentData);
@@ -115,7 +121,10 @@ export class CommentController {
   // 管理接口 - 更新评论
   @Patch(':id')
   @UseGuards(JwtAuthGuard, AdminGuard)
-  async update(@Param('id') id: string, @Body() updateCommentDto: UpdateCommentDto) {
+  async update(
+    @Param('id') id: string,
+    @Body() updateCommentDto: UpdateCommentDto,
+  ) {
     const comment = await this.commentService.update(id, updateCommentDto);
     return ApiResponseDto.success(comment, '评论更新成功');
   }
@@ -132,11 +141,18 @@ export class CommentController {
   @Post(':id/like')
   @UseGuards(JwtAuthGuard)
   async toggleLike(@Param('id') commentId: string, @Req() req: any) {
-    const result = await this.commentService.toggleLike(commentId, req.user.sub);
-    return ApiResponseDto.success(result, result.liked ? '点赞成功' : '取消点赞成功');
+    const result = await this.commentService.toggleLike(
+      commentId,
+      req.user.sub,
+    );
+    return ApiResponseDto.success(
+      result,
+      result.liked ? '点赞成功' : '取消点赞成功',
+    );
   }
 
   @Get(':id/like-status')
+  @UseGuards(OptionalJwtAuthGuard)
   async getLikeStatus(@Param('id') commentId: string, @Req() req: any) {
     const userId = req.user?.sub || null;
     const result = await this.commentService.getLikeStatus(commentId, userId);
@@ -190,8 +206,22 @@ export class CommentController {
   @UseGuards(JwtAuthGuard, AdminGuard)
   async getTrash(@Query() query: PaginationDto) {
     const { page = 1, limit = 10 } = query;
-    const result = await this.commentService.getTrash(Number(page), Number(limit));
+    const result = await this.commentService.getTrash(
+      Number(page),
+      Number(limit),
+    );
     return ApiResponseDto.success(result, '获取回收站评论成功');
+  }
+
+  // ===== 新增功能：用户删除评论 =====
+
+  // 用户删除自己的评论
+  @Delete(':id/user')
+  @UseGuards(JwtAuthGuard)
+  async userDelete(@Param('id') id: string, @Req() req: any) {
+    const userId = req.user.sub;
+    const result = await this.commentService.userDelete(id, userId);
+    return ApiResponseDto.success(result, '评论删除成功');
   }
 
   // ===== 新增功能：用户编辑评论 =====

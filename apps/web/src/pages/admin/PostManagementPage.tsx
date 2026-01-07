@@ -1,6 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@whispers/ui'
+import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Button,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@whispers/ui';
 import {
   Plus,
   Search,
@@ -11,142 +19,146 @@ import {
   Filter,
   AlertCircle,
   Loader2,
-  Eye
-} from 'lucide-react'
-import { blogApi, api } from '@whispers/utils'
-import { useToastContext } from '../../contexts/ToastContext'
-import { useAuthStore } from '../../stores/useAuthStore'
+  Eye,
+} from 'lucide-react';
+import { blogApi, api } from '@whispers/utils';
+import { useToastContext } from '../../contexts/ToastContext';
+import { useAuthStore } from '../../stores/useAuthStore';
+import ConfirmDialog from '../../components/ConfirmDialog';
 
 interface Post {
-  id: string
-  title: string
-  slug: string
-  excerpt?: string
-  coverImage?: string
-  published: boolean
-  publishedAt?: string
-  views: number
-  createdAt: string
-  updatedAt: string
+  id: string;
+  title: string;
+  slug: string;
+  excerpt?: string;
+  coverImage?: string;
+  published: boolean;
+  publishedAt?: string;
+  views: number;
+  createdAt: string;
+  updatedAt: string;
   author: {
-    id: string
-    username: string
-  }
+    id: string;
+    username: string;
+  };
   postTags?: Array<{
     tag: {
-      id: string
-      name: string
-      slug: string
-    }
-  }>
+      id: string;
+      name: string;
+      slug: string;
+    };
+  }>;
 }
 
 const PostManagementPage: React.FC = () => {
-  const navigate = useNavigate()
-  const { success, error: showError } = useToastContext()
-  const { accessToken } = useAuthStore()
-  const [posts, setPosts] = useState<Post[]>([])
-  const [loading, setLoading] = useState(true)
-  const [errorState, setErrorState] = useState<string | null>(null)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'all' | 'draft' | 'published'>('all')
+  const navigate = useNavigate();
+  const { success, error: showError } = useToastContext();
+  const { accessToken } = useAuthStore();
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [errorState, setErrorState] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<
+    'all' | 'draft' | 'published'
+  >('all');
+  const [deletePostId, setDeletePostId] = useState<string | null>(null);
 
   const fetchPosts = useCallback(async () => {
     try {
-      setLoading(true)
-      setErrorState(null)
+      setLoading(true);
+      setErrorState(null);
 
       if (accessToken) {
-        blogApi.setToken(accessToken)
+        blogApi.setToken(accessToken);
       }
 
       const params: any = {
         page: 1,
         limit: 100,
-      }
+      };
 
       if (searchTerm.trim()) {
-        params.search = searchTerm.trim()
+        params.search = searchTerm.trim();
       }
 
       if (statusFilter !== 'all') {
-        params.published = statusFilter === 'published'
+        params.published = statusFilter === 'published';
       }
 
-      const response = await blogApi.getPosts(params)
+      const response = await blogApi.getPosts(params);
 
       if (response.success && response.data?.items) {
         // 将 API 返回的数据转换为本地 Post 类型
         const items = response.data.items.map((item: any) => ({
           ...item,
-          published: !!item.publishedAt || item.status === 'PUBLISHED'
-        }))
-        setPosts(items)
+          published: !!item.publishedAt || item.status === 'PUBLISHED',
+        }));
+        setPosts(items);
       } else {
-        throw new Error('获取文章列表失败')
+        throw new Error('获取文章列表失败');
       }
     } catch (err) {
-      console.error('Failed to fetch posts:', err)
-      setErrorState(err instanceof Error ? err.message : '获取文章列表失败')
-      setPosts([])
+      console.error('Failed to fetch posts:', err);
+      setErrorState(err instanceof Error ? err.message : '获取文章列表失败');
+      setPosts([]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [searchTerm, statusFilter, accessToken])
+  }, [searchTerm, statusFilter, accessToken]);
 
   useEffect(() => {
-    fetchPosts()
-  }, [fetchPosts])
+    fetchPosts();
+  }, [fetchPosts]);
 
   // 搜索防抖
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      fetchPosts()
-    }, 500)
-    return () => clearTimeout(timeoutId)
-  }, [searchTerm])
+      fetchPosts();
+    }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
 
   const handleDelete = async (postId: string) => {
-    if (!confirm('确定要删除这篇文章吗？此操作不可恢复。')) {
-      return
-    }
-
     try {
-      await api.delete(`/blog/post/${postId}`)
-      setPosts(prev => prev.filter(post => post.id !== postId))
-      success('文章删除成功！')
+      await api.delete(`/blog/post/${postId}`);
+      setPosts(prev => prev.filter(post => post.id !== postId));
+      success('文章删除成功！');
     } catch (err) {
-      console.error('Failed to delete post:', err)
-      showError('删除文章失败')
+      console.error('Failed to delete post:', err);
+      showError('删除文章失败');
     }
-  }
+  };
 
   const handleTogglePublish = async (post: Post) => {
     try {
       const response = await api.patch(`/blog/post/${post.id}`, {
-        published: !post.published
-      })
+        published: !post.published,
+      });
 
       if (response.data) {
-        setPosts(prev => prev.map(p =>
-          p.id === post.id ? { ...p, published: !post.published } : p
-        ))
-        success(post.published ? '文章已设为草稿' : '文章已发布！')
+        setPosts(prev =>
+          prev.map(p =>
+            p.id === post.id ? { ...p, published: !post.published } : p
+          )
+        );
+        success(post.published ? '文章已设为草稿' : '文章已发布！');
       }
     } catch (err) {
-      console.error('Failed to toggle publish:', err)
-      showError('操作失败')
+      console.error('Failed to toggle publish:', err);
+      showError('操作失败');
     }
-  }
+  };
 
   const filteredPosts = posts.filter(post => {
-    const matchesSearch = post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (post.excerpt || '').toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === 'all' ||
+    const matchesSearch =
+      post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (post.excerpt || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus =
+      statusFilter === 'all' ||
       (statusFilter === 'draft' && !post.published) ||
-      (statusFilter === 'published' && post.published)
-    return matchesSearch && matchesStatus
-  })
+      (statusFilter === 'published' && post.published);
+    return matchesSearch && matchesStatus;
+  });
 
   if (loading) {
     return (
@@ -156,7 +168,7 @@ const PostManagementPage: React.FC = () => {
           <div className="text-lg text-muted-foreground">加载中...</div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -179,7 +191,12 @@ const PostManagementPage: React.FC = () => {
           <div className="flex items-center text-destructive">
             <AlertCircle className="h-5 w-5 mr-2" />
             <span>{errorState}</span>
-            <Button onClick={fetchPosts} variant="outline" size="sm" className="ml-4">
+            <Button
+              onClick={fetchPosts}
+              variant="outline"
+              size="sm"
+              className="ml-4"
+            >
               <Loader2 className="h-4 w-4 mr-1" />
               重试
             </Button>
@@ -195,14 +212,16 @@ const PostManagementPage: React.FC = () => {
             <Input
               placeholder="搜索文章标题..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={e => setSearchTerm(e.target.value)}
               className="pl-10"
             />
           </div>
 
           <Select
             value={statusFilter}
-            onValueChange={(value) => setStatusFilter(value as 'all' | 'draft' | 'published')}
+            onValueChange={value =>
+              setStatusFilter(value as 'all' | 'draft' | 'published')
+            }
           >
             <SelectTrigger>
               <SelectValue placeholder="选择状态" />
@@ -217,8 +236,8 @@ const PostManagementPage: React.FC = () => {
           <Button
             variant="outline"
             onClick={() => {
-              setSearchTerm('')
-              setStatusFilter('all')
+              setSearchTerm('');
+              setStatusFilter('all');
             }}
           >
             <Filter className="h-4 w-4 mr-2" />
@@ -253,7 +272,7 @@ const PostManagementPage: React.FC = () => {
             </tr>
           </thead>
           <tbody className="bg-card divide-y divide-border">
-            {filteredPosts.map((post) => (
+            {filteredPosts.map(post => (
               <tr key={post.id} className="hover:bg-muted/50">
                 <td className="px-6 py-4">
                   <div className="flex items-center">
@@ -278,7 +297,7 @@ const PostManagementPage: React.FC = () => {
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex flex-wrap gap-1">
-                    {post.postTags?.slice(0, 3).map((pt) => (
+                    {post.postTags?.slice(0, 3).map(pt => (
                       <span
                         key={pt.tag.id}
                         className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-secondary text-secondary-foreground"
@@ -321,7 +340,7 @@ const PostManagementPage: React.FC = () => {
                       hour: '2-digit',
                       minute: '2-digit',
                       second: '2-digit',
-                      hour12: false
+                      hour12: false,
                     })}
                   </div>
                 </td>
@@ -337,7 +356,7 @@ const PostManagementPage: React.FC = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handleDelete(post.id)}
+                      onClick={() => setDeletePostId(post.id)}
                       className="text-destructive hover:text-destructive hover:bg-destructive/10"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -354,7 +373,9 @@ const PostManagementPage: React.FC = () => {
           <div className="py-12 text-center">
             <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="text-lg font-medium text-foreground mb-2">
-              {searchTerm || statusFilter !== 'all' ? '没有找到匹配的文章' : '还没有文章'}
+              {searchTerm || statusFilter !== 'all'
+                ? '没有找到匹配的文章'
+                : '还没有文章'}
             </h3>
             <p className="text-muted-foreground mb-4">
               {searchTerm || statusFilter !== 'all'
@@ -370,8 +391,25 @@ const PostManagementPage: React.FC = () => {
           </div>
         )}
       </div>
-    </div>
-  )
-}
 
-export default PostManagementPage
+      {/* 删除文章确认弹窗 */}
+      <ConfirmDialog
+        isOpen={!!deletePostId}
+        onClose={() => setDeletePostId(null)}
+        onConfirm={() => {
+          if (deletePostId) {
+            handleDelete(deletePostId);
+            setDeletePostId(null);
+          }
+        }}
+        title="删除文章"
+        description="确定要删除这篇文章吗？此操作不可恢复。"
+        confirmText="删除"
+        cancelText="取消"
+        variant="danger"
+      />
+    </div>
+  );
+};
+
+export default PostManagementPage;

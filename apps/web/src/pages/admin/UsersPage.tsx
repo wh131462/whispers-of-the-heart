@@ -1,95 +1,100 @@
-import React, { useEffect, useState } from 'react'
-import { Users, Search, Shield, ShieldOff, Trash2 } from 'lucide-react'
-import { Button, Input } from '@whispers/ui'
-import { api, getMediaUrl } from '@whispers/utils'
+import React, { useEffect, useState } from 'react';
+import { Users, Search, Shield, ShieldOff, Trash2 } from 'lucide-react';
+import { Button, Input } from '@whispers/ui';
+import { api, getMediaUrl } from '@whispers/utils';
+import { useToastContext } from '../../contexts/ToastContext';
+import ConfirmDialog from '../../components/ConfirmDialog';
 
 interface User {
-  id: string
-  username: string
-  email: string
-  avatar?: string
-  isAdmin: boolean
-  createdAt: string
+  id: string;
+  username: string;
+  email: string;
+  avatar?: string;
+  isAdmin: boolean;
+  createdAt: string;
   _count?: {
-    posts: number
-    comments: number
-  }
+    posts: number;
+    comments: number;
+  };
 }
 
 const UsersPage: React.FC = () => {
-  const [users, setUsers] = useState<User[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
+  const { success, error: showError } = useToastContext();
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchUsers()
-  }, [page])
+    fetchUsers();
+  }, [page]);
 
   const fetchUsers = async () => {
     try {
-      setLoading(true)
-      const params: any = { page, limit: 20 }
+      setLoading(true);
+      const params: any = { page, limit: 20 };
       if (searchTerm.trim()) {
-        params.search = searchTerm.trim()
+        params.search = searchTerm.trim();
       }
-      const response = await api.get('/admin/users', { params })
+      const response = await api.get('/admin/users', { params });
       if (response.data?.success) {
-        setUsers(response.data.data.items || [])
-        setTotalPages(response.data.data.totalPages || 1)
+        setUsers(response.data.data.items || []);
+        setTotalPages(response.data.data.totalPages || 1);
       } else {
-        setError('获取用户列表失败')
+        setError('获取用户列表失败');
       }
     } catch (err) {
-      console.error('Failed to fetch users:', err)
-      setError('获取用户列表失败')
+      console.error('Failed to fetch users:', err);
+      setError('获取用户列表失败');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleSearch = () => {
-    setPage(1)
-    fetchUsers()
-  }
+    setPage(1);
+    fetchUsers();
+  };
 
   const handleToggleAdmin = async (userId: string, isAdmin: boolean) => {
     try {
-      await api.patch(`/admin/users/${userId}`, { isAdmin: !isAdmin })
-      fetchUsers()
+      await api.patch(`/admin/users/${userId}`, { isAdmin: !isAdmin });
+      fetchUsers();
+      success(isAdmin ? '已移除管理员权限' : '已设为管理员');
     } catch (err) {
-      console.error('Failed to update user:', err)
-      alert('更新用户权限失败')
+      console.error('Failed to update user:', err);
+      showError('更新用户权限失败');
     }
-  }
+  };
 
   const handleDeleteUser = async (userId: string) => {
-    if (!confirm('确定要删除此用户吗？此操作不可恢复。')) return
     try {
-      await api.delete(`/admin/users/${userId}`)
-      fetchUsers()
+      await api.delete(`/admin/users/${userId}`);
+      fetchUsers();
+      success('用户删除成功');
     } catch (err) {
-      console.error('Failed to delete user:', err)
-      alert('删除用户失败')
+      console.error('Failed to delete user:', err);
+      showError('删除用户失败');
     }
-  }
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('zh-CN', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
-    })
-  }
+      day: 'numeric',
+    });
+  };
 
   if (loading && users.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
-    )
+    );
   }
 
   return (
@@ -110,8 +115,8 @@ const UsersPage: React.FC = () => {
             <Input
               placeholder="搜索用户名或邮箱..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              onChange={e => setSearchTerm(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSearch()}
               className="pl-10"
             />
           </div>
@@ -150,35 +155,48 @@ const UsersPage: React.FC = () => {
           <tbody className="divide-y divide-border">
             {users.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-muted-foreground">
+                <td
+                  colSpan={5}
+                  className="px-6 py-12 text-center text-muted-foreground"
+                >
                   <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>暂无用户数据</p>
                 </td>
               </tr>
             ) : (
-              users.map((user) => (
+              users.map(user => (
                 <tr key={user.id} className="hover:bg-muted/30">
                   <td className="px-6 py-4">
                     <div className="flex items-center">
                       <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center overflow-hidden">
                         {user.avatar ? (
-                          <img src={getMediaUrl(user.avatar)} alt={user.username} className="h-full w-full object-cover" />
+                          <img
+                            src={getMediaUrl(user.avatar)}
+                            alt={user.username}
+                            className="h-full w-full object-cover"
+                          />
                         ) : (
                           <Users className="h-5 w-5 text-muted-foreground" />
                         )}
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-foreground">{user.username}</div>
-                        <div className="text-sm text-muted-foreground">{user.email}</div>
+                        <div className="text-sm font-medium text-foreground">
+                          {user.username}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {user.email}
+                        </div>
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      user.isAdmin
-                        ? 'bg-primary/10 text-primary'
-                        : 'bg-muted text-muted-foreground'
-                    }`}>
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        user.isAdmin
+                          ? 'bg-primary/10 text-primary'
+                          : 'bg-muted text-muted-foreground'
+                      }`}
+                    >
                       {user.isAdmin ? '管理员' : '普通用户'}
                     </span>
                   </td>
@@ -206,7 +224,7 @@ const UsersPage: React.FC = () => {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDeleteUser(user.id)}
+                        onClick={() => setDeleteUserId(user.id)}
                         title="删除用户"
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
@@ -244,8 +262,25 @@ const UsersPage: React.FC = () => {
           </Button>
         </div>
       )}
-    </div>
-  )
-}
 
-export default UsersPage
+      {/* 删除用户确认弹窗 */}
+      <ConfirmDialog
+        isOpen={!!deleteUserId}
+        onClose={() => setDeleteUserId(null)}
+        onConfirm={() => {
+          if (deleteUserId) {
+            handleDeleteUser(deleteUserId);
+            setDeleteUserId(null);
+          }
+        }}
+        title="删除用户"
+        description="确定要删除此用户吗？此操作不可恢复。"
+        confirmText="删除"
+        cancelText="取消"
+        variant="danger"
+      />
+    </div>
+  );
+};
+
+export default UsersPage;

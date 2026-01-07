@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import { Button, Input } from '@whispers/ui'
+import React, { useState, useEffect, useCallback } from 'react';
+import { Button, Input } from '@whispers/ui';
 import {
   Search,
   Check,
@@ -20,316 +20,346 @@ import {
   XCircle,
   Bell,
   Wifi,
-  WifiOff
-} from 'lucide-react'
-import { api, getMediaUrl } from '@whispers/utils'
-import { DEFAULT_AVATAR } from '../../constants/images'
-import { useToastContext } from '../../contexts/ToastContext'
-import { useNotificationSocket } from '../../hooks/useNotificationSocket'
+  WifiOff,
+} from 'lucide-react';
+import { api, getMediaUrl } from '@whispers/utils';
+import { DEFAULT_AVATAR } from '../../constants/images';
+import { useToastContext } from '../../contexts/ToastContext';
+import ConfirmDialog from '../../components/ConfirmDialog';
+import { useNotificationSocket } from '../../hooks/useNotificationSocket';
 
 interface Comment {
-  id: string
-  content: string
-  isApproved: boolean
-  ipAddress?: string
-  createdAt: string
-  deletedAt?: string
-  isPinned?: boolean
-  isEdited?: boolean
-  status?: 'APPROVED' | 'PENDING' | 'DELETED'
+  id: string;
+  content: string;
+  isApproved: boolean;
+  ipAddress?: string;
+  createdAt: string;
+  deletedAt?: string;
+  isPinned?: boolean;
+  isEdited?: boolean;
+  status?: 'APPROVED' | 'PENDING' | 'DELETED';
   author: {
-    id: string
-    username: string
-    avatar?: string
-  }
+    id: string;
+    username: string;
+    avatar?: string;
+  };
   post: {
-    id: string
-    title: string
-    slug: string
-  }
+    id: string;
+    title: string;
+    slug: string;
+  };
   parent?: {
-    id: string
-    content: string
-  }
+    id: string;
+    content: string;
+  };
 }
 
 interface CommentReport {
-  id: string
-  reason: string
-  details?: string
-  status: string
-  createdAt: string
+  id: string;
+  reason: string;
+  details?: string;
+  status: string;
+  createdAt: string;
   comment: {
-    id: string
-    content: string
+    id: string;
+    content: string;
     author: {
-      id: string
-      username: string
-      avatar?: string
-    }
+      id: string;
+      username: string;
+      avatar?: string;
+    };
     post: {
-      id: string
-      title: string
-      slug: string
-    }
-  }
+      id: string;
+      title: string;
+      slug: string;
+    };
+  };
   reporter: {
-    id: string
-    username: string
-    avatar?: string
-  }
+    id: string;
+    username: string;
+    avatar?: string;
+  };
 }
 
 interface CommentStats {
-  totalComments: number
-  pendingComments: number
-  approvedComments: number
-  deletedComments: number
-  pendingReports: number
+  totalComments: number;
+  pendingComments: number;
+  approvedComments: number;
+  deletedComments: number;
+  pendingReports: number;
 }
 
-type TabType = 'all' | 'pending' | 'approved' | 'trash' | 'reports'
+type TabType = 'all' | 'pending' | 'approved' | 'trash' | 'reports';
 
 const CommentManagementPage: React.FC = () => {
-  const { success, error: showError } = useToastContext()
+  const { success, error: showError } = useToastContext();
 
   // State
-  const [comments, setComments] = useState<Comment[]>([])
-  const [reports, setReports] = useState<CommentReport[]>([])
-  const [stats, setStats] = useState<CommentStats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [activeTab, setActiveTab] = useState<TabType>('all')
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
-  const [reportStatus, setReportStatus] = useState<'pending' | 'resolved' | 'dismissed'>('pending')
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [reports, setReports] = useState<CommentReport[]>([]);
+  const [stats, setStats] = useState<CommentStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState<TabType>('all');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [reportStatus, setReportStatus] = useState<
+    'pending' | 'resolved' | 'dismissed'
+  >('pending');
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    type: 'soft' | 'permanent';
+  } | null>(null);
 
   // WebSocket 实时通知
-  const handleNewComment = useCallback((comment: Comment) => {
-    // 如果在"全部"或"待审核"标签页，将新评论添加到列表顶部
-    if (activeTab === 'all' || (activeTab === 'pending' && !comment.isApproved)) {
-      setComments(prev => {
-        // 避免重复添加
-        if (prev.some(c => c.id === comment.id)) return prev
-        return [comment, ...prev]
-      })
-    }
-  }, [activeTab])
+  const handleNewComment = useCallback(
+    (comment: Comment) => {
+      // 如果在"全部"或"待审核"标签页，将新评论添加到列表顶部
+      if (
+        activeTab === 'all' ||
+        (activeTab === 'pending' && !comment.isApproved)
+      ) {
+        setComments(prev => {
+          // 避免重复添加
+          if (prev.some(c => c.id === comment.id)) return prev;
+          return [comment, ...prev];
+        });
+      }
+    },
+    [activeTab]
+  );
 
   const handleStatsUpdate = useCallback((newStats: CommentStats) => {
-    setStats(newStats)
-  }, [])
+    setStats(newStats);
+  }, []);
 
-  const { isConnected, newCommentsCount, clearNewComments } = useNotificationSocket({
-    onNewComment: handleNewComment,
-    onStatsUpdate: handleStatsUpdate,
-    enabled: true,
-  })
+  const { isConnected, newCommentsCount, clearNewComments } =
+    useNotificationSocket({
+      onNewComment: handleNewComment,
+      onStatsUpdate: handleStatsUpdate,
+      enabled: true,
+    });
 
   // Fetch stats
   const fetchStats = useCallback(async () => {
     try {
-      const response = await api.get('/admin/comments/stats')
+      const response = await api.get('/admin/comments/stats');
       if (response.data?.success) {
-        setStats(response.data.data)
+        setStats(response.data.data);
       }
     } catch (err) {
-      console.error('Failed to fetch stats:', err)
+      console.error('Failed to fetch stats:', err);
     }
-  }, [])
+  }, []);
 
   // Effect to fetch stats on mount
   useEffect(() => {
-    fetchStats()
-  }, [fetchStats])
+    fetchStats();
+  }, [fetchStats]);
 
   // Effect to fetch data based on active tab - use primitive values only
   useEffect(() => {
-    let isCancelled = false
+    let isCancelled = false;
 
     // 切换 tab 时立即清空列表，避免显示旧数据
-    setComments([])
-    setReports([])
+    setComments([]);
+    setReports([]);
 
     const fetchData = async () => {
-      setLoading(true)
+      setLoading(true);
       try {
         if (activeTab === 'trash') {
           const response = await api.get('/admin/comments/trash', {
-            params: { page, limit: 20 }
-          })
+            params: { page, limit: 20 },
+          });
           if (!isCancelled && response.data?.success) {
-            setComments(response.data.data.items || [])
-            setTotalPages(response.data.data.totalPages || 1)
+            setComments(response.data.data.items || []);
+            setTotalPages(response.data.data.totalPages || 1);
           }
         } else if (activeTab === 'reports') {
           const response = await api.get('/admin/comments/reports', {
-            params: { page, limit: 20, status: reportStatus }
-          })
+            params: { page, limit: 20, status: reportStatus },
+          });
           if (!isCancelled && response.data?.success) {
-            setReports(response.data.data.items || [])
-            setTotalPages(response.data.data.totalPages || 1)
+            setReports(response.data.data.items || []);
+            setTotalPages(response.data.data.totalPages || 1);
           }
         } else {
-          const params: Record<string, unknown> = { page, limit: 20 }
+          const params: Record<string, unknown> = { page, limit: 20 };
           if (activeTab === 'pending') {
-            params.status = 'PENDING'
+            params.status = 'PENDING';
           } else if (activeTab === 'approved') {
-            params.status = 'APPROVED'
+            params.status = 'APPROVED';
           }
           if (searchTerm.trim()) {
-            params.search = searchTerm.trim()
+            params.search = searchTerm.trim();
           }
-          const response = await api.get('/admin/comments', { params })
+          const response = await api.get('/admin/comments', { params });
           if (!isCancelled && response.data?.success) {
-            setComments(response.data.data.items || [])
-            setTotalPages(response.data.data.totalPages || 1)
+            setComments(response.data.data.items || []);
+            setTotalPages(response.data.data.totalPages || 1);
           }
         }
       } catch (err) {
         if (!isCancelled) {
-          console.error('Failed to fetch data:', err)
+          console.error('Failed to fetch data:', err);
         }
       } finally {
         if (!isCancelled) {
-          setLoading(false)
+          setLoading(false);
         }
       }
-    }
+    };
 
-    fetchData()
+    fetchData();
 
     return () => {
-      isCancelled = true
-    }
-  }, [activeTab, page, reportStatus, searchTerm])
+      isCancelled = true;
+    };
+  }, [activeTab, page, reportStatus, searchTerm]);
 
   // Comment actions
   const handleApprove = async (commentId: string) => {
     try {
-      await api.patch(`/admin/comments/${commentId}/approve`)
-      setComments(prev => prev.map(c =>
-        c.id === commentId ? { ...c, isApproved: true, status: 'APPROVED' } : c
-      ))
-      fetchStats()
-      success('评论已通过')
-    } catch (err) {
-      showError('操作失败')
+      await api.patch(`/admin/comments/${commentId}/approve`);
+      setComments(prev =>
+        prev.map(c =>
+          c.id === commentId
+            ? { ...c, isApproved: true, status: 'APPROVED' }
+            : c
+        )
+      );
+      fetchStats();
+      success('评论已通过');
+    } catch (_err) {
+      showError('操作失败');
     }
-  }
+  };
 
   const handleReject = async (commentId: string) => {
     try {
-      await api.patch(`/admin/comments/${commentId}/reject`)
-      setComments(prev => prev.map(c =>
-        c.id === commentId ? { ...c, isApproved: false, status: 'PENDING' } : c
-      ))
-      fetchStats()
-      success('评论已拒绝')
-    } catch (err) {
-      showError('操作失败')
+      await api.patch(`/admin/comments/${commentId}/reject`);
+      setComments(prev =>
+        prev.map(c =>
+          c.id === commentId
+            ? { ...c, isApproved: false, status: 'PENDING' }
+            : c
+        )
+      );
+      fetchStats();
+      success('评论已拒绝');
+    } catch (_err) {
+      showError('操作失败');
     }
-  }
+  };
 
   const handleSoftDelete = async (commentId: string) => {
-    if (!confirm('确定要将这条评论移至回收站吗？')) return
-
     try {
-      await api.patch(`/admin/comments/${commentId}/soft-delete`)
-      setComments(prev => prev.filter(c => c.id !== commentId))
-      fetchStats()
-      success('评论已移至回收站')
-    } catch (err) {
-      showError('删除失败')
+      await api.patch(`/admin/comments/${commentId}/soft-delete`);
+      setComments(prev => prev.filter(c => c.id !== commentId));
+      fetchStats();
+      success('评论已移至回收站');
+    } catch (_err) {
+      showError('删除失败');
     }
-  }
+  };
 
   const handleRestore = async (commentId: string) => {
     try {
-      await api.patch(`/admin/comments/${commentId}/restore`)
-      setComments(prev => prev.filter(c => c.id !== commentId))
-      fetchStats()
-      success('评论已恢复')
-    } catch (err) {
-      showError('恢复失败')
+      await api.patch(`/admin/comments/${commentId}/restore`);
+      setComments(prev => prev.filter(c => c.id !== commentId));
+      fetchStats();
+      success('评论已恢复');
+    } catch (_err) {
+      showError('恢复失败');
     }
-  }
+  };
 
   const handlePermanentDelete = async (commentId: string) => {
-    if (!confirm('确定要永久删除这条评论吗？此操作不可恢复！')) return
-
     try {
-      await api.delete(`/admin/comments/${commentId}/permanent`)
-      setComments(prev => prev.filter(c => c.id !== commentId))
-      fetchStats()
-      success('评论已永久删除')
-    } catch (err) {
-      showError('删除失败')
+      await api.delete(`/admin/comments/${commentId}/permanent`);
+      setComments(prev => prev.filter(c => c.id !== commentId));
+      fetchStats();
+      success('评论已永久删除');
+    } catch (_err) {
+      showError('删除失败');
     }
-  }
+  };
 
   const handleTogglePin = async (commentId: string, isPinned: boolean) => {
     try {
-      await api.patch(`/admin/comments/${commentId}/pin`)
-      setComments(prev => prev.map(c =>
-        c.id === commentId ? { ...c, isPinned: !isPinned } : c
-      ))
-      success(isPinned ? '已取消置顶' : '已置顶')
-    } catch (err) {
-      showError('操作失败')
+      await api.patch(`/admin/comments/${commentId}/pin`);
+      setComments(prev =>
+        prev.map(c => (c.id === commentId ? { ...c, isPinned: !isPinned } : c))
+      );
+      success(isPinned ? '已取消置顶' : '已置顶');
+    } catch (_err) {
+      showError('操作失败');
     }
-  }
+  };
 
   const handleBatchApprove = async () => {
-    const pendingIds = comments.filter(c => !c.isApproved && !c.deletedAt).map(c => c.id)
+    const pendingIds = comments
+      .filter(c => !c.isApproved && !c.deletedAt)
+      .map(c => c.id);
     if (pendingIds.length === 0) {
-      showError('没有待审核的评论')
-      return
+      showError('没有待审核的评论');
+      return;
     }
 
     try {
-      await api.post('/admin/comments/batch-approve', { ids: pendingIds })
-      setComments(prev => prev.map(c => ({ ...c, isApproved: true, status: 'APPROVED' as const })))
-      fetchStats()
-      success(`已批准 ${pendingIds.length} 条评论`)
-    } catch (err) {
-      showError('批量操作失败')
+      await api.post('/admin/comments/batch-approve', { ids: pendingIds });
+      setComments(prev =>
+        prev.map(c => ({ ...c, isApproved: true, status: 'APPROVED' as const }))
+      );
+      fetchStats();
+      success(`已批准 ${pendingIds.length} 条评论`);
+    } catch (_err) {
+      showError('批量操作失败');
     }
-  }
+  };
 
   // Report actions
-  const handleResolveReport = async (reportId: string, action: 'resolve' | 'dismiss', deleteComment = false) => {
+  const handleResolveReport = async (
+    reportId: string,
+    action: 'resolve' | 'dismiss',
+    deleteComment = false
+  ) => {
     try {
-      await api.patch(`/admin/comments/reports/${reportId}`, { action, deleteComment })
-      setReports(prev => prev.filter(r => r.id !== reportId))
-      fetchStats()
-      success(action === 'resolve' ? '举报已处理' : '举报已驳回')
-    } catch (err) {
-      showError('处理失败')
+      await api.patch(`/admin/comments/reports/${reportId}`, {
+        action,
+        deleteComment,
+      });
+      setReports(prev => prev.filter(r => r.id !== reportId));
+      fetchStats();
+      success(action === 'resolve' ? '举报已处理' : '举报已驳回');
+    } catch (_err) {
+      showError('处理失败');
     }
-  }
+  };
 
   const getReasonText = (reason: string) => {
     const reasons: Record<string, string> = {
       spam: '垃圾内容',
       abuse: '滥用/恶意内容',
       harassment: '骚扰/人身攻击',
-      other: '其他'
-    }
-    return reasons[reason] || reason
-  }
+      other: '其他',
+    };
+    return reasons[reason] || reason;
+  };
 
-  const filteredComments = comments.filter(comment =>
-    comment.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    comment.author.username.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredComments = comments.filter(
+    comment =>
+      comment.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      comment.author.username.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (loading && comments.length === 0 && reports.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <RefreshCw className="h-8 w-8 text-muted-foreground animate-spin" />
       </div>
-    )
+    );
   }
 
   return (
@@ -340,13 +370,18 @@ const CommentManagementPage: React.FC = () => {
           <div className="flex items-center gap-3">
             <h1 className="text-2xl font-bold text-foreground">评论管理</h1>
             {/* WebSocket 连接状态指示器 */}
-            <div className="flex items-center gap-1.5" title={isConnected ? '实时连接已建立' : '实时连接已断开'}>
+            <div
+              className="flex items-center gap-1.5"
+              title={isConnected ? '实时连接已建立' : '实时连接已断开'}
+            >
               {isConnected ? (
                 <Wifi className="h-4 w-4 text-green-500" />
               ) : (
                 <WifiOff className="h-4 w-4 text-muted-foreground" />
               )}
-              <span className={`text-xs ${isConnected ? 'text-green-500' : 'text-muted-foreground'}`}>
+              <span
+                className={`text-xs ${isConnected ? 'text-green-500' : 'text-muted-foreground'}`}
+              >
                 {isConnected ? '实时' : '离线'}
               </span>
             </div>
@@ -382,7 +417,9 @@ const CommentManagementPage: React.FC = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">总评论</p>
-                <p className="text-xl font-bold text-foreground">{stats.totalComments}</p>
+                <p className="text-xl font-bold text-foreground">
+                  {stats.totalComments}
+                </p>
               </div>
             </div>
           </div>
@@ -393,7 +430,9 @@ const CommentManagementPage: React.FC = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">待审核</p>
-                <p className="text-xl font-bold text-foreground">{stats.pendingComments}</p>
+                <p className="text-xl font-bold text-foreground">
+                  {stats.pendingComments}
+                </p>
               </div>
             </div>
           </div>
@@ -404,7 +443,9 @@ const CommentManagementPage: React.FC = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">已通过</p>
-                <p className="text-xl font-bold text-foreground">{stats.approvedComments}</p>
+                <p className="text-xl font-bold text-foreground">
+                  {stats.approvedComments}
+                </p>
               </div>
             </div>
           </div>
@@ -415,7 +456,9 @@ const CommentManagementPage: React.FC = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">回收站</p>
-                <p className="text-xl font-bold text-foreground">{stats.deletedComments}</p>
+                <p className="text-xl font-bold text-foreground">
+                  {stats.deletedComments}
+                </p>
               </div>
             </div>
           </div>
@@ -426,7 +469,9 @@ const CommentManagementPage: React.FC = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">待处理举报</p>
-                <p className="text-xl font-bold text-foreground">{stats.pendingReports}</p>
+                <p className="text-xl font-bold text-foreground">
+                  {stats.pendingReports}
+                </p>
               </div>
             </div>
           </div>
@@ -442,63 +487,71 @@ const CommentManagementPage: React.FC = () => {
               <Input
                 placeholder="搜索评论内容或用户名..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={e => setSearchTerm(e.target.value)}
                 className="pl-10"
               />
             </div>
           )}
           <div className="flex flex-wrap gap-2">
-            {(['all', 'pending', 'approved', 'trash', 'reports'] as const).map((tab) => (
-              <button
-                key={tab}
-                onClick={() => { setActiveTab(tab); setPage(1); }}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
-                  activeTab === tab
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                }`}
-              >
-                {tab === 'all' && '全部'}
-                {tab === 'pending' && (
-                  <>
-                    待审核
-                    {stats && stats.pendingComments > 0 && (
-                      <span className="px-1.5 py-0.5 text-xs bg-yellow-500 text-white rounded-full">
-                        {stats.pendingComments}
-                      </span>
-                    )}
-                  </>
-                )}
-                {tab === 'approved' && '已通过'}
-                {tab === 'trash' && (
-                  <>
-                    <Archive className="h-4 w-4" />
-                    回收站
-                  </>
-                )}
-                {tab === 'reports' && (
-                  <>
-                    <Flag className="h-4 w-4" />
-                    举报
-                    {stats && stats.pendingReports > 0 && (
-                      <span className="px-1.5 py-0.5 text-xs bg-red-500 text-white rounded-full">
-                        {stats.pendingReports}
-                      </span>
-                    )}
-                  </>
-                )}
-              </button>
-            ))}
+            {(['all', 'pending', 'approved', 'trash', 'reports'] as const).map(
+              tab => (
+                <button
+                  key={tab}
+                  onClick={() => {
+                    setActiveTab(tab);
+                    setPage(1);
+                  }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                    activeTab === tab
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                  }`}
+                >
+                  {tab === 'all' && '全部'}
+                  {tab === 'pending' && (
+                    <>
+                      待审核
+                      {stats && stats.pendingComments > 0 && (
+                        <span className="px-1.5 py-0.5 text-xs bg-yellow-500 text-white rounded-full">
+                          {stats.pendingComments}
+                        </span>
+                      )}
+                    </>
+                  )}
+                  {tab === 'approved' && '已通过'}
+                  {tab === 'trash' && (
+                    <>
+                      <Archive className="h-4 w-4" />
+                      回收站
+                    </>
+                  )}
+                  {tab === 'reports' && (
+                    <>
+                      <Flag className="h-4 w-4" />
+                      举报
+                      {stats && stats.pendingReports > 0 && (
+                        <span className="px-1.5 py-0.5 text-xs bg-red-500 text-white rounded-full">
+                          {stats.pendingReports}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </button>
+              )
+            )}
           </div>
         </div>
 
         {/* 举报状态筛选 */}
         {activeTab === 'reports' && (
           <div className="mt-4 flex gap-2">
-            {(['pending', 'resolved', 'dismissed'] as const).map((status) => (
+            {(['pending', 'resolved', 'dismissed'] as const).map(status => (
               <button
                 key={status}
-                onClick={() => { setReportStatus(status); setPage(1); }}
+                onClick={() => {
+                  setReportStatus(status);
+                  setPage(1);
+                }}
                 className={`px-3 py-1.5 rounded text-sm ${
                   reportStatus === status
                     ? 'bg-primary/20 text-primary'
@@ -517,19 +570,27 @@ const CommentManagementPage: React.FC = () => {
       {/* 评论列表 */}
       {activeTab !== 'reports' && (
         <div className="bg-card rounded-lg shadow divide-y divide-border">
-          {filteredComments.map((comment) => (
+          {filteredComments.map(comment => (
             <div key={comment.id} className="p-4 hover:bg-muted/50">
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
                   {/* 用户信息 */}
                   <div className="flex items-center flex-wrap gap-2 mb-2">
                     <img
-                      src={comment.author.avatar ? getMediaUrl(comment.author.avatar) : DEFAULT_AVATAR}
+                      src={
+                        comment.author.avatar
+                          ? getMediaUrl(comment.author.avatar)
+                          : DEFAULT_AVATAR
+                      }
                       alt={comment.author.username}
                       className="w-8 h-8 rounded-full object-cover bg-muted"
-                      onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR }}
+                      onError={e => {
+                        (e.target as HTMLImageElement).src = DEFAULT_AVATAR;
+                      }}
                     />
-                    <span className="font-medium text-foreground">{comment.author.username}</span>
+                    <span className="font-medium text-foreground">
+                      {comment.author.username}
+                    </span>
                     <span className="text-sm text-muted-foreground">
                       {new Date(comment.createdAt).toLocaleString('zh-CN')}
                     </span>
@@ -551,11 +612,13 @@ const CommentManagementPage: React.FC = () => {
                         已删除
                       </span>
                     ) : (
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                        comment.isApproved
-                          ? 'bg-green-500/10 text-green-600 dark:text-green-400'
-                          : 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
-                      }`}>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                          comment.isApproved
+                            ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                            : 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
+                        }`}
+                      >
                         {comment.isApproved ? '已通过' : '待审核'}
                       </span>
                     )}
@@ -605,7 +668,9 @@ const CommentManagementPage: React.FC = () => {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handlePermanentDelete(comment.id)}
+                        onClick={() =>
+                          setDeleteTarget({ id: comment.id, type: 'permanent' })
+                        }
                         title="永久删除"
                         className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                       >
@@ -619,11 +684,21 @@ const CommentManagementPage: React.FC = () => {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleTogglePin(comment.id, !!comment.isPinned)}
+                        onClick={() =>
+                          handleTogglePin(comment.id, !!comment.isPinned)
+                        }
                         title={comment.isPinned ? '取消置顶' : '置顶'}
-                        className={comment.isPinned ? 'text-purple-600' : 'text-muted-foreground'}
+                        className={
+                          comment.isPinned
+                            ? 'text-purple-600'
+                            : 'text-muted-foreground'
+                        }
                       >
-                        {comment.isPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+                        {comment.isPinned ? (
+                          <PinOff className="h-4 w-4" />
+                        ) : (
+                          <Pin className="h-4 w-4" />
+                        )}
                       </Button>
 
                       {!comment.isApproved && (
@@ -651,7 +726,9 @@ const CommentManagementPage: React.FC = () => {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => handleSoftDelete(comment.id)}
+                        onClick={() =>
+                          setDeleteTarget({ id: comment.id, type: 'soft' })
+                        }
                         title="移至回收站"
                         className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                       >
@@ -669,12 +746,18 @@ const CommentManagementPage: React.FC = () => {
             <div className="py-12 text-center">
               <MessageSquare className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium text-foreground mb-2">
-                {activeTab === 'trash' ? '回收站为空' :
-                 searchTerm || activeTab !== 'all' ? '没有找到匹配的评论' : '暂无评论'}
+                {activeTab === 'trash'
+                  ? '回收站为空'
+                  : searchTerm || activeTab !== 'all'
+                    ? '没有找到匹配的评论'
+                    : '暂无评论'}
               </h3>
               <p className="text-muted-foreground">
-                {activeTab === 'trash' ? '已删除的评论会显示在这里' :
-                 searchTerm || activeTab !== 'all' ? '尝试调整筛选条件' : '等待用户发表评论'}
+                {activeTab === 'trash'
+                  ? '已删除的评论会显示在这里'
+                  : searchTerm || activeTab !== 'all'
+                    ? '尝试调整筛选条件'
+                    : '等待用户发表评论'}
               </p>
             </div>
           )}
@@ -684,7 +767,7 @@ const CommentManagementPage: React.FC = () => {
       {/* 举报列表 */}
       {activeTab === 'reports' && (
         <div className="bg-card rounded-lg shadow divide-y divide-border">
-          {reports.map((report) => (
+          {reports.map(report => (
             <div key={report.id} className="p-4 hover:bg-muted/50">
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
@@ -699,13 +782,15 @@ const CommentManagementPage: React.FC = () => {
                     <span className="text-sm text-muted-foreground">
                       {new Date(report.createdAt).toLocaleString('zh-CN')}
                     </span>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                      report.status === 'pending'
-                        ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
-                        : report.status === 'resolved'
-                        ? 'bg-green-500/10 text-green-600 dark:text-green-400'
-                        : 'bg-gray-500/10 text-gray-600 dark:text-gray-400'
-                    }`}>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                        report.status === 'pending'
+                          ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-400'
+                          : report.status === 'resolved'
+                            ? 'bg-green-500/10 text-green-600 dark:text-green-400'
+                            : 'bg-gray-500/10 text-gray-600 dark:text-gray-400'
+                      }`}
+                    >
                       {report.status === 'pending' && '待处理'}
                       {report.status === 'resolved' && '已处理'}
                       {report.status === 'dismissed' && '已驳回'}
@@ -715,13 +800,22 @@ const CommentManagementPage: React.FC = () => {
                   {/* 举报人信息 */}
                   <div className="flex items-center gap-2 mb-2">
                     <img
-                      src={report.reporter.avatar ? getMediaUrl(report.reporter.avatar) : DEFAULT_AVATAR}
+                      src={
+                        report.reporter.avatar
+                          ? getMediaUrl(report.reporter.avatar)
+                          : DEFAULT_AVATAR
+                      }
                       alt={report.reporter.username}
                       className="w-6 h-6 rounded-full object-cover bg-muted"
-                      onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR }}
+                      onError={e => {
+                        (e.target as HTMLImageElement).src = DEFAULT_AVATAR;
+                      }}
                     />
                     <span className="text-sm text-muted-foreground">
-                      举报人：<span className="text-foreground">{report.reporter.username}</span>
+                      举报人：
+                      <span className="text-foreground">
+                        {report.reporter.username}
+                      </span>
                     </span>
                   </div>
 
@@ -736,17 +830,27 @@ const CommentManagementPage: React.FC = () => {
                   <div className="bg-muted/50 rounded-lg p-3">
                     <div className="flex items-center gap-2 mb-2">
                       <img
-                        src={report.comment.author.avatar ? getMediaUrl(report.comment.author.avatar) : DEFAULT_AVATAR}
+                        src={
+                          report.comment.author.avatar
+                            ? getMediaUrl(report.comment.author.avatar)
+                            : DEFAULT_AVATAR
+                        }
                         alt={report.comment.author.username}
                         className="w-5 h-5 rounded-full object-cover bg-muted"
-                        onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR }}
+                        onError={e => {
+                          (e.target as HTMLImageElement).src = DEFAULT_AVATAR;
+                        }}
                       />
                       <span className="text-sm font-medium text-foreground">
                         {report.comment.author.username}
                       </span>
-                      <span className="text-xs text-muted-foreground">的评论</span>
+                      <span className="text-xs text-muted-foreground">
+                        的评论
+                      </span>
                     </div>
-                    <p className="text-sm text-foreground">{report.comment.content}</p>
+                    <p className="text-sm text-foreground">
+                      {report.comment.content}
+                    </p>
                     <div className="mt-2 flex items-center text-xs text-muted-foreground">
                       <span>来自文章：</span>
                       <a
@@ -768,7 +872,9 @@ const CommentManagementPage: React.FC = () => {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleResolveReport(report.id, 'resolve', false)}
+                      onClick={() =>
+                        handleResolveReport(report.id, 'resolve', false)
+                      }
                       title="标记为已处理"
                       className="text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20"
                     >
@@ -777,7 +883,9 @@ const CommentManagementPage: React.FC = () => {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleResolveReport(report.id, 'resolve', true)}
+                      onClick={() =>
+                        handleResolveReport(report.id, 'resolve', true)
+                      }
                       title="处理并删除评论"
                       className="text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                     >
@@ -786,7 +894,9 @@ const CommentManagementPage: React.FC = () => {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleResolveReport(report.id, 'dismiss', false)}
+                      onClick={() =>
+                        handleResolveReport(report.id, 'dismiss', false)
+                      }
                       title="驳回举报"
                       className="text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-900/20"
                     >
@@ -803,8 +913,11 @@ const CommentManagementPage: React.FC = () => {
             <div className="py-12 text-center">
               <Flag className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium text-foreground mb-2">
-                {reportStatus === 'pending' ? '没有待处理的举报' :
-                 reportStatus === 'resolved' ? '没有已处理的举报' : '没有已驳回的举报'}
+                {reportStatus === 'pending'
+                  ? '没有待处理的举报'
+                  : reportStatus === 'resolved'
+                    ? '没有已处理的举报'
+                    : '没有已驳回的举报'}
               </h3>
               <p className="text-muted-foreground">
                 用户举报的评论会显示在这里
@@ -836,8 +949,35 @@ const CommentManagementPage: React.FC = () => {
           </Button>
         </div>
       )}
-    </div>
-  )
-}
 
-export default CommentManagementPage
+      {/* 删除确认弹窗 */}
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => {
+          if (deleteTarget) {
+            if (deleteTarget.type === 'soft') {
+              handleSoftDelete(deleteTarget.id);
+            } else {
+              handlePermanentDelete(deleteTarget.id);
+            }
+            setDeleteTarget(null);
+          }
+        }}
+        title={
+          deleteTarget?.type === 'permanent' ? '永久删除评论' : '移至回收站'
+        }
+        description={
+          deleteTarget?.type === 'permanent'
+            ? '确定要永久删除这条评论吗？此操作不可恢复！'
+            : '确定要将这条评论移至回收站吗？'
+        }
+        confirmText="删除"
+        cancelText="取消"
+        variant="danger"
+      />
+    </div>
+  );
+};
+
+export default CommentManagementPage;

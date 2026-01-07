@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  UnauthorizedException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { Prisma } from '@prisma/client';
 import * as fs from 'fs';
@@ -148,7 +154,11 @@ export class MediaService {
     const existingMedia = await this.findByHash(fileHash);
     if (existingMedia) {
       // 如果旧文件物理上不存在，使用新上传的文件更新记录
-      const oldFilePath = path.join(process.cwd(), 'uploads', existingMedia.filename);
+      const oldFilePath = path.join(
+        process.cwd(),
+        'uploads',
+        existingMedia.filename,
+      );
       if (!fs.existsSync(oldFilePath)) {
         // 旧文件不存在，更新记录使用新文件
         const url = `/uploads/${file.filename}`;
@@ -157,7 +167,9 @@ export class MediaService {
           data: {
             filename: file.filename,
             url,
-            thumbnail: file.mimetype.startsWith('image/') ? url : existingMedia.thumbnail,
+            thumbnail: file.mimetype.startsWith('image/')
+              ? url
+              : existingMedia.thumbnail,
           },
           include: {
             uploader: {
@@ -271,7 +283,9 @@ export class MediaService {
 
     for (const post of postsWithContent) {
       // 避免重复添加（如果同时是封面和内容引用）
-      if (!references.find(r => r.postId === post.id && r.type === 'content')) {
+      if (
+        !references.find((r) => r.postId === post.id && r.type === 'content')
+      ) {
         references.push({
           postId: post.id,
           postTitle: post.title,
@@ -283,19 +297,44 @@ export class MediaService {
     return references;
   }
 
-  async delete(id: string, force: boolean = false) {
+  async delete(
+    id: string,
+    force: boolean = false,
+    userId?: string,
+    isAdmin: boolean = false,
+  ) {
     const media = await this.prisma.media.findUnique({ where: { id } });
 
     if (!media) {
       throw new NotFoundException('媒体文件不存在');
     }
 
+    // 权限检查：只有文件所有者或管理员可以删除
+    if (!isAdmin && media.uploaderId !== userId) {
+      throw new ForbiddenException('您没有权限删除此文件');
+    }
+
+    // 强制删除只有管理员可以执行
+    if (force && !isAdmin) {
+      throw new ForbiddenException('只有管理员可以强制删除文件');
+    }
+
     // 检查是否被引用（优先使用关联表，如果没有记录则降级到 URL 检查）
     if (!force) {
       const usages = await this.mediaUsageService.getMediaUsages(id);
       if (usages.length > 0) {
+        // 生成更友好的提示信息
+        const usageDetails = usages
+          .map((u) => {
+            if (u.entityType === 'post') {
+              return `文章《${u.entityName}》中的${u.fieldLabel || '内容'}`;
+            }
+            return `${u.entityType}中的${u.fieldLabel || '内容'}`;
+          })
+          .join('、');
+
         throw new ConflictException({
-          message: '该媒体文件正在被使用，无法删除',
+          message: `该文件正在被使用，无法删除。被引用位置：${usageDetails}`,
           usages,
         });
       }
@@ -303,8 +342,15 @@ export class MediaService {
       // 降级检查：URL 搜索（兼容旧数据）
       const references = await this.checkReferences(media.url);
       if (references.length > 0) {
+        const refDetails = references
+          .map(
+            (r) =>
+              `文章《${r.postTitle}》的${r.type === 'cover' ? '封面' : '内容'}`,
+          )
+          .join('、');
+
         throw new ConflictException({
-          message: '该媒体文件正在被使用，无法删除',
+          message: `该文件正在被使用，无法删除。被引用位置：${refDetails}`,
           references,
         });
       }
@@ -319,14 +365,41 @@ export class MediaService {
     return this.prisma.media.delete({ where: { id } });
   }
 
-  async deleteMany(ids: string[], force: boolean = false) {
+  async deleteMany(
+    ids: string[],
+    force: boolean = false,
+    userId?: string,
+    isAdmin: boolean = false,
+  ) {
     const mediaFiles = await this.prisma.media.findMany({
       where: { id: { in: ids } },
     });
 
+    // 权限检查：验证所有文件的所有权
+    if (!isAdmin) {
+      const unauthorizedFiles = mediaFiles.filter(
+        (m) => m.uploaderId !== userId,
+      );
+      if (unauthorizedFiles.length > 0) {
+        throw new ForbiddenException(
+          `您没有权限删除${unauthorizedFiles.length}个文件，只能删除自己上传的文件`,
+        );
+      }
+    }
+
+    // 强制删除只有管理员可以执行
+    if (force && !isAdmin) {
+      throw new ForbiddenException('只有管理员可以强制删除文件');
+    }
+
     // 检查是否有被引用的媒体
     if (!force) {
-      const referencedMedia: { id: string; url: string; usages?: MediaUsageInfo[]; references?: MediaReference[] }[] = [];
+      const referencedMedia: {
+        id: string;
+        url: string;
+        usages?: MediaUsageInfo[];
+        references?: MediaReference[];
+      }[] = [];
 
       for (const media of mediaFiles) {
         // 优先检查关联表
@@ -353,7 +426,7 @@ export class MediaService {
 
       if (referencedMedia.length > 0) {
         throw new ConflictException({
-          message: `${referencedMedia.length} 个媒体文件正在被使用，无法删除`,
+          message: `${referencedMedia.length}个文件正在被使用，无法删除`,
           referencedMedia,
         });
       }
@@ -375,9 +448,15 @@ export class MediaService {
   async getStats() {
     const [total, images, videos, audios, documents] = await Promise.all([
       this.prisma.media.count(),
-      this.prisma.media.count({ where: { mimeType: { startsWith: 'image/' } } }),
-      this.prisma.media.count({ where: { mimeType: { startsWith: 'video/' } } }),
-      this.prisma.media.count({ where: { mimeType: { startsWith: 'audio/' } } }),
+      this.prisma.media.count({
+        where: { mimeType: { startsWith: 'image/' } },
+      }),
+      this.prisma.media.count({
+        where: { mimeType: { startsWith: 'video/' } },
+      }),
+      this.prisma.media.count({
+        where: { mimeType: { startsWith: 'audio/' } },
+      }),
       this.prisma.media.count({
         where: {
           mimeType: {

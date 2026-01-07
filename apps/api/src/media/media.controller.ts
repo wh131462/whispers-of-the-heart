@@ -23,9 +23,14 @@ import { extname, join } from 'path';
 import { randomBytes } from 'crypto';
 import { existsSync, mkdirSync } from 'fs';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { AdminGuard } from '../auth/guards/roles.guard';
 import { MediaService } from './media.service';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiConsumes,
+  ApiBody,
+} from '@nestjs/swagger';
 
 // Generate unique filename
 const generateFilename = () => {
@@ -92,6 +97,8 @@ export class MediaController {
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
     @Query('type') type?: string,
     @Query('search') search?: string,
+    @Query('uploaderId') uploaderId?: string,
+    @Request() req?: any,
   ) {
     const skip = (page - 1) * limit;
     const result = await this.mediaService.findAll({
@@ -99,11 +106,20 @@ export class MediaController {
       take: limit,
       mimeType: type,
       search,
+      uploaderId,
     });
+
+    // 添加权限标识
+    const userId = req?.user?.id;
+    const isAdmin = req?.user?.isAdmin || false;
 
     return {
       success: true,
-      data: result,
+      data: {
+        ...result,
+        canDelete: !!userId, // 登录用户可以删除自己的文件
+        canForceDelete: isAdmin, // 只有管理员可以强制删除
+      },
     };
   }
 
@@ -235,15 +251,21 @@ export class MediaController {
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: '删除媒体' })
   async delete(
     @Param('id') id: string,
+    @Request() req: any,
     @Query('force') force?: string,
   ) {
     try {
-      await this.mediaService.delete(id, force === 'true');
+      await this.mediaService.delete(
+        id,
+        force === 'true',
+        req.user.id,
+        req.user.isAdmin,
+      );
       return {
         success: true,
         message: '删除成功',
@@ -252,7 +274,8 @@ export class MediaController {
       // 处理文件被引用的情况，返回详细的引用信息
       if (error.status === HttpStatus.CONFLICT) {
         const response = error.getResponse();
-        const responseData = typeof response === 'object' ? response : { message: response };
+        const responseData =
+          typeof response === 'object' ? response : { message: response };
         throw new HttpException(
           {
             success: false,
@@ -268,10 +291,13 @@ export class MediaController {
   }
 
   @Post('batch/delete')
-  @UseGuards(JwtAuthGuard, AdminGuard)
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: '批量删除媒体' })
-  async deleteMany(@Body() body: { ids: string[]; force?: boolean }) {
+  async deleteMany(
+    @Body() body: { ids: string[]; force?: boolean },
+    @Request() req: any,
+  ) {
     const ids = body.ids || [];
     if (ids.length === 0) {
       return {
@@ -280,7 +306,12 @@ export class MediaController {
       };
     }
     try {
-      await this.mediaService.deleteMany(ids, body.force === true);
+      await this.mediaService.deleteMany(
+        ids,
+        body.force === true,
+        req.user.id,
+        req.user.isAdmin,
+      );
       return {
         success: true,
         message: `成功删除 ${ids.length} 个文件`,
@@ -289,7 +320,8 @@ export class MediaController {
       // 处理文件被引用的情况，返回详细的引用信息
       if (error.status === HttpStatus.CONFLICT) {
         const response = error.getResponse();
-        const responseData = typeof response === 'object' ? response : { message: response };
+        const responseData =
+          typeof response === 'object' ? response : { message: response };
         throw new HttpException(
           {
             success: false,

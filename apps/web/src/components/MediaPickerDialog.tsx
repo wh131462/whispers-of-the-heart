@@ -1,99 +1,102 @@
-import React, { useState, useEffect } from 'react'
-import { Button, Input } from '@whispers/ui'
-import { Search, Image, Video, Music, FileText, X, Check } from 'lucide-react'
-import { api } from '@whispers/utils'
+import React, { useState, useEffect } from 'react';
+import { Button, Input } from '@whispers/ui';
+import { Search, Image, Video, Music, FileText, X, Check } from 'lucide-react';
+import { api, getMediaUrl } from '@whispers/utils';
 
 interface Media {
-  id: string
-  filename: string
-  originalName: string
-  mimeType: string
-  size: number
-  url: string
-  thumbnail?: string
-  createdAt: string
+  id: string;
+  filename: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  url: string;
+  thumbnail?: string;
+  createdAt: string;
 }
 
 interface MediaPickerDialogProps {
-  isOpen: boolean
-  onClose: () => void
-  onSelect: (url: string) => void
-  filterType?: 'image' | 'video' | 'audio' | 'all'
+  isOpen: boolean;
+  onClose: () => void;
+  onSelect: (url: string) => void;
+  filterType?: 'image' | 'video' | 'audio' | 'all';
 }
 
 const MediaPickerDialog: React.FC<MediaPickerDialogProps> = ({
   isOpen,
   onClose,
   onSelect,
-  filterType = 'image'
+  filterType = 'image',
 }) => {
-  const [media, setMedia] = useState<Media[]>([])
-  const [loading, setLoading] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [selectedMedia, setSelectedMedia] = useState<Media | null>(null)
-  const [page, setPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(1)
+  const [media, setMedia] = useState<Media[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedMedia, setSelectedMedia] = useState<Media | null>(null);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     if (isOpen) {
-      fetchMedia()
+      fetchMedia();
     }
-  }, [isOpen, page])
+  }, [isOpen, page]);
 
   const fetchMedia = async () => {
     try {
-      setLoading(true)
-      const params: any = { page, limit: 20 }
+      setLoading(true);
+      const params: any = { page, limit: 20 };
 
       if (filterType !== 'all') {
-        params.type = `${filterType}/`
+        params.mimeType = `${filterType}/`;
       }
 
       if (searchTerm.trim()) {
-        params.search = searchTerm.trim()
+        params.search = searchTerm.trim();
       }
 
-      const response = await api.get('/media', { params })
+      const response = await api.get('/media', { params });
       if (response.data?.success) {
-        setMedia(response.data.data.items || [])
-        setTotalPages(response.data.data.totalPages || 1)
+        setMedia(response.data.data.items || []);
+        setTotalPages(response.data.data.totalPages || 1);
       }
     } catch (err) {
-      console.error('Failed to fetch media:', err)
+      console.error('Failed to fetch media:', err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleSearch = () => {
-    setPage(1)
-    fetchMedia()
-  }
+    setPage(1);
+    fetchMedia();
+  };
 
   const handleSelect = () => {
     if (selectedMedia) {
-      onSelect(selectedMedia.url)
-      onClose()
-      setSelectedMedia(null)
+      onSelect(selectedMedia.url);
+      onClose();
+      setSelectedMedia(null);
     }
-  }
+  };
 
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 B'
-    const k = 1024
-    const sizes = ['B', 'KB', 'MB', 'GB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
-  }
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
 
   const getTypeIcon = (mimeType: string) => {
-    if (mimeType.startsWith('image/')) return <Image className="h-4 w-4 text-blue-500" />
-    if (mimeType.startsWith('video/')) return <Video className="h-4 w-4 text-purple-500" />
-    if (mimeType.startsWith('audio/')) return <Music className="h-4 w-4 text-green-500" />
-    return <FileText className="h-4 w-4 text-orange-500" />
-  }
+    if (mimeType.startsWith('image/'))
+      return <Image className="h-4 w-4 text-blue-500" />;
+    if (mimeType.startsWith('video/'))
+      return <Video className="h-4 w-4 text-purple-500" />;
+    if (mimeType.startsWith('audio/'))
+      return <Music className="h-4 w-4 text-green-500" />;
+    return <FileText className="h-4 w-4 text-orange-500" />;
+  };
 
-  if (!isOpen) return null
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -101,7 +104,10 @@ const MediaPickerDialog: React.FC<MediaPickerDialogProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
           <h2 className="text-lg font-semibold text-foreground">选择媒体</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground">
+          <button
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -114,8 +120,8 @@ const MediaPickerDialog: React.FC<MediaPickerDialogProps> = ({
               <Input
                 placeholder="搜索文件..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                onChange={e => setSearchTerm(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleSearch()}
                 className="pl-10"
               />
             </div>
@@ -136,7 +142,7 @@ const MediaPickerDialog: React.FC<MediaPickerDialogProps> = ({
             </div>
           ) : (
             <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-3">
-              {media.map((item) => (
+              {media.map(item => (
                 <div
                   key={item.id}
                   onClick={() => setSelectedMedia(item)}
@@ -149,7 +155,7 @@ const MediaPickerDialog: React.FC<MediaPickerDialogProps> = ({
                   <div className="w-full h-full bg-muted flex items-center justify-center">
                     {item.mimeType.startsWith('image/') ? (
                       <img
-                        src={item.thumbnail || item.url}
+                        src={getMediaUrl(item.thumbnail || item.url)}
                         alt={item.originalName}
                         className="w-full h-full object-cover"
                       />
@@ -180,7 +186,9 @@ const MediaPickerDialog: React.FC<MediaPickerDialogProps> = ({
               <div className="w-12 h-12 bg-muted-foreground/10 rounded flex items-center justify-center flex-shrink-0">
                 {selectedMedia.mimeType.startsWith('image/') ? (
                   <img
-                    src={selectedMedia.thumbnail || selectedMedia.url}
+                    src={getMediaUrl(
+                      selectedMedia.thumbnail || selectedMedia.url
+                    )}
                     alt=""
                     className="w-full h-full object-cover rounded"
                   />
@@ -189,9 +197,12 @@ const MediaPickerDialog: React.FC<MediaPickerDialogProps> = ({
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-medium truncate text-foreground">{selectedMedia.originalName}</p>
+                <p className="font-medium truncate text-foreground">
+                  {selectedMedia.originalName}
+                </p>
                 <p className="text-sm text-muted-foreground">
-                  {formatFileSize(selectedMedia.size)} - {selectedMedia.mimeType}
+                  {formatFileSize(selectedMedia.size)} -{' '}
+                  {selectedMedia.mimeType}
                 </p>
               </div>
             </div>
@@ -236,7 +247,7 @@ const MediaPickerDialog: React.FC<MediaPickerDialogProps> = ({
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default MediaPickerDialog
+export default MediaPickerDialog;

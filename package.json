@@ -19,7 +19,7 @@
     }
   },
   "scripts": {
-    "dev": "pnpm build:packages && turbo run dev",
+    "dev": "pnpm build:packages && concurrently -n api,web -c blue,green \"pnpm dev:api\" \"wait-on http://localhost:7777/api/v1/health && pnpm dev:web:only\"",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "type-check": "turbo run type-check",
@@ -28,6 +28,7 @@
     "test": "turbo run test",
     "dev:api": "turbo run dev --filter=api",
     "dev:web": "pnpm build:packages && turbo run dev --filter=web",
+    "dev:web:only": "turbo run dev --filter=web",
     "build:api": "turbo run build --filter=api",
     "build:web": "turbo run build --filter=web",
     "build:ui": "turbo run build --filter=ui",
@@ -79,6 +80,7 @@
   "devDependencies": {
     "@eslint/js": "^9.39.2",
     "@types/node": "^22.18.0",
+    "concurrently": "^9.2.1",
     "cross-env": "^10.0.0",
     "eslint": "^9.34.0",
     "globals": "^16.5.0",
@@ -87,7 +89,8 @@
     "prettier": "^3.6.2",
     "turbo": "^2.0.0",
     "typescript": "^5.8.3",
-    "typescript-eslint": "^8.50.0"
+    "typescript-eslint": "^8.50.0",
+    "wait-on": "^9.0.3"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx}": [

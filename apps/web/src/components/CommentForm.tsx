@@ -1,25 +1,25 @@
-import React, { useState, useCallback, useRef } from 'react'
-import { Send, LogIn } from 'lucide-react'
-import { Button } from './ui/button'
-import { useToast } from '../contexts/ToastContext'
-import { useAuthStore } from '../stores/useAuthStore'
-import { api, setAuthToken } from '@whispers/utils'
-import { CommentEditor } from '@whispers/ui'
-import { useNavigate } from 'react-router-dom'
+import React, { useState, useCallback, useRef } from 'react';
+import { Send, LogIn } from 'lucide-react';
+import { Button } from './ui/button';
+import { useToast } from '../contexts/ToastContext';
+import { useAuthStore } from '../stores/useAuthStore';
+import { api, setAuthToken } from '@whispers/utils';
+import { CommentEditor } from '@whispers/ui';
+import { useNavigate } from 'react-router-dom';
 
 // 定义编辑器 ref 类型
 type CommentEditorHandle = {
-  clearContent: () => void
-  getContent: () => string
-}
+  clearContent: () => void;
+  getContent: () => string;
+};
 
 interface CommentFormProps {
-  postId: string
-  parentId?: string
-  onCommentAdded: () => void
-  onCancel?: () => void
-  placeholder?: string
-  compact?: boolean
+  postId: string;
+  parentId?: string;
+  onCommentAdded: () => void;
+  onCancel?: () => void;
+  placeholder?: string;
+  compact?: boolean;
 }
 
 const CommentForm: React.FC<CommentFormProps> = ({
@@ -30,16 +30,16 @@ const CommentForm: React.FC<CommentFormProps> = ({
   placeholder = '写下你的想法...',
   compact = false,
 }) => {
-  const [content, setContent] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const editorRef = useRef<CommentEditorHandle>(null)
-  const { addToast } = useToast()
-  const { isAuthenticated, accessToken } = useAuthStore()
-  const navigate = useNavigate()
+  const [content, setContent] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const editorRef = useRef<CommentEditorHandle>(null);
+  const { addToast } = useToast();
+  const { isAuthenticated, accessToken } = useAuthStore();
+  const navigate = useNavigate();
 
   const handleContentChange = useCallback((markdown: string) => {
-    setContent(markdown)
-  }, [])
+    setContent(markdown);
+  }, []);
 
   const handleSubmit = async () => {
     if (!content.trim()) {
@@ -47,8 +47,8 @@ const CommentForm: React.FC<CommentFormProps> = ({
         title: '请输入内容',
         description: '评论内容不能为空',
         variant: 'warning',
-      })
-      return
+      });
+      return;
     }
 
     if (!isAuthenticated) {
@@ -56,59 +56,54 @@ const CommentForm: React.FC<CommentFormProps> = ({
         title: '请先登录',
         description: '登录后才能发表评论',
         variant: 'warning',
-      })
-      return
+      });
+      return;
     }
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
 
     try {
       // 确保 token 已设置（解决 hydration 时序问题）
       // 优先使用 store 中的 token，否则从 localStorage 获取
-      const token = accessToken || localStorage.getItem('auth_token')
+      const token = accessToken || localStorage.getItem('auth_token');
       if (token) {
-        setAuthToken(token)
+        setAuthToken(token);
       } else {
         addToast({
           title: '认证失败',
           description: '请重新登录后再试',
           variant: 'destructive',
-        })
-        setIsSubmitting(false)
-        return
+        });
+        setIsSubmitting(false);
+        return;
       }
 
       await api.post('/comments', {
         content: content.trim(),
         postId,
         parentId,
-      })
+      });
 
-      setContent('')
+      setContent('');
       // 使用 ref 清空编辑器内容，避免重新挂载组件
-      editorRef.current?.clearContent()
-      onCommentAdded()
+      editorRef.current?.clearContent();
+      onCommentAdded();
       addToast({
         title: '评论成功',
         description: '您的评论已提交',
         variant: 'success',
-      })
+      });
     } catch (error) {
-      console.error('Failed to submit comment:', error)
+      console.error('Failed to submit comment:', error);
       addToast({
         title: '评论失败',
         description: '请稍后重试',
         variant: 'destructive',
-      })
+      });
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
-
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    handleSubmit()
-  }
+  };
 
   // 未登录状态
   if (!isAuthenticated) {
@@ -126,11 +121,11 @@ const CommentForm: React.FC<CommentFormProps> = ({
           </Button>
         </div>
       </div>
-    )
+    );
   }
 
   return (
-    <form onSubmit={handleFormSubmit} className="comment-form space-y-3">
+    <div className="comment-form space-y-3">
       <CommentEditor
         ref={editorRef}
         content=""
@@ -154,8 +149,9 @@ const CommentForm: React.FC<CommentFormProps> = ({
           </Button>
         )}
         <Button
-          type="submit"
+          type="button"
           size="sm"
+          onClick={handleSubmit}
           disabled={!content.trim() || isSubmitting}
           className="min-w-[100px]"
         >
@@ -163,8 +159,8 @@ const CommentForm: React.FC<CommentFormProps> = ({
           {isSubmitting ? '发送中...' : '发表评论'}
         </Button>
       </div>
-    </form>
-  )
-}
+    </div>
+  );
+};
 
-export default CommentForm
+export default CommentForm;

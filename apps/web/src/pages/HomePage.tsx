@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { Button } from '../components/ui/button'
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Button } from '../components/ui/button';
 import {
   ArrowRight,
   ArrowDown,
@@ -13,103 +13,110 @@ import {
   Heart,
   Tag,
   BookOpen,
-  Feather
-} from 'lucide-react'
-import { api } from '@whispers/utils'
+  Feather,
+} from 'lucide-react';
+import { api } from '@whispers/utils';
+import { FallingPattern } from '@whispers/ui';
 
 interface Post {
-  id: string
-  title: string
-  content: string
-  excerpt: string | null
-  slug: string
-  published: boolean
-  coverImage?: string | null
-  category: string | null
-  views: number
-  likes: number
-  comments: number
-  createdAt: string
-  updatedAt: string
+  id: string;
+  title: string;
+  content: string;
+  excerpt: string | null;
+  slug: string;
+  published: boolean;
+  coverImage?: string | null;
+  category: string | null;
+  views: number;
+  likes: number;
+  comments: number;
+  createdAt: string;
+  updatedAt: string;
   author: {
-    id: string
-    username: string
-    avatar?: string
-  }
+    id: string;
+    username: string;
+    avatar?: string;
+  };
   postTags: Array<{
-    id: string
-    postId: string
-    tagId: string
+    id: string;
+    postId: string;
+    tagId: string;
     tag: {
-      id: string
-      name: string
-      slug: string
-      color?: string | null
-    }
-  }>
+      id: string;
+      name: string;
+      slug: string;
+      color?: string | null;
+    };
+  }>;
   _count?: {
-    postComments: number
-    postLikes: number
-  }
+    postComments: number;
+    postLikes: number;
+  };
 }
 
 interface SiteConfig {
-  siteName: string
-  siteDescription?: string
-  siteLogo?: string | null
-  ownerName?: string | null
-  ownerAvatar?: string | null
-  contactEmail?: string | null
+  siteName: string;
+  siteDescription?: string;
+  siteLogo?: string | null;
+  ownerName?: string | null;
+  ownerAvatar?: string | null;
+  contactEmail?: string | null;
   socialLinks?: {
-    github?: string | null
-    twitter?: string | null
-    linkedin?: string | null
-  }
+    github?: string | null;
+    twitter?: string | null;
+    linkedin?: string | null;
+  };
 }
 
 interface TagWithCount {
-  id: string
-  name: string
-  slug: string
-  postCount: number
+  id: string;
+  name: string;
+  slug: string;
+  postCount: number;
 }
 
-const PAGE_SIZE = 8
+const PAGE_SIZE = 8;
 
 // 打字机效果 Hook
 const useTypewriter = (text: string, speed = 100, delay = 500) => {
-  const [displayText, setDisplayText] = useState('')
-  const [isTyping, setIsTyping] = useState(false)
+  const [displayText, setDisplayText] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
 
   useEffect(() => {
-    setDisplayText('')
-    setIsTyping(true)
+    setDisplayText('');
+    setIsTyping(true);
 
     const startTimeout = setTimeout(() => {
-      let currentIndex = 0
+      let currentIndex = 0;
       const interval = setInterval(() => {
         if (currentIndex <= text.length) {
-          setDisplayText(text.slice(0, currentIndex))
-          currentIndex++
+          setDisplayText(text.slice(0, currentIndex));
+          currentIndex++;
         } else {
-          clearInterval(interval)
-          setIsTyping(false)
+          clearInterval(interval);
+          setIsTyping(false);
         }
-      }, speed)
+      }, speed);
 
-      return () => clearInterval(interval)
-    }, delay)
+      return () => clearInterval(interval);
+    }, delay);
 
-    return () => clearTimeout(startTimeout)
-  }, [text, speed, delay])
+    return () => clearTimeout(startTimeout);
+  }, [text, speed, delay]);
 
-  return { displayText, isTyping }
-}
+  return { displayText, isTyping };
+};
 
 // 文章时间线项
-const TimelinePost: React.FC<{ post: Post; isFirst?: boolean }> = ({ post, isFirst: _isFirst }) => {
-  const date = new Date(post.createdAt)
-  const monthDay = date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+const TimelinePost: React.FC<{ post: Post; isFirst?: boolean }> = ({
+  post,
+  isFirst: _isFirst,
+}) => {
+  const date = new Date(post.createdAt);
+  const monthDay = date.toLocaleDateString('zh-CN', {
+    month: 'short',
+    day: 'numeric',
+  });
 
   return (
     <article className="group relative pl-8 pb-8 last:pb-0">
@@ -131,7 +138,9 @@ const TimelinePost: React.FC<{ post: Post; isFirst?: boolean }> = ({ post, isFir
         </h3>
 
         <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 mb-3">
-          {post.excerpt || post.content.replace(/<[^>]*>/g, '').substring(0, 120)}...
+          {post.excerpt ||
+            post.content.replace(/<[^>]*>/g, '').substring(0, 120)}
+          ...
         </p>
 
         {/* 元信息 */}
@@ -153,27 +162,27 @@ const TimelinePost: React.FC<{ post: Post; isFirst?: boolean }> = ({ post, isFir
         </div>
       </Link>
     </article>
-  )
-}
+  );
+};
 
 const HomePage: React.FC = () => {
-  const navigate = useNavigate()
-  const [posts, setPosts] = useState<Post[]>([])
-  const [_tags, setTags] = useState<TagWithCount[]>([])
-  const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [hasMore, setHasMore] = useState(true)
-  const [page, setPage] = useState(1)
-  const observerRef = useRef<IntersectionObserver | null>(null)
-  const loadMoreRef = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate();
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [_tags, setTags] = useState<TagWithCount[]>([]);
+  const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   // 打字机效果 - 使用博主名称，如果没有则回退到网站名称
   const { displayText, isTyping } = useTypewriter(
     siteConfig?.ownerName || siteConfig?.siteName || 'Whispers of the Heart',
     80,
     300
-  )
+  );
 
   // 获取站点配置和标签
   useEffect(() => {
@@ -181,30 +190,30 @@ const HomePage: React.FC = () => {
       try {
         const [configResponse, tagsResponse] = await Promise.all([
           api.get('/site-config'),
-          api.get('/blog/tags')
-        ])
+          api.get('/blog/tags'),
+        ]);
 
         if (configResponse.data?.success && configResponse.data?.data) {
-          setSiteConfig(configResponse.data.data)
+          setSiteConfig(configResponse.data.data);
         }
         if (tagsResponse.data?.success && tagsResponse.data?.data) {
-          setTags(tagsResponse.data.data)
+          setTags(tagsResponse.data.data);
         }
       } catch (error) {
-        console.error('Failed to fetch config:', error)
+        console.error('Failed to fetch config:', error);
       }
-    }
+    };
 
-    fetchInitialData()
-  }, [])
+    fetchInitialData();
+  }, []);
 
   // 获取文章列表
   const fetchPosts = useCallback(async (pageNum: number, isInitial = false) => {
     try {
       if (isInitial) {
-        setLoading(true)
+        setLoading(true);
       } else {
-        setLoadingMore(true)
+        setLoadingMore(true);
       }
 
       const response = await api.get('/blog', {
@@ -212,87 +221,87 @@ const HomePage: React.FC = () => {
           page: pageNum,
           limit: PAGE_SIZE,
           sort: 'createdAt',
-          order: 'desc'
-        }
-      })
+          order: 'desc',
+        },
+      });
 
       if (response.data?.success && response.data?.data) {
-        const { items, totalPages } = response.data.data
+        const { items, totalPages } = response.data.data;
 
         if (isInitial) {
-          setPosts(items || [])
+          setPosts(items || []);
         } else {
-          setPosts(prev => [...prev, ...(items || [])])
+          setPosts(prev => [...prev, ...(items || [])]);
         }
 
-        setHasMore(pageNum < totalPages)
+        setHasMore(pageNum < totalPages);
       }
     } catch (error) {
-      console.error('Failed to fetch posts:', error)
+      console.error('Failed to fetch posts:', error);
     } finally {
-      setLoading(false)
-      setLoadingMore(false)
+      setLoading(false);
+      setLoadingMore(false);
     }
-  }, [])
+  }, []);
 
   // 初始加载
   useEffect(() => {
-    fetchPosts(1, true)
-  }, [fetchPosts])
+    fetchPosts(1, true);
+  }, [fetchPosts]);
 
   // 无限滚动
   useEffect(() => {
-    if (loading) return
+    if (loading) return;
 
     const observer = new IntersectionObserver(
-      (entries) => {
+      entries => {
         if (entries[0].isIntersecting && hasMore && !loadingMore) {
-          setPage(prev => prev + 1)
+          setPage(prev => prev + 1);
         }
       },
       { threshold: 0.1 }
-    )
+    );
 
-    observerRef.current = observer
+    observerRef.current = observer;
 
     if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current)
+      observer.observe(loadMoreRef.current);
     }
 
     return () => {
       if (observerRef.current) {
-        observerRef.current.disconnect()
+        observerRef.current.disconnect();
       }
-    }
-  }, [loading, hasMore, loadingMore])
+    };
+  }, [loading, hasMore, loadingMore]);
 
   // 加载更多
   useEffect(() => {
     if (page > 1) {
-      fetchPosts(page)
+      fetchPosts(page);
     }
-  }, [page, fetchPosts])
+  }, [page, fetchPosts]);
 
   // 按年份分组文章
   const groupPostsByYear = (posts: Post[]) => {
-    const groups: { [year: string]: Post[] } = {}
+    const groups: { [year: string]: Post[] } = {};
     posts.forEach(post => {
-      const year = new Date(post.createdAt).getFullYear().toString()
+      const year = new Date(post.createdAt).getFullYear().toString();
       if (!groups[year]) {
-        groups[year] = []
+        groups[year] = [];
       }
-      groups[year].push(post)
-    })
-    return groups
-  }
+      groups[year].push(post);
+    });
+    return groups;
+  };
 
   // 平滑滚动到内容区域
   const scrollToContent = () => {
-    const contentSection = document.getElementById('content-section')
+    const contentSection = document.getElementById('content-section');
     if (contentSection) {
-      contentSection.scrollIntoView({ behavior: 'smooth' })
+      contentSection.scrollIntoView({ behavior: 'smooth' });
     }
-  }
+  };
 
   if (loading) {
     return (
@@ -302,24 +311,27 @@ const HomePage: React.FC = () => {
           <span className="text-muted-foreground">加载中...</span>
         </div>
       </div>
-    )
+    );
   }
 
-  const groupedPosts = groupPostsByYear(posts)
-  const years = Object.keys(groupedPosts).sort((a, b) => Number(b) - Number(a))
+  const groupedPosts = groupPostsByYear(posts);
+  const years = Object.keys(groupedPosts).sort((a, b) => Number(b) - Number(a));
 
   return (
     <div className="min-h-screen">
       {/* ==================== Hero 区域 ==================== */}
       <section className="relative min-h-screen flex items-center justify-center -mt-16 overflow-hidden">
-        {/* 背景 */}
-        <div className="absolute inset-0 bg-gradient-to-b from-background via-secondary/20 to-background" />
+        {/* 下落图案背景 */}
+        <FallingPattern
+          className="absolute inset-0 z-0"
+          color="hsl(var(--primary))"
+          backgroundColor="hsl(var(--background))"
+          duration={120}
+          blurIntensity="0.8em"
+        />
 
-        {/* 装饰元素 */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-1/3 left-1/4 w-64 h-64 bg-primary/5 rounded-full blur-3xl" />
-          <div className="absolute bottom-1/3 right-1/4 w-48 h-48 bg-accent/10 rounded-full blur-3xl" />
-        </div>
+        {/* 渐变遮罩层 - 确保内容可读性 */}
+        <div className="absolute inset-0 z-[2] bg-gradient-to-b from-transparent via-transparent to-background pointer-events-none" />
 
         {/* 内容 */}
         <div className="relative z-10 text-center px-4 py-16 max-w-3xl mx-auto">
@@ -329,10 +341,11 @@ const HomePage: React.FC = () => {
               <img
                 src={siteConfig.ownerAvatar}
                 alt={siteConfig?.ownerName || '博主头像'}
-                className="w-24 h-24 mx-auto rounded-full object-cover border-4 border-background shadow-lg"
+                className="w-24 h-24 mx-auto rounded-full object-cover border-4 border-background shadow-lg transition-transform duration-500 hover:rotate-[360deg] select-none"
+                draggable="false"
               />
             ) : (
-              <div className="w-24 h-24 mx-auto rounded-full bg-muted flex items-center justify-center border-4 border-background shadow-lg">
+              <div className="w-24 h-24 mx-auto rounded-full bg-muted flex items-center justify-center border-4 border-background shadow-lg transition-transform duration-500 hover:rotate-[360deg] select-none">
                 <User className="w-12 h-12 text-muted-foreground" />
               </div>
             )}
@@ -387,7 +400,12 @@ const HomePage: React.FC = () => {
               <BookOpen className="mr-2 h-4 w-4" />
               阅读文章
             </Button>
-            <Button size="lg" variant="outline" className="rounded-full px-8" onClick={() => navigate('/about')}>
+            <Button
+              size="lg"
+              variant="outline"
+              className="rounded-full px-8"
+              onClick={() => navigate('/about')}
+            >
               <Feather className="mr-2 h-4 w-4" />
               关于我
             </Button>
@@ -417,7 +435,10 @@ const HomePage: React.FC = () => {
                     文章时间线
                   </h2>
                 </div>
-                <Link to="/posts" className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1">
+                <Link
+                  to="/posts"
+                  className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+                >
                   查看全部 <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
@@ -428,7 +449,9 @@ const HomePage: React.FC = () => {
                     <div key={year}>
                       {/* 年份标题 */}
                       <div className="flex items-center gap-3 mb-6">
-                        <span className="text-2xl font-bold text-primary font-mono">{year}</span>
+                        <span className="text-2xl font-bold text-primary font-mono">
+                          {year}
+                        </span>
                         <div className="flex-1 h-px bg-border" />
                         <span className="text-xs text-muted-foreground">
                           {groupedPosts[year].length} 篇
@@ -457,7 +480,9 @@ const HomePage: React.FC = () => {
                       </div>
                     )}
                     {!hasMore && posts.length > 0 && (
-                      <p className="text-muted-foreground text-sm">— 已经到底了 —</p>
+                      <p className="text-muted-foreground text-sm">
+                        — 已经到底了 —
+                      </p>
                     )}
                   </div>
                 </div>
@@ -472,7 +497,7 @@ const HomePage: React.FC = () => {
         </div>
       </section>
     </div>
-  )
-}
+  );
+};
 
-export default HomePage
+export default HomePage;

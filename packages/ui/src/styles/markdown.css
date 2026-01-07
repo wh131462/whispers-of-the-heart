@@ -212,3 +212,29 @@
 .markdown-content > *:last-child {
   margin-bottom: 0;
 }
+
+/* 思维导图容器样式 */
+.markdown-content .mindmap-container {
+  margin: 1.5rem 0;
+  min-height: 400px;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+/* 视频播放器样式优化 */
+.markdown-content video,
+.markdown-content [data-vjs-player] {
+  max-width: 100% !important;
+  width: 100% !important;
+  height: auto !important;
+  border-radius: 0.5rem;
+  margin: 1.5rem 0;
+}
+
+/* 音频播放器样式 */
+.markdown-content audio,
+.markdown-content .audio-player {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 1.5rem 0;
+}
