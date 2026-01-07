@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { cn } from '../../lib/utils';
+import { cn } from '@/lib/utils';
 
 export interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
   /** 是否显示动画 */
@@ -13,7 +13,18 @@ export interface SkeletonProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const Skeleton = React.forwardRef<HTMLDivElement, SkeletonProps>(
-  ({ className, animated = true, variant = 'default', width, height, style, ...props }, ref) => {
+  (
+    {
+      className,
+      animated = true,
+      variant = 'default',
+      width,
+      height,
+      style,
+      ...props
+    },
+    ref
+  ) => {
     const variantStyles = {
       default: 'rounded-md',
       circular: 'rounded-full',
@@ -24,7 +35,9 @@ const Skeleton = React.forwardRef<HTMLDivElement, SkeletonProps>(
     const computedStyle: React.CSSProperties = {
       ...style,
       ...(width && { width: typeof width === 'number' ? `${width}px` : width }),
-      ...(height && { height: typeof height === 'number' ? `${height}px` : height }),
+      ...(height && {
+        height: typeof height === 'number' ? `${height}px` : height,
+      }),
     };
 
     return (
@@ -56,11 +69,17 @@ export interface SkeletonCardProps extends React.HTMLAttributes<HTMLDivElement> 
 }
 
 const SkeletonCard = React.forwardRef<HTMLDivElement, SkeletonCardProps>(
-  ({ className, showAvatar = true, showImage = true, lines = 3, ...props }, ref) => {
+  (
+    { className, showAvatar = true, showImage = true, lines = 3, ...props },
+    ref
+  ) => {
     return (
       <div
         ref={ref}
-        className={cn('p-4 space-y-4 rounded-lg border border-gray-200 dark:border-gray-700', className)}
+        className={cn(
+          'p-4 space-y-4 rounded-lg border border-gray-200 dark:border-gray-700',
+          className
+        )}
         {...props}
       >
         {showImage && <Skeleton className="w-full h-48" variant="rounded" />}
@@ -109,7 +128,9 @@ const SkeletonList = React.forwardRef<HTMLDivElement, SkeletonListProps>(
       <div ref={ref} className={cn('space-y-4', className)} {...props}>
         {Array.from({ length: count }).map((_, i) => (
           <div key={i} className="flex items-center space-x-4">
-            {showAvatar && <Skeleton className="w-12 h-12" variant="circular" />}
+            {showAvatar && (
+              <Skeleton className="w-12 h-12" variant="circular" />
+            )}
             <div className="flex-1 space-y-2">
               <Skeleton className="h-4 w-1/3" />
               <Skeleton className="h-3 w-full" />
@@ -159,39 +180,40 @@ const SkeletonTable = React.forwardRef<HTMLDivElement, SkeletonTableProps>(
 SkeletonTable.displayName = 'SkeletonTable';
 
 // 文章详情骨架屏
-const SkeletonArticle = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => {
-    return (
-      <div ref={ref} className={cn('space-y-6', className)} {...props}>
-        {/* 标题 */}
-        <Skeleton className="h-8 w-3/4" />
+const SkeletonArticle = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement>
+>(({ className, ...props }, ref) => {
+  return (
+    <div ref={ref} className={cn('space-y-6', className)} {...props}>
+      {/* 标题 */}
+      <Skeleton className="h-8 w-3/4" />
 
-        {/* 元信息 */}
-        <div className="flex items-center space-x-4">
-          <Skeleton className="w-10 h-10" variant="circular" />
-          <div className="space-y-2">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-3 w-32" />
-          </div>
-        </div>
-
-        {/* 封面图 */}
-        <Skeleton className="w-full h-64" variant="rounded" />
-
-        {/* 正文 */}
-        <div className="space-y-3">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton
-              key={i}
-              className="h-4"
-              style={{ width: `${Math.random() * 40 + 60}%` }}
-            />
-          ))}
+      {/* 元信息 */}
+      <div className="flex items-center space-x-4">
+        <Skeleton className="w-10 h-10" variant="circular" />
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-3 w-32" />
         </div>
       </div>
-    );
-  }
-);
+
+      {/* 封面图 */}
+      <Skeleton className="w-full h-64" variant="rounded" />
+
+      {/* 正文 */}
+      <div className="space-y-3">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <Skeleton
+            key={i}
+            className="h-4"
+            style={{ width: `${Math.random() * 40 + 60}%` }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+});
 
 SkeletonArticle.displayName = 'SkeletonArticle';
 

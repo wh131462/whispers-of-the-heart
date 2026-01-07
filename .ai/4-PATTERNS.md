@@ -10,7 +10,7 @@
 ```tsx
 // packages/ui/src/components/VideoPlayer.tsx
 import React, { useRef, useEffect } from 'react';
-import { cn } from '../lib/utils';
+import { cn } from '@/lib/utils';
 
 export interface VideoPlayerProps {
   src: string;

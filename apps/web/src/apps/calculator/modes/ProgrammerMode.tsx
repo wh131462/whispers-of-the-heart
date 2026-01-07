@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react';
-import { cn } from '../../../lib/utils';
+import { cn } from '@/lib/utils';
 import { BitVisualizer } from '../components/BitVisualizer';
 import { ProgrammerKeypad } from '../components/ProgrammerKeypad';
 import { CalculatorShell } from '../components/CalculatorShell';

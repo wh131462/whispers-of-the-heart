@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useCallback } from 'react';
 import MindElixir from 'mind-elixir';
 import type { MindElixirInstance } from 'mind-elixir';
 import 'mind-elixir/style';
-import { cn } from '../lib/utils';
+import { cn } from '@/lib/utils';
 import { Crosshair, ZoomIn, ZoomOut } from 'lucide-react';
 
 // ============ Markdown → JSON 转换 ============
@@ -124,9 +124,6 @@ const parseMeta = (
 const markdownToMindElixir = (markdown: string): MindMapData => {
   const { meta, content } = parseMeta(markdown);
 
-  // Debug: 打印解析的 meta 信息
-  console.log('[MindMapRenderer] Parsed meta:', meta);
-  console.log('[MindMapRenderer] Raw markdown:', markdown.substring(0, 500));
   const lines = content.split('\n').filter(line => line.trim());
 
   const emptyData: MindMapData = {
@@ -280,23 +277,21 @@ export const MindMapRenderer: React.FC<MindMapRendererProps> = ({
       setError(null);
       const data = markdownToMindElixir(markdown);
 
-      // Debug: 打印解析后的数据
-      console.log('[MindMapRenderer] Parsed data:', {
-        direction: data.direction,
-        arrows: data.arrows,
-        summaries: data.summaries,
-        nodeData: data.nodeData,
-      });
-
       // 清理旧实例
       if (mindElixirRef.current) {
         try {
           // 尝试调用 destroy 方法（如果存在）
-          if (typeof (mindElixirRef.current as any).destroy === 'function') {
-            (mindElixirRef.current as any).destroy();
+          if (
+            typeof (
+              mindElixirRef.current as unknown as { destroy?: () => void }
+            ).destroy === 'function'
+          ) {
+            (
+              mindElixirRef.current as unknown as { destroy: () => void }
+            ).destroy();
           }
-        } catch (e) {
-          console.warn('[MindMapRenderer] Error destroying old instance:', e);
+        } catch {
+          // 忽略销毁错误
         }
         if (containerRef.current) {
           containerRef.current.innerHTML = '';
@@ -332,25 +327,15 @@ export const MindMapRenderer: React.FC<MindMapRendererProps> = ({
       mind.init(mindElixirData);
       mindElixirRef.current = mind;
 
-      // Debug: 打印实际传递给 MindElixir 的数据
-      console.log(
-        '[MindMapRenderer] mindElixirData:',
-        JSON.stringify(mindElixirData, null, 2)
-      );
-
       // 初始化后多次刷新，确保 arrows 正确绘制（与 MindMapBlock 保持一致）
       const refreshAndCenter = () => {
         // 检查组件是否仍然挂载
         if (!isMounted || !mindElixirRef.current) return;
         try {
-          console.log(
-            '[MindMapRenderer] Refreshing with arrows:',
-            JSON.stringify(mindElixirRef.current.arrows, null, 2)
-          );
           mindElixirRef.current.refresh(mindElixirData);
           mindElixirRef.current.toCenter();
-        } catch (e) {
-          console.warn('[MindMapRenderer] Error during refresh:', e);
+        } catch {
+          // 忽略刷新错误
         }
       };
 
@@ -371,7 +356,6 @@ export const MindMapRenderer: React.FC<MindMapRendererProps> = ({
       });
       resizeObserver.observe(containerRef.current);
     } catch (err) {
-      console.error('MindElixir render error:', err);
       setError(err instanceof Error ? err.message : '思维导图渲染失败');
     }
 
@@ -390,11 +374,17 @@ export const MindMapRenderer: React.FC<MindMapRendererProps> = ({
       if (mindElixirRef.current) {
         try {
           // 尝试调用 destroy 方法（如果存在）
-          if (typeof (mindElixirRef.current as any).destroy === 'function') {
-            (mindElixirRef.current as any).destroy();
+          if (
+            typeof (
+              mindElixirRef.current as unknown as { destroy?: () => void }
+            ).destroy === 'function'
+          ) {
+            (
+              mindElixirRef.current as unknown as { destroy: () => void }
+            ).destroy();
           }
-        } catch (e) {
-          console.warn('[MindMapRenderer] Error destroying instance:', e);
+        } catch {
+          // 忽略销毁错误
         }
         mindElixirRef.current = null;
       }

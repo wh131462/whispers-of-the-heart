@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useRef, useState } from 'react';
 import { Marked, Tokens } from 'marked';
-import { cn } from '../lib/utils';
+import { cn } from '@/lib/utils';
 import MindMapRenderer from './MindMapRenderer';
 import VideoPlayer from './VideoPlayer';
 import AudioPlayer from './AudioPlayer';
@@ -45,18 +45,10 @@ const createMarkedInstance = (mindmapDataList: MindMapData[]) => {
   const renderer = {
     code(token: Tokens.Code): string {
       const { text, lang } = token;
-      // Debug: 查看代码块的语言
-      console.log(
-        '[MarkdownRenderer] Code block detected, lang:',
-        lang,
-        'text preview:',
-        text?.substring(0, 100)
-      );
       // 处理 markmap 代码块
       if (lang === 'markmap') {
         const id = `mindmap-${mindmapDataList.length}`;
         mindmapDataList.push({ id, content: text });
-        console.log('[MarkdownRenderer] Mindmap code block found, id:', id);
         // 返回占位符 div，稍后会被 React 组件替换
         return `<div data-mindmap-placeholder="${id}" class="mindmap-placeholder"></div>`;
       }
@@ -87,25 +79,17 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   const htmlContent = useMemo(() => {
     if (!content || content.trim() === '') return '';
 
-    // Debug: 查看输入的 markdown 内容
-    console.log('[MarkdownRenderer] Input markdown:', content);
-
     try {
       // 收集思维导图数据
       const dataList: MindMapData[] = [];
       const markedInstance = createMarkedInstance(dataList);
       const html = markedInstance.parse(content) as string;
 
-      // Debug: 查看收集到的思维导图数据
-      console.log('[MarkdownRenderer] Mindmap data collected:', dataList);
-      console.log('[MarkdownRenderer] Generated HTML:', html);
-
       // 更新思维导图数据（在下一个微任务中，避免在渲染期间 setState）
       Promise.resolve().then(() => setMindmapData(dataList));
 
       return html;
-    } catch (error) {
-      console.error('Failed to parse markdown:', error);
+    } catch {
       return `<pre>${content}</pre>`;
     }
   }, [content]);
@@ -118,11 +102,11 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
 
     // 安全地清理旧的 React 根
     const cleanupRoots = () => {
-      rootsRef.current.forEach((root, key) => {
+      rootsRef.current.forEach(root => {
         try {
           root.unmount();
-        } catch (e) {
-          console.warn('[MarkdownRenderer] Error unmounting root:', key, e);
+        } catch {
+          // 忽略卸载错误
         }
       });
       rootsRef.current.clear();

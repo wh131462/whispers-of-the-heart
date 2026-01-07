@@ -1,141 +1,148 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Search, X, FileText, ArrowRight } from 'lucide-react'
-import { Button } from './ui/button'
-import { Input } from './ui/input'
-import { cn } from '../lib/utils'
-import { api } from '@whispers/utils'
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Search, X, FileText, ArrowRight } from 'lucide-react';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { cn } from '@/lib/utils';
+import { api } from '@whispers/utils';
 
 interface SearchResult {
-  id: string
-  title: string
-  type: 'post'
-  excerpt?: string
-  slug: string
-  publishedAt?: string
+  id: string;
+  title: string;
+  type: 'post';
+  excerpt?: string;
+  slug: string;
+  publishedAt?: string;
 }
 
 interface SearchDialogProps {
-  isOpen: boolean
-  onClose: () => void
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 const SearchDialog: React.FC<SearchDialogProps> = ({ isOpen, onClose }) => {
-  const navigate = useNavigate()
-  const [query, setQuery] = useState('')
-  const [results, setResults] = useState<SearchResult[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [selectedIndex, setSelectedIndex] = useState(-1)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const navigate = useNavigate();
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // 当对话框打开时聚焦输入框
   useEffect(() => {
     if (isOpen && inputRef.current) {
-      inputRef.current.focus()
+      inputRef.current.focus();
     }
-  }, [isOpen])
+  }, [isOpen]);
 
   // 处理搜索
   const handleSearch = async (searchQuery: string) => {
     if (!searchQuery.trim()) {
-      setResults([])
-      return
+      setResults([]);
+      return;
     }
 
-    setIsLoading(true)
+    setIsLoading(true);
     try {
       // 调用搜索API
       const response = await api.get('/blog/search', {
         params: {
           q: searchQuery,
-          limit: 10
-        }
-      })
+          limit: 10,
+        },
+      });
 
       if (response.data?.success && response.data?.data?.items) {
         // 转换API数据格式为SearchResult格式
-        const searchResults: SearchResult[] = response.data.data.items.map((post: any) => ({
-          id: post.id,
-          title: post.title,
-          type: 'post' as const,
-          excerpt: post.excerpt || post.content?.substring(0, 100) || '',
-          slug: post.slug,
-          publishedAt: post.publishedAt || post.createdAt
-        }))
-        setResults(searchResults)
+        const searchResults: SearchResult[] = response.data.data.items.map(
+          (post: {
+            id: string;
+            title: string;
+            excerpt?: string;
+            content?: string;
+            slug: string;
+            publishedAt?: string;
+            createdAt?: string;
+          }) => ({
+            id: post.id,
+            title: post.title,
+            type: 'post' as const,
+            excerpt: post.excerpt || post.content?.substring(0, 100) || '',
+            slug: post.slug,
+            publishedAt: post.publishedAt || post.createdAt,
+          })
+        );
+        setResults(searchResults);
       } else {
-        setResults([])
+        setResults([]);
       }
-    } catch (error) {
-      console.error('Search failed:', error)
-      setResults([])
+    } catch {
+      setResults([]);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   // 防抖搜索
   useEffect(() => {
     const timer = setTimeout(() => {
-      handleSearch(query)
-    }, 300)
+      handleSearch(query);
+    }, 300);
 
-    return () => clearTimeout(timer)
-  }, [query])
+    return () => clearTimeout(timer);
+  }, [query]);
 
   // 键盘导航
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!isOpen) return
+    if (!isOpen) return;
 
     switch (e.key) {
       case 'Escape':
-        onClose()
-        break
+        onClose();
+        break;
       case 'ArrowDown':
-        e.preventDefault()
-        setSelectedIndex(prev => 
-          prev < results.length - 1 ? prev + 1 : prev
-        )
-        break
+        e.preventDefault();
+        setSelectedIndex(prev => (prev < results.length - 1 ? prev + 1 : prev));
+        break;
       case 'ArrowUp':
-        e.preventDefault()
-        setSelectedIndex(prev => prev > 0 ? prev - 1 : -1)
-        break
+        e.preventDefault();
+        setSelectedIndex(prev => (prev > 0 ? prev - 1 : -1));
+        break;
       case 'Enter':
-        e.preventDefault()
+        e.preventDefault();
         if (selectedIndex >= 0 && results[selectedIndex]) {
-          handleResultClick(results[selectedIndex])
+          handleResultClick(results[selectedIndex]);
         }
-        break
+        break;
     }
-  }
+  };
 
   // 处理结果点击
   const handleResultClick = (result: SearchResult) => {
-    navigate(`/posts/${result.slug}`)
-    onClose()
-  }
+    navigate(`/posts/${result.slug}`);
+    onClose();
+  };
 
   // 获取类型图标
   const getTypeIcon = () => {
-    return <FileText className="h-4 w-4" />
-  }
+    return <FileText className="h-4 w-4" />;
+  };
 
   // 获取类型标签
   const getTypeLabel = () => {
-    return '文章'
-  }
+    return '文章';
+  };
 
-  if (!isOpen) return null
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-20">
       {/* 背景遮罩 */}
-      <div 
+      <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
       />
-      
+
       {/* 搜索对话框 */}
       <div className="relative w-full max-w-2xl mx-4 bg-card rounded-lg shadow-2xl border border-border">
         {/* 搜索输入框 */}
@@ -146,7 +153,7 @@ const SearchDialog: React.FC<SearchDialogProps> = ({ isOpen, onClose }) => {
             type="text"
             placeholder="搜索文章、视频、音频..."
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
             className="flex-1 border-0 shadow-none text-lg placeholder:text-muted-foreground focus-visible:ring-0"
           />
@@ -175,8 +182,8 @@ const SearchDialog: React.FC<SearchDialogProps> = ({ isOpen, onClose }) => {
                     key={result.id}
                     onClick={() => handleResultClick(result)}
                     className={cn(
-                      "flex items-center p-4 hover:bg-muted cursor-pointer transition-colors",
-                      selectedIndex === index && "bg-muted"
+                      'flex items-center p-4 hover:bg-muted cursor-pointer transition-colors',
+                      selectedIndex === index && 'bg-muted'
                     )}
                   >
                     <div className="flex-shrink-0 mr-3 text-muted-foreground">
@@ -198,7 +205,9 @@ const SearchDialog: React.FC<SearchDialogProps> = ({ isOpen, onClose }) => {
                       )}
                       {result.publishedAt && (
                         <p className="text-xs text-muted-foreground/70 mt-1">
-                          {new Date(result.publishedAt).toLocaleDateString('zh-CN')}
+                          {new Date(result.publishedAt).toLocaleDateString(
+                            'zh-CN'
+                          )}
                         </p>
                       )}
                     </div>
@@ -233,7 +242,7 @@ const SearchDialog: React.FC<SearchDialogProps> = ({ isOpen, onClose }) => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default SearchDialog
+export default SearchDialog;

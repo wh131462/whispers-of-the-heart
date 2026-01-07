@@ -1,4 +1,4 @@
-import { cn } from '../../../lib/utils';
+import { cn } from '@/lib/utils';
 import type { BitWidth } from '../types';
 import { getBits } from '../utils/programmer';
 

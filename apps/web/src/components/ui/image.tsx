@@ -1,29 +1,29 @@
-import React, { useState } from 'react'
-import { cn } from '../../lib/utils'
+import React, { useState } from 'react';
+import { cn } from '@/lib/utils';
 
 interface ImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
-  fallback?: string
-  className?: string
+  fallback?: string;
+  className?: string;
 }
 
-const Image: React.FC<ImageProps> = ({ 
-  src, 
-  alt, 
-  fallback, 
-  className, 
+const Image: React.FC<ImageProps> = ({
+  src,
+  alt,
+  fallback,
+  className,
   onError,
-  ...props 
+  ...props
 }) => {
-  const [imgSrc, setImgSrc] = useState(src)
-  const [hasError, setHasError] = useState(false)
+  const [imgSrc, setImgSrc] = useState(src);
+  const [hasError, setHasError] = useState(false);
 
   const handleError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
     if (!hasError && fallback) {
-      setImgSrc(fallback)
-      setHasError(true)
+      setImgSrc(fallback);
+      setHasError(true);
     }
-    onError?.(e)
-  }
+    onError?.(e);
+  };
 
   return (
     <img
@@ -33,7 +33,7 @@ const Image: React.FC<ImageProps> = ({
       onError={handleError}
       {...props}
     />
-  )
-}
+  );
+};
 
-export { Image }
+export { Image };

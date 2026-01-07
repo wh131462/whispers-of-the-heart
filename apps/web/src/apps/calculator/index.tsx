@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { cn } from '../../lib/utils';
+import { cn } from '@/lib/utils';
 import { StandardMode } from './modes/StandardMode';
 import { ScientificMode } from './modes/ScientificMode';
 import { ProgrammerMode } from './modes/ProgrammerMode';

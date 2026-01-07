@@ -161,8 +161,8 @@ const MainLayout: React.FC = () => {
       if (response.data?.success && response.data?.data) {
         setSiteConfig(response.data.data);
       }
-    } catch (error) {
-      console.error('Failed to fetch site config:', error);
+    } catch {
+      // 获取站点配置失败时静默处理
     }
   };
 
@@ -525,8 +525,12 @@ const MainLayout: React.FC = () => {
               —— {hitokoto?.from || '佚名'}
             </p>
             <p className="text-muted-foreground text-xs">
-              &copy; 2024 {siteConfig?.siteName || 'Whispers of the Heart'}. All
-              rights reserved.
+              &copy; 2022
+              {new Date().getFullYear() > 2022
+                ? `-${new Date().getFullYear()}`
+                : ''}{' '}
+              {siteConfig?.siteName || 'Whispers of the Heart'}. All rights
+              reserved.
             </p>
           </div>
         </div>

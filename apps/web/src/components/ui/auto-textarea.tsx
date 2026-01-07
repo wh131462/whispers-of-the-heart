@@ -1,47 +1,50 @@
-import React, { useRef, useEffect } from 'react'
-import { cn } from '../../lib/utils'
+import React, { useRef, useEffect } from 'react';
+import { cn } from '@/lib/utils';
 
 interface AutoTextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
-  minRows?: number
-  maxRows?: number
+  minRows?: number;
+  maxRows?: number;
 }
 
 const AutoTextarea = React.forwardRef<HTMLTextAreaElement, AutoTextareaProps>(
   ({ className, minRows = 1, maxRows = 10, ...props }, ref) => {
-    const textareaRef = useRef<HTMLTextAreaElement>(null)
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     useEffect(() => {
-      const textarea = textareaRef.current
-      if (!textarea) return
+      const textarea = textareaRef.current;
+      if (!textarea) return;
 
       const adjustHeight = () => {
         // 重置高度以获取正确的scrollHeight
-        textarea.style.height = 'auto'
-        
+        textarea.style.height = 'auto';
+
         // 计算行高
-        const lineHeight = parseInt(getComputedStyle(textarea).lineHeight)
-        const minHeight = lineHeight * minRows
-        const maxHeight = lineHeight * maxRows
-        
+        const lineHeight = parseInt(getComputedStyle(textarea).lineHeight);
+        const minHeight = lineHeight * minRows;
+        const maxHeight = lineHeight * maxRows;
+
         // 设置高度
-        const newHeight = Math.min(Math.max(textarea.scrollHeight, minHeight), maxHeight)
-        textarea.style.height = `${newHeight}px`
-      }
+        const newHeight = Math.min(
+          Math.max(textarea.scrollHeight, minHeight),
+          maxHeight
+        );
+        textarea.style.height = `${newHeight}px`;
+      };
 
       // 初始调整
-      adjustHeight()
+      adjustHeight();
 
       // 监听输入变化
-      textarea.addEventListener('input', adjustHeight)
-      
+      textarea.addEventListener('input', adjustHeight);
+
       // 监听窗口大小变化
-      window.addEventListener('resize', adjustHeight)
+      window.addEventListener('resize', adjustHeight);
 
       return () => {
-        textarea.removeEventListener('input', adjustHeight)
-        window.removeEventListener('resize', adjustHeight)
-      }
-    }, [minRows, maxRows])
+        textarea.removeEventListener('input', adjustHeight);
+        window.removeEventListener('resize', adjustHeight);
+      };
+    }, [minRows, maxRows]);
 
     return (
       <textarea
@@ -52,10 +55,10 @@ const AutoTextarea = React.forwardRef<HTMLTextAreaElement, AutoTextareaProps>(
         )}
         {...props}
       />
-    )
+    );
   }
-)
+);
 
-AutoTextarea.displayName = 'AutoTextarea'
+AutoTextarea.displayName = 'AutoTextarea';
 
-export { AutoTextarea }
+export { AutoTextarea };

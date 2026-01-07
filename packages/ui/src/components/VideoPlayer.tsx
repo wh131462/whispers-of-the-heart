@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import videojs from 'video.js';
 import 'video.js/dist/video-js.css';
 import './VideoPlayer.css';
-import { cn } from '../lib/utils';
+import { cn } from '@/lib/utils';
 
 export interface VideoPlayerProps {
   src: string;
@@ -35,7 +35,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onEnded,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const playerRef = useRef<any>(null);
+  const playerRef = useRef<ReturnType<typeof videojs> | null>(null);
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
@@ -97,7 +97,7 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
       // 监听准备就绪
       player.ready(() => {
-        console.log('Video.js player is ready');
+        // player is ready
       });
     }
 
