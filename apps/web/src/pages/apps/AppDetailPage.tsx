@@ -40,9 +40,9 @@ export default function AppDetailPage() {
 
   if (isFullscreen) {
     return (
-      <div className="fixed inset-0 z-50 bg-white overflow-auto flex items-center justify-center">
+      <div className="fixed inset-0 w-screen h-screen z-50 bg-white overflow-auto flex items-center justify-center">
         {/* App Content - 全屏 */}
-        <div className="w-full max-w-4xl">
+        <div className="size-full">
           <Suspense fallback={<AppLoader />}>
             <AppComponent />
           </Suspense>

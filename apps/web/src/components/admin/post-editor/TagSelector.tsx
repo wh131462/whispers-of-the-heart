@@ -1,20 +1,26 @@
-import React, { useState, useMemo } from 'react'
-import { Popover, PopoverTrigger, PopoverContent, Input, Button } from '@whispers/ui'
-import { X, Plus, Check, Search } from 'lucide-react'
+import React, { useState, useMemo, useRef } from 'react';
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  Input,
+  Button,
+} from '@whispers/ui';
+import { X, Plus, Check, Search } from 'lucide-react';
 
 interface Tag {
-  id: string
-  name: string
-  slug: string
-  color?: string
+  id: string;
+  name: string;
+  slug: string;
+  color?: string;
 }
 
 interface TagSelectorProps {
-  selectedTags: string[]
-  availableTags: Tag[]
-  onAdd: (tagName: string) => void
-  onRemove: (tagName: string) => void
-  onCreate?: (tagName: string) => void
+  selectedTags: string[];
+  availableTags: Tag[];
+  onAdd: (tagName: string) => void;
+  onRemove: (tagName: string) => void;
+  onCreate?: (tagName: string) => void;
 }
 
 const TagSelector: React.FC<TagSelectorProps> = ({
@@ -22,41 +28,71 @@ const TagSelector: React.FC<TagSelectorProps> = ({
   availableTags,
   onAdd,
   onRemove,
-  onCreate
+  onCreate,
 }) => {
-  const [open, setOpen] = useState(false)
-  const [searchValue, setSearchValue] = useState('')
+  const [open, setOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
+  const isComposingRef = useRef(false);
 
   const filteredTags = useMemo(() => {
-    if (!searchValue.trim()) return availableTags
+    if (!searchValue.trim()) return availableTags;
     return availableTags.filter(tag =>
       tag.name.toLowerCase().includes(searchValue.toLowerCase())
-    )
-  }, [availableTags, searchValue])
+    );
+  }, [availableTags, searchValue]);
+
+  // 查找精确匹配的已有标签（忽略大小写）
+  const matchedExistingTag = useMemo(() => {
+    if (!searchValue.trim()) return null;
+    return (
+      availableTags.find(
+        tag => tag.name.toLowerCase() === searchValue.trim().toLowerCase()
+      ) || null
+    );
+  }, [searchValue, availableTags]);
 
   const canCreateTag = useMemo(() => {
-    if (!searchValue.trim()) return false
-    const exists = availableTags.some(
-      tag => tag.name.toLowerCase() === searchValue.toLowerCase()
-    )
-    return !exists && onCreate
-  }, [searchValue, availableTags, onCreate])
+    if (!searchValue.trim()) return false;
+    return !matchedExistingTag && !!onCreate;
+  }, [searchValue, matchedExistingTag, onCreate]);
 
   const handleSelectTag = (tagName: string) => {
     if (selectedTags.includes(tagName)) {
-      onRemove(tagName)
+      onRemove(tagName);
     } else {
-      onAdd(tagName)
+      onAdd(tagName);
     }
-  }
+  };
 
   const handleCreateTag = () => {
     if (canCreateTag && onCreate) {
-      onCreate(searchValue.trim())
-      onAdd(searchValue.trim())
-      setSearchValue('')
+      onCreate(searchValue.trim());
+      onAdd(searchValue.trim());
+      setSearchValue('');
     }
-  }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== 'Enter') return;
+    // 拼音输入期间不响应回车
+    if (isComposingRef.current) return;
+
+    e.preventDefault();
+
+    // 如果有精确匹配的已有标签，直接选中它
+    if (matchedExistingTag) {
+      if (!selectedTags.includes(matchedExistingTag.name)) {
+        onAdd(matchedExistingTag.name);
+      }
+      setSearchValue('');
+      return;
+    }
+
+    // 否则创建新标签
+    if (canCreateTag) {
+      handleCreateTag();
+    }
+  };
 
   // 触发器内容 - 显示已选标签或占位符
   const TriggerContent = () => {
@@ -65,7 +101,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({
         <span className="text-sm text-muted-foreground/60 hover:text-muted-foreground transition-colors">
           添加标签...
         </span>
-      )
+      );
     }
 
     return (
@@ -77,9 +113,9 @@ const TagSelector: React.FC<TagSelectorProps> = ({
           >
             {tag}
             <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onRemove(tag)
+              onClick={e => {
+                e.stopPropagation();
+                onRemove(tag);
               }}
               className="ml-1 hover:text-primary/70 transition-colors"
             >
@@ -88,8 +124,8 @@ const TagSelector: React.FC<TagSelectorProps> = ({
           </span>
         ))}
       </div>
-    )
-  }
+    );
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -109,11 +145,13 @@ const TagSelector: React.FC<TagSelectorProps> = ({
             <Input
               placeholder="搜索或创建标签..."
               value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && canCreateTag) {
-                  handleCreateTag()
-                }
+              onChange={e => setSearchValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onCompositionStart={() => {
+                isComposingRef.current = true;
+              }}
+              onCompositionEnd={() => {
+                isComposingRef.current = false;
               }}
               className="pl-8 h-8 text-sm"
             />
@@ -148,7 +186,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({
           ) : (
             <>
               {filteredTags.map(tag => {
-                const isSelected = selectedTags.includes(tag.name)
+                const isSelected = selectedTags.includes(tag.name);
                 return (
                   <button
                     key={tag.id}
@@ -156,16 +194,17 @@ const TagSelector: React.FC<TagSelectorProps> = ({
                     className={`
                       w-full flex items-center justify-between px-2 py-1.5 rounded-md text-sm
                       transition-colors
-                      ${isSelected
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-foreground hover:bg-muted'
+                      ${
+                        isSelected
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-foreground hover:bg-muted'
                       }
                     `}
                   >
                     <span>{tag.name}</span>
                     {isSelected && <Check className="h-4 w-4" />}
                   </button>
-                )
+                );
               })}
             </>
           )}
@@ -187,7 +226,7 @@ const TagSelector: React.FC<TagSelectorProps> = ({
         )}
       </PopoverContent>
     </Popover>
-  )
-}
+  );
+};
 
-export default TagSelector
+export default TagSelector;

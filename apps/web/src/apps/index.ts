@@ -115,6 +115,46 @@ export const appRegistry: AppMeta[] = [
     tags: ['娱乐'],
     component: lazy(() => import('./game-2048')),
   },
+  {
+    id: 'snake',
+    name: '贪吃蛇',
+    description: '经典贪吃蛇游戏，控制蛇吃食物不断变长',
+    icon: 'Gamepad2',
+    tags: ['娱乐'],
+    component: lazy(() => import('./snake')),
+  },
+  {
+    id: 'tetris',
+    name: '俄罗斯方块',
+    description: '经典方块消除游戏，堆叠方块消除得分',
+    icon: 'Blocks',
+    tags: ['娱乐'],
+    component: lazy(() => import('./tetris')),
+  },
+  {
+    id: 'sudoku',
+    name: '数独',
+    description: '经典数字逻辑游戏，填满9x9格子使每行列宫不重复',
+    icon: 'LayoutGrid',
+    tags: ['娱乐'],
+    component: lazy(() => import('./sudoku')),
+  },
+  {
+    id: 'reversi',
+    name: '黑白棋',
+    description: '经典翻转棋，通过翻转对方棋子占领更多格子',
+    icon: 'Circle',
+    tags: ['娱乐'],
+    component: lazy(() => import('./reversi')),
+  },
+  {
+    id: 'gomoku',
+    name: '五子棋',
+    description: '经典棋类游戏，五子连珠先连成一线获胜',
+    icon: 'CircleDot',
+    tags: ['娱乐'],
+    component: lazy(() => import('./gomoku')),
+  },
 ];
 
 export function getAppById(id: string): AppMeta | undefined {
