@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useRef, useCallback } from 'react';
 import { Flag, HelpCircle, Bomb } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Cell as CellType } from '../types';
@@ -8,6 +8,7 @@ interface CellProps {
   onClick: () => void;
   onContextMenu: (e: React.MouseEvent) => void;
   onDoubleClick: () => void;
+  onLongPress?: () => void;
   gameOver: boolean;
 }
 
@@ -27,8 +28,33 @@ function CellComponent({
   onClick,
   onContextMenu,
   onDoubleClick,
+  onLongPress,
   gameOver,
 }: CellProps) {
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isLongPress = useRef(false);
+
+  const handleTouchStart = useCallback(() => {
+    isLongPress.current = false;
+    longPressTimer.current = setTimeout(() => {
+      isLongPress.current = true;
+      onLongPress?.();
+    }, 500);
+  }, [onLongPress]);
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
+  const handleClick = useCallback(() => {
+    if (!isLongPress.current) {
+      onClick();
+    }
+  }, [onClick]);
+
   const renderContent = () => {
     if (cell.state === 'flagged') {
       return <Flag className="w-3.5 h-3.5 text-red-400" />;
@@ -64,9 +90,12 @@ function CellComponent({
 
   return (
     <button
-      onClick={onClick}
+      onClick={handleClick}
       onContextMenu={onContextMenu}
       onDoubleClick={onDoubleClick}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
       disabled={gameOver && cell.state !== 'revealed'}
       className={cn(
         'w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center',

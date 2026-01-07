@@ -1,12 +1,13 @@
 import { cn } from '@/lib/utils';
 import type { CellValue, Position } from '../types';
-import { BOARD_SIZE, CELL_SIZE } from '../types';
+import { BOARD_SIZE } from '../types';
 
 type BoardProps = {
   board: CellValue[][];
   validMoves: Position[];
   onCellClick: (row: number, col: number) => void;
   disabled?: boolean;
+  cellSize?: number;
 };
 
 export function Board({
@@ -14,8 +15,9 @@ export function Board({
   validMoves,
   onCellClick,
   disabled,
+  cellSize = 48,
 }: BoardProps) {
-  const boardSize = BOARD_SIZE * CELL_SIZE;
+  const boardSize = BOARD_SIZE * cellSize;
   const validMoveSet = new Set(validMoves.map(m => `${m.row},${m.col}`));
 
   return (
@@ -43,10 +45,10 @@ export function Board({
                 disabled && 'cursor-not-allowed'
               )}
               style={{
-                left: colIdx * CELL_SIZE,
-                top: rowIdx * CELL_SIZE,
-                width: CELL_SIZE,
-                height: CELL_SIZE,
+                left: colIdx * cellSize,
+                top: rowIdx * cellSize,
+                width: cellSize,
+                height: cellSize,
               }}
               onClick={() =>
                 !disabled && isValidMove && onCellClick(rowIdx, colIdx)
@@ -62,8 +64,8 @@ export function Board({
                       : 'bg-gradient-to-br from-white to-zinc-200 border border-zinc-300'
                   )}
                   style={{
-                    width: CELL_SIZE - 8,
-                    height: CELL_SIZE - 8,
+                    width: cellSize - 8,
+                    height: cellSize - 8,
                   }}
                 />
               )}
@@ -73,8 +75,8 @@ export function Board({
                 <div
                   className="rounded-full bg-emerald-400/40 animate-pulse"
                   style={{
-                    width: CELL_SIZE - 24,
-                    height: CELL_SIZE - 24,
+                    width: cellSize - 24,
+                    height: cellSize - 24,
                   }}
                 />
               )}

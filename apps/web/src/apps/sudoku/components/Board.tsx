@@ -6,9 +6,15 @@ type BoardProps = {
   board: Cell[][];
   selectedCell: Position | null;
   onCellClick: (position: Position) => void;
+  cellSize?: number;
 };
 
-export function Board({ board, selectedCell, onCellClick }: BoardProps) {
+export function Board({
+  board,
+  selectedCell,
+  onCellClick,
+  cellSize = 40,
+}: BoardProps) {
   const getHighlightClass = (row: number, col: number): string => {
     if (!selectedCell) return '';
 
@@ -37,8 +43,8 @@ export function Board({ board, selectedCell, onCellClick }: BoardProps) {
         'border-2 border-zinc-800'
       )}
       style={{
-        gridTemplateColumns: `repeat(${BOARD_SIZE}, 40px)`,
-        gridTemplateRows: `repeat(${BOARD_SIZE}, 40px)`,
+        gridTemplateColumns: `repeat(${BOARD_SIZE}, ${cellSize}px)`,
+        gridTemplateRows: `repeat(${BOARD_SIZE}, ${cellSize}px)`,
       }}
     >
       {board.map((row, rowIdx) =>
@@ -66,7 +72,8 @@ export function Board({ board, selectedCell, onCellClick }: BoardProps) {
               {cell.value !== null ? (
                 <span
                   className={cn(
-                    'text-lg font-semibold',
+                    'font-semibold',
+                    cellSize >= 36 ? 'text-lg' : 'text-sm',
                     cell.isFixed ? 'text-zinc-800' : 'text-blue-600',
                     cell.isError && 'text-red-500'
                   )}
@@ -79,7 +86,8 @@ export function Board({ board, selectedCell, onCellClick }: BoardProps) {
                     <span
                       key={n}
                       className={cn(
-                        'text-[8px] text-zinc-400 flex items-center justify-center',
+                        'text-zinc-400 flex items-center justify-center',
+                        cellSize >= 36 ? 'text-[8px]' : 'text-[6px]',
                         !cell.notes.has(n) && 'opacity-0'
                       )}
                     >

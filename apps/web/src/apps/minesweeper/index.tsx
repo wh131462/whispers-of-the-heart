@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { GameBoard } from './components/GameBoard';
 import { GameHeader } from './components/GameHeader';
 import { DifficultySelector } from './components/DifficultySelector';
@@ -15,6 +16,7 @@ export default function Minesweeper() {
     toggleFlag,
     chord,
   } = useMinesweeper();
+  const isMobile = useIsMobile();
 
   return (
     <div className="w-full max-w-fit mx-auto p-4">
@@ -54,7 +56,11 @@ export default function Minesweeper() {
 
         {/* 操作提示 */}
         <div className="text-xs text-neutral-500 text-center">
-          <p>左键揭开 | 右键标记 | 双击快速揭开</p>
+          <p>
+            {isMobile
+              ? '点击揭开 | 长按标记'
+              : '左键揭开 | 右键标记 | 双击快速揭开'}
+          </p>
         </div>
 
         {/* 游戏结束弹窗 */}

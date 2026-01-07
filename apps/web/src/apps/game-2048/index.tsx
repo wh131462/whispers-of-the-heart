@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils';
 import { RotateCcw, Undo2 } from 'lucide-react';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { GameBoard } from './components/GameBoard';
 import { ScoreBoard } from './components/ScoreBoard';
 import { GameOverModal } from './components/GameOverModal';
@@ -8,6 +9,10 @@ import { useGame2048 } from './hooks/useGame2048';
 export default function Game2048() {
   const { state, reset, handleMove, continueGame, undo, canUndo } =
     useGame2048();
+  const isMobile = useIsMobile();
+
+  const cellSize = isMobile ? 60 : 80;
+  const gap = isMobile ? 6 : 8;
 
   return (
     <div className="w-full max-w-fit mx-auto p-4">
@@ -63,7 +68,12 @@ export default function Game2048() {
 
         {/* 游戏面板 */}
         <div className="relative">
-          <GameBoard tiles={state.tiles} onMove={handleMove} />
+          <GameBoard
+            tiles={state.tiles}
+            onMove={handleMove}
+            cellSize={cellSize}
+            gap={gap}
+          />
 
           {/* 游戏结束弹窗 */}
           <GameOverModal
@@ -76,7 +86,9 @@ export default function Game2048() {
 
         {/* 操作提示 */}
         <div className="text-xs text-zinc-500 text-center">
-          <p>方向键或 WASD 移动 | 滑动也可以</p>
+          <p>
+            {isMobile ? '滑动屏幕移动方块' : '方向键或 WASD 移动 | 滑动也可以'}
+          </p>
         </div>
       </div>
 

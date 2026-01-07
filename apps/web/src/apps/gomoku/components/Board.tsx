@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils';
 import type { CellValue, Position } from '../types';
-import { BOARD_SIZE, CELL_SIZE } from '../types';
+import { BOARD_SIZE } from '../types';
 
 type BoardProps = {
   board: CellValue[][];
@@ -8,6 +8,7 @@ type BoardProps = {
   winningLine: Position[] | null;
   onCellClick: (row: number, col: number) => void;
   disabled?: boolean;
+  cellSize?: number;
 };
 
 export function Board({
@@ -16,9 +17,12 @@ export function Board({
   winningLine,
   onCellClick,
   disabled,
+  cellSize = 28,
 }: BoardProps) {
-  const boardPixelSize = (BOARD_SIZE - 1) * CELL_SIZE + 40;
+  const padding = cellSize < 24 ? 12 : 20;
+  const boardPixelSize = (BOARD_SIZE - 1) * cellSize + padding * 2;
   const winningSet = new Set(winningLine?.map(p => `${p.row},${p.col}`));
+  const starRadius = cellSize < 24 ? 2 : 3;
 
   return (
     <div
@@ -27,14 +31,14 @@ export function Board({
         'border-2 border-amber-300',
         'shadow-inner'
       )}
-      style={{ width: boardPixelSize, height: boardPixelSize, padding: 20 }}
+      style={{ width: boardPixelSize, height: boardPixelSize, padding }}
     >
       {/* 棋盘线 */}
       <svg
         className="absolute"
-        style={{ left: 20, top: 20 }}
-        width={(BOARD_SIZE - 1) * CELL_SIZE}
-        height={(BOARD_SIZE - 1) * CELL_SIZE}
+        style={{ left: padding, top: padding }}
+        width={(BOARD_SIZE - 1) * cellSize}
+        height={(BOARD_SIZE - 1) * cellSize}
       >
         {/* 横线 */}
         {Array(BOARD_SIZE)
@@ -43,9 +47,9 @@ export function Board({
             <line
               key={`h-${i}`}
               x1={0}
-              y1={i * CELL_SIZE}
-              x2={(BOARD_SIZE - 1) * CELL_SIZE}
-              y2={i * CELL_SIZE}
+              y1={i * cellSize}
+              x2={(BOARD_SIZE - 1) * cellSize}
+              y2={i * cellSize}
               stroke="#b45309"
               strokeWidth={1}
             />
@@ -56,10 +60,10 @@ export function Board({
           .map((_, i) => (
             <line
               key={`v-${i}`}
-              x1={i * CELL_SIZE}
+              x1={i * cellSize}
               y1={0}
-              x2={i * CELL_SIZE}
-              y2={(BOARD_SIZE - 1) * CELL_SIZE}
+              x2={i * cellSize}
+              y2={(BOARD_SIZE - 1) * cellSize}
               stroke="#b45309"
               strokeWidth={1}
             />
@@ -69,9 +73,9 @@ export function Board({
           [3, 7, 11].map(col => (
             <circle
               key={`star-${row}-${col}`}
-              cx={col * CELL_SIZE}
-              cy={row * CELL_SIZE}
-              r={3}
+              cx={col * cellSize}
+              cy={row * cellSize}
+              r={starRadius}
               fill="#b45309"
             />
           ))
@@ -90,10 +94,10 @@ export function Board({
               disabled && 'cursor-not-allowed'
             )}
             style={{
-              left: 20 + colIdx * CELL_SIZE - CELL_SIZE / 2,
-              top: 20 + rowIdx * CELL_SIZE - CELL_SIZE / 2,
-              width: CELL_SIZE,
-              height: CELL_SIZE,
+              left: padding + colIdx * cellSize - cellSize / 2,
+              top: padding + rowIdx * cellSize - cellSize / 2,
+              width: cellSize,
+              height: cellSize,
             }}
             onClick={() => !disabled && onCellClick(rowIdx, colIdx)}
           >
@@ -111,8 +115,8 @@ export function Board({
                     'ring-2 ring-emerald-500'
                 )}
                 style={{
-                  width: CELL_SIZE - 4,
-                  height: CELL_SIZE - 4,
+                  width: cellSize - 4,
+                  height: cellSize - 4,
                 }}
               />
             )}

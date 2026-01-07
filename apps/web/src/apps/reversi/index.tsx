@@ -7,6 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { Board } from './components/Board';
 import { GameOverModal } from './components/GameOverModal';
 import { useReversi } from './hooks/useReversi';
@@ -79,6 +80,9 @@ function PlayerIndicator({
 
 export default function Reversi() {
   const { state, reset, setMode, setDifficulty, placePiece } = useReversi();
+  const isMobile = useIsMobile();
+
+  const cellSize = isMobile ? 36 : 48;
 
   return (
     <div className="w-full max-w-fit mx-auto p-4">
@@ -186,6 +190,7 @@ export default function Reversi() {
               state.status === 'ended' ||
               (state.mode === 'pve' && state.currentPlayer === 'white')
             }
+            cellSize={cellSize}
           />
 
           {/* 游戏结束弹窗 */}
@@ -200,7 +205,7 @@ export default function Reversi() {
 
         {/* 操作提示 */}
         <div className="text-xs text-zinc-500 text-center">
-          <p>点击绿色提示位置落子 | 翻转对方棋子</p>
+          <p>点击绿色提示位置落子</p>
         </div>
       </div>
 

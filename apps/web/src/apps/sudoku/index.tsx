@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useFireworks } from '@/components/ui/confetti';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { Board } from './components/Board';
 import { NumberPad } from './components/NumberPad';
 import { useSudoku } from './hooks/useSudoku';
@@ -32,6 +33,10 @@ export default function Sudoku() {
     getHint,
   } = useSudoku();
   const { fire } = useFireworks();
+  const isMobile = useIsMobile();
+
+  const cellSize = isMobile ? 32 : 40;
+  const buttonSize = isMobile ? 32 : 40;
 
   const isWon = state.status === 'won' && state.mistakes < MAX_MISTAKES;
   const isLost = state.status === 'won' && state.mistakes >= MAX_MISTAKES;
@@ -147,6 +152,7 @@ export default function Sudoku() {
             board={state.board}
             selectedCell={state.selectedCell}
             onCellClick={selectCell}
+            cellSize={cellSize}
           />
 
           {/* 胜利弹窗 */}
@@ -211,12 +217,19 @@ export default function Sudoku() {
           onClear={clearCell}
           isNoteMode={state.isNoteMode}
           disabled={state.status !== 'playing'}
+          buttonSize={buttonSize}
         />
 
         {/* 操作提示 */}
         <div className="text-xs text-zinc-500 text-center space-y-0.5">
-          <p>点击格子选中 | 数字键填写 | N键切换笔记</p>
-          <p>方向键移动 | Delete清除</p>
+          {isMobile ? (
+            <p>点击格子选中，点击数字填写</p>
+          ) : (
+            <>
+              <p>点击格子选中 | 数字键填写 | N键切换笔记</p>
+              <p>方向键移动 | Delete清除</p>
+            </>
+          )}
         </div>
       </div>
 

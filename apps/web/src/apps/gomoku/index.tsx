@@ -7,6 +7,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { Board } from './components/Board';
 import { GameOverModal } from './components/GameOverModal';
 import { useGomoku } from './hooks/useGomoku';
@@ -52,6 +53,9 @@ function PlayerIndicator({
 export default function Gomoku() {
   const { state, reset, setMode, setDifficulty, makeMove, undo, canUndo } =
     useGomoku();
+  const isMobile = useIsMobile();
+
+  const cellSize = isMobile ? 20 : 28;
 
   return (
     <div className="w-full max-w-fit mx-auto p-4">
@@ -167,6 +171,7 @@ export default function Gomoku() {
               state.status === 'won' ||
               (state.mode === 'pve' && state.currentPlayer === 'white')
             }
+            cellSize={cellSize}
           />
 
           {/* 游戏结束弹窗 */}
@@ -179,7 +184,7 @@ export default function Gomoku() {
 
         {/* 操作提示 */}
         <div className="text-xs text-zinc-500 text-center">
-          <p>点击交叉点落子 | 五子连珠获胜</p>
+          <p>点击交叉点落子</p>
         </div>
       </div>
 

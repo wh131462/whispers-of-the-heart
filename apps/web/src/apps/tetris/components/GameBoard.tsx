@@ -1,14 +1,19 @@
 import { cn } from '@/lib/utils';
 import type { CellValue, Piece } from '../types';
-import { BOARD_WIDTH, BOARD_HEIGHT, CELL_SIZE, PIECE_COLORS } from '../types';
+import { BOARD_WIDTH, BOARD_HEIGHT, PIECE_COLORS } from '../types';
 import { getPieceCells, getGhostPosition } from '../utils/board';
 
 type GameBoardProps = {
   board: CellValue[][];
   currentPiece: Piece | null;
+  cellSize?: number;
 };
 
-export function GameBoard({ board, currentPiece }: GameBoardProps) {
+export function GameBoard({
+  board,
+  currentPiece,
+  cellSize = 24,
+}: GameBoardProps) {
   const currentCells = currentPiece ? getPieceCells(currentPiece) : [];
   const ghostPiece = currentPiece
     ? getGhostPosition(board, currentPiece)
@@ -63,12 +68,12 @@ export function GameBoard({ board, currentPiece }: GameBoardProps) {
   return (
     <div
       className={cn(
-        'grid bg-zinc-900 gap-px p-1 rounded-lg',
+        'grid bg-zinc-900 gap-px p-0.5 sm:p-1 rounded-lg',
         'border-2 border-zinc-700'
       )}
       style={{
-        gridTemplateColumns: `repeat(${BOARD_WIDTH}, ${CELL_SIZE}px)`,
-        gridTemplateRows: `repeat(${BOARD_HEIGHT}, ${CELL_SIZE}px)`,
+        gridTemplateColumns: `repeat(${BOARD_WIDTH}, ${cellSize}px)`,
+        gridTemplateRows: `repeat(${BOARD_HEIGHT}, ${cellSize}px)`,
       }}
     >
       {board.map((row, rowIdx) =>
@@ -76,7 +81,7 @@ export function GameBoard({ board, currentPiece }: GameBoardProps) {
           <div
             key={`${rowIdx}-${colIdx}`}
             className="bg-zinc-800/50"
-            style={{ width: CELL_SIZE, height: CELL_SIZE }}
+            style={{ width: cellSize, height: cellSize }}
           >
             {getCellContent(rowIdx, colIdx)}
           </div>

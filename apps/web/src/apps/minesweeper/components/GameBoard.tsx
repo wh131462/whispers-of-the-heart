@@ -46,6 +46,7 @@ export function GameBoard({
               onClick={() => onCellClick(rowIndex, colIndex)}
               onContextMenu={e => handleContextMenu(e, rowIndex, colIndex)}
               onDoubleClick={() => onCellDoubleClick(rowIndex, colIndex)}
+              onLongPress={() => onCellRightClick(rowIndex, colIndex)}
               gameOver={gameOver}
             />
           ))

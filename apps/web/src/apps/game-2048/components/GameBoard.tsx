@@ -7,14 +7,18 @@ import { Tile } from './Tile';
 interface GameBoardProps {
   tiles: TileType[];
   onMove: (direction: Direction) => void;
+  cellSize?: number;
+  gap?: number;
 }
 
-const CELL_SIZE = 80;
-const GAP = 8;
-
-export function GameBoard({ tiles, onMove }: GameBoardProps) {
+export function GameBoard({
+  tiles,
+  onMove,
+  cellSize = 80,
+  gap = 8,
+}: GameBoardProps) {
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
-  const boardSize = GRID_SIZE * CELL_SIZE + (GRID_SIZE - 1) * GAP;
+  const boardSize = GRID_SIZE * cellSize + (GRID_SIZE - 1) * gap;
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0];
@@ -58,23 +62,26 @@ export function GameBoard({ tiles, onMove }: GameBoardProps) {
           key={`${row}-${col}`}
           className="bg-zinc-200 rounded-md"
           style={{
-            width: CELL_SIZE,
-            height: CELL_SIZE,
+            width: cellSize,
+            height: cellSize,
           }}
         />
       );
     }
   }
 
+  const padding = cellSize < 60 ? 6 : 8;
+
   return (
     <div
       className={cn(
-        'relative bg-zinc-300 rounded-lg p-2',
+        'relative bg-zinc-300 rounded-lg',
         'touch-none select-none'
       )}
       style={{
-        width: boardSize + 16,
-        height: boardSize + 16,
+        width: boardSize + padding * 2,
+        height: boardSize + padding * 2,
+        padding,
       }}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
@@ -83,8 +90,8 @@ export function GameBoard({ tiles, onMove }: GameBoardProps) {
       <div
         className="grid"
         style={{
-          gridTemplateColumns: `repeat(${GRID_SIZE}, ${CELL_SIZE}px)`,
-          gap: GAP,
+          gridTemplateColumns: `repeat(${GRID_SIZE}, ${cellSize}px)`,
+          gap,
         }}
       >
         {cells}
@@ -92,14 +99,16 @@ export function GameBoard({ tiles, onMove }: GameBoardProps) {
 
       {/* 方块层 */}
       <div
-        className="absolute top-2 left-2"
+        className="absolute"
         style={{
+          top: padding,
+          left: padding,
           width: boardSize,
           height: boardSize,
         }}
       >
         {tiles.map(tile => (
-          <Tile key={tile.id} tile={tile} cellSize={CELL_SIZE} gap={GAP} />
+          <Tile key={tile.id} tile={tile} cellSize={cellSize} gap={gap} />
         ))}
       </div>
     </div>
