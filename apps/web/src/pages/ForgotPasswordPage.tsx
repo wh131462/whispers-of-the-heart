@@ -1,55 +1,60 @@
-import React, { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
-import { Button } from '../components/ui/button'
-import { Input } from '../components/ui/input'
-import { Label } from '../components/ui/label'
-import { Mail, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react'
-import { api } from '@whispers/utils'
+import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Mail, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
+import { api } from '@whispers/utils';
 
 const ForgotPasswordPage: React.FC = () => {
-  const [email, setEmail] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState(false)
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
+    e.preventDefault();
+    setError('');
 
     // 表单验证
     if (!email.trim()) {
-      setError('请输入邮箱地址')
-      return
+      setError('请输入邮箱地址');
+      return;
     }
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError('请输入有效的邮箱地址')
-      return
+      setError('请输入有效的邮箱地址');
+      return;
     }
 
     try {
-      setLoading(true)
-      
-      const response = await api.post('/auth/forgot-password', { email })
+      setLoading(true);
+
+      const response = await api.post('/auth/forgot-password', { email });
 
       if (response.data?.success) {
-        setSuccess(true)
+        setSuccess(true);
       } else {
-        setError(response.data?.message || '发送重置邮件失败，请重试')
+        setError(response.data?.message || '发送重置邮件失败，请重试');
       }
     } catch (error) {
-      console.error('Forgot password error:', error)
-      setError('网络错误，请检查网络连接')
+      console.error('Forgot password error:', error);
+      setError('网络错误，请检查网络连接');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleEmailChange = (value: string) => {
-    setEmail(value)
-    if (error) setError('')
-  }
+    setEmail(value);
+    if (error) setError('');
+  };
 
   if (success) {
     return (
@@ -61,7 +66,8 @@ const ForgotPasswordPage: React.FC = () => {
               邮件已发送
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              我们已向 <span className="font-medium">{email}</span> 发送了密码重置邮件
+              我们已向 <span className="font-medium">{email}</span>{' '}
+              发送了密码重置邮件
             </p>
           </div>
 
@@ -74,18 +80,18 @@ const ForgotPasswordPage: React.FC = () => {
                 <p className="text-xs text-muted-foreground/70">
                   如果没有收到邮件，请检查垃圾邮件文件夹，或稍后重试。
                 </p>
-                
-                <div className="space-y-2">
+
+                <div className="space-y-3">
                   <Button
                     onClick={() => {
-                      setSuccess(false)
-                      setEmail('')
+                      setSuccess(false);
+                      setEmail('');
                     }}
-                    className="w-full"
+                    className="w-full mb-[8px]"
                   >
                     重新发送
                   </Button>
-                  
+
                   <Link to="/login">
                     <Button variant="outline" className="w-full">
                       返回登录
@@ -107,7 +113,7 @@ const ForgotPasswordPage: React.FC = () => {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -138,7 +144,7 @@ const ForgotPasswordPage: React.FC = () => {
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => handleEmailChange(e.target.value)}
+                  onChange={e => handleEmailChange(e.target.value)}
                   placeholder="请输入您的邮箱地址"
                   required
                   className="mt-1"
@@ -154,11 +160,7 @@ const ForgotPasswordPage: React.FC = () => {
               )}
 
               {/* 提交按钮 */}
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={loading}
-              >
+              <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? '发送中...' : '发送重置邮件'}
               </Button>
             </form>
@@ -187,7 +189,7 @@ const ForgotPasswordPage: React.FC = () => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default ForgotPasswordPage
+export default ForgotPasswordPage;

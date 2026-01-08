@@ -17,6 +17,7 @@ import { Button } from '../components/ui/button';
 import { MarkdownRenderer } from '@whispers/ui';
 import CommentList from '../components/CommentList';
 import LoginDialog from '../components/LoginDialog';
+import ShareDialog from '../components/ShareDialog';
 import { blogApi } from '../services/blogApi';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useToast } from '../contexts/ToastContext';
@@ -68,6 +69,7 @@ const PostDetailPage: React.FC = () => {
   const [isLikeLoading, setIsLikeLoading] = useState(false);
   const [isFavoriteLoading, setIsFavoriteLoading] = useState(false);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
+  const [showShareDialog, setShowShareDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<
     'like' | 'bookmark' | null
   >(null);
@@ -374,28 +376,9 @@ const PostDetailPage: React.FC = () => {
     }
   };
 
-  const handleShare = async () => {
+  const handleShare = () => {
     if (!post) return;
-
-    try {
-      if (navigator.share) {
-        await navigator.share({
-          title: post.title,
-          text: post.excerpt || post.title,
-          url: window.location.href,
-        });
-      } else {
-        await navigator.clipboard.writeText(window.location.href);
-        addToast({ title: '链接已复制', variant: 'success' });
-      }
-    } catch (_error) {
-      try {
-        await navigator.clipboard.writeText(window.location.href);
-        addToast({ title: '链接已复制', variant: 'success' });
-      } catch {
-        addToast({ title: '分享失败', variant: 'destructive' });
-      }
-    }
+    setShowShareDialog(true);
   };
 
   if (loading) {
@@ -453,12 +436,6 @@ const PostDetailPage: React.FC = () => {
           {post.title}
         </h1>
 
-        {post.excerpt && (
-          <p className="text-base sm:text-lg md:text-xl text-muted-foreground leading-relaxed mb-4 md:mb-6 font-serif italic">
-            {post.excerpt}
-          </p>
-        )}
-
         {/* 元信息 */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
@@ -480,43 +457,33 @@ const PostDetailPage: React.FC = () => {
 
           <span className="text-muted-foreground/50 hidden sm:inline">·</span>
 
-          <div className="flex items-center gap-1">
+          <div className="relative flex items-center gap-1 group/time">
             <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
             <span>
-              {new Date(post.createdAt).toLocaleString('zh-CN', {
+              {new Date(post.createdAt).toLocaleDateString('zh-CN', {
                 year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                hour12: false,
+                month: 'long',
+                day: 'numeric',
               })}
             </span>
-          </div>
-
-          {/* 如果更新时间与创建时间不同，显示更新时间 */}
-          {post.updatedAt !== post.createdAt && (
-            <>
-              <span className="text-muted-foreground/50 hidden sm:inline">
-                ·
-              </span>
-              <div className="flex items-center gap-1 text-muted-foreground/70">
-                <span className="text-xs">更新于</span>
-                <span>
+            {/* 更新时间气泡提示 */}
+            {post.updatedAt !== post.createdAt && (
+              <>
+                <span className="absolute -top-1 -right-2 w-2 h-2 bg-primary rounded-full" />
+                <div className="absolute left-0 top-full mt-2 px-3 py-2 bg-popover border rounded-md shadow-md text-xs whitespace-nowrap opacity-0 invisible group-hover/time:opacity-100 group-hover/time:visible transition-all z-10">
+                  更新于{' '}
                   {new Date(post.updatedAt).toLocaleString('zh-CN', {
                     year: 'numeric',
-                    month: '2-digit',
-                    day: '2-digit',
+                    month: 'long',
+                    day: 'numeric',
                     hour: '2-digit',
                     minute: '2-digit',
-                    second: '2-digit',
                     hour12: false,
                   })}
-                </span>
-              </div>
-            </>
-          )}
+                </div>
+              </>
+            )}
+          </div>
 
           <span className="text-muted-foreground/50 hidden sm:inline">·</span>
 
@@ -525,6 +492,21 @@ const PostDetailPage: React.FC = () => {
             <span>{post.views} 阅读</span>
           </div>
         </div>
+
+        {/* 标签 */}
+        {post.postTags && post.postTags.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-4">
+            {post.postTags.map(postTag => (
+              <span
+                key={postTag.id}
+                className="inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs bg-secondary/50 text-secondary-foreground"
+              >
+                <Tag className="h-3 w-3 mr-1" />
+                {postTag.tag.name}
+              </span>
+            ))}
+          </div>
+        )}
       </header>
 
       {/* 封面图 */}
@@ -547,36 +529,19 @@ const PostDetailPage: React.FC = () => {
         <MarkdownRenderer content={post.content} className="prose-article" />
       </div>
 
-      {/* 标签 */}
-      {post.postTags && post.postTags.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-8 md:mb-12">
-          {post.postTags.map(postTag => (
-            <span
-              key={postTag.id}
-              className="inline-flex items-center px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm bg-secondary/50 text-secondary-foreground"
-            >
-              <Tag className="h-3 w-3 mr-1 sm:mr-1.5" />
-              {postTag.tag.name}
-            </span>
-          ))}
-        </div>
-      )}
-
       {/* 操作栏 */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0 py-4 sm:py-6 border-y mb-8 md:mb-12">
-        <div className="flex items-center gap-1 sm:gap-2 w-full sm:w-auto">
+      <div className="flex items-center justify-between py-4 border-y mb-8 md:mb-12">
+        <div className="flex items-center gap-2">
           <Button
             variant={isLiked ? 'default' : 'ghost'}
             size="sm"
             onClick={handleLike}
             disabled={isLikeLoading}
-            className="flex-1 sm:flex-none"
           >
             <Heart
-              className={`h-4 w-4 mr-1 sm:mr-1.5 ${isLiked ? 'fill-current' : ''}`}
+              className={`h-4 w-4 mr-1.5 ${isLiked ? 'fill-current' : ''}`}
             />
-            <span className="hidden sm:inline">{likesCount}</span>
-            <span className="sm:hidden">{likesCount}</span>
+            {likesCount}
           </Button>
 
           <Button
@@ -584,35 +549,27 @@ const PostDetailPage: React.FC = () => {
             size="sm"
             onClick={handleBookmark}
             disabled={isFavoriteLoading}
-            className="flex-1 sm:flex-none"
           >
             <Bookmark
-              className={`h-4 w-4 mr-1 sm:mr-1.5 ${isBookmarked ? 'fill-current' : ''}`}
+              className={`h-4 w-4 mr-1.5 ${isBookmarked ? 'fill-current' : ''}`}
             />
-            <span className="hidden sm:inline">收藏</span>
-            <span className="sm:hidden">藏</span>
+            收藏
           </Button>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleShare}
-            className="flex-1 sm:flex-none"
-          >
-            <Share2 className="h-4 w-4 mr-1 sm:mr-1.5" />
-            <span className="hidden sm:inline">分享</span>
-            <span className="sm:hidden">享</span>
+          <Button variant="ghost" size="sm" onClick={handleShare}>
+            <Share2 className="h-4 w-4 mr-1.5" />
+            分享
           </Button>
         </div>
 
-        <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground">
+        <div className="flex items-center gap-1 text-sm text-muted-foreground">
           <MessageCircle className="h-4 w-4" />
           <span>{commentCount} 评论</span>
         </div>
       </div>
 
       {/* 评论区 */}
-      <section>
+      <section id="comments">
         <CommentList postId={post.id} onCommentCountChange={setCommentCount} />
       </section>
 
@@ -631,6 +588,14 @@ const PostDetailPage: React.FC = () => {
               : '需要登录'
         }
         description="登录后即可进行此操作"
+      />
+
+      <ShareDialog
+        isOpen={showShareDialog}
+        onClose={() => setShowShareDialog(false)}
+        title={post.title}
+        url={window.location.href}
+        description={post.excerpt || undefined}
       />
 
       {/* 文件预览 */}
