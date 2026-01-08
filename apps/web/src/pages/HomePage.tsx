@@ -68,6 +68,37 @@ interface SiteConfig {
   };
 }
 
+// 打字机标题组件 - 独立渲染，避免父组件状态变化导致重新开始
+const TypewriterTitle: React.FC<{ text: string }> = React.memo(({ text }) => {
+  const { displayText, isTyping } = useTypewriter(text, 80, 300);
+
+  return (
+    <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold mb-6 text-foreground min-h-[1.2em]">
+      {displayText}
+      {isTyping && (
+        <span className="inline-block w-[3px] h-[0.9em] bg-primary ml-1 animate-blink align-middle" />
+      )}
+    </h1>
+  );
+});
+
+TypewriterTitle.displayName = 'TypewriterTitle';
+
+// 标题骨架屏
+const TitleSkeleton: React.FC = () => (
+  <div className="min-h-[1.2em] mb-6 flex justify-center">
+    <div className="h-12 md:h-14 lg:h-16 w-48 md:w-64 bg-muted/50 rounded animate-pulse" />
+  </div>
+);
+
+// 描述骨架屏
+const DescriptionSkeleton: React.FC = () => (
+  <div className="mb-10 min-h-[4em] flex flex-col items-center gap-2">
+    <div className="h-5 w-64 md:w-80 bg-muted/30 rounded animate-pulse" />
+    <div className="h-5 w-48 md:w-60 bg-muted/30 rounded animate-pulse" />
+  </div>
+);
+
 interface TagWithCount {
   id: string;
   name: string;
@@ -170,6 +201,7 @@ const HomePage: React.FC = () => {
   const [posts, setPosts] = useState<Post[]>([]);
   const [_tags, setTags] = useState<TagWithCount[]>([]);
   const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null);
+  const [configLoaded, setConfigLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -177,12 +209,9 @@ const HomePage: React.FC = () => {
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  // 打字机效果 - 使用博主名称，如果没有则回退到网站名称
-  const { displayText, isTyping } = useTypewriter(
-    siteConfig?.ownerName || siteConfig?.siteName || 'Whispers of the Heart',
-    80,
-    300
-  );
+  // 计算打字机文本 - 只在配置加载完成后确定
+  const typewriterText =
+    siteConfig?.ownerName || siteConfig?.siteName || 'Whispers of the Heart';
 
   // 获取站点配置和标签
   useEffect(() => {
@@ -201,6 +230,8 @@ const HomePage: React.FC = () => {
         }
       } catch (error) {
         console.error('Failed to fetch config:', error);
+      } finally {
+        setConfigLoaded(true);
       }
     };
 
@@ -351,20 +382,24 @@ const HomePage: React.FC = () => {
             )}
           </div>
 
-          {/* 标题 - 打字机效果 */}
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif font-bold mb-6 text-foreground min-h-[1.2em]">
-            {displayText}
-            {isTyping && (
-              <span className="inline-block w-[3px] h-[0.9em] bg-primary ml-1 animate-blink align-middle" />
-            )}
-          </h1>
+          {/* 标题 - 打字机效果，独立渲染 */}
+          {configLoaded ? (
+            <TypewriterTitle text={typewriterText} />
+          ) : (
+            <TitleSkeleton />
+          )}
 
-          {/* 站点描述 */}
-          <div className="mb-10 min-h-[4em]">
-            <p className="max-w-2xl mx-auto text-center text-lg md:text-xl text-muted-foreground font-serif">
-              {siteConfig?.siteDescription || '记录生活的点滴，分享技术的思考'}
-            </p>
-          </div>
+          {/* 站点描述 - 独立渲染 */}
+          {configLoaded ? (
+            <div className="mb-10 min-h-[4em]">
+              <p className="max-w-2xl mx-auto text-center text-lg md:text-xl text-muted-foreground font-serif">
+                {siteConfig?.siteDescription ||
+                  '记录生活的点滴，分享技术的思考'}
+              </p>
+            </div>
+          ) : (
+            <DescriptionSkeleton />
+          )}
 
           {/* 社交链接 */}
           <div className="flex items-center justify-center gap-3 mb-12">
