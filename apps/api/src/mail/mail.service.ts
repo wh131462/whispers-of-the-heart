@@ -2,6 +2,9 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../common/prisma/prisma.service';
+import { join } from 'path';
+import { readFileSync, readdirSync, existsSync } from 'fs';
+import * as Handlebars from 'handlebars';
 
 export interface SendMailOptions {
   to: string;
@@ -446,5 +449,154 @@ export class MailService implements OnModuleInit {
         loginUrl: `${this.webUrl}/login`,
       },
     });
+  }
+
+  /**
+   * 获取模板目录路径
+   */
+  private getTemplateDir(): string {
+    return join(__dirname, 'templates');
+  }
+
+  /**
+   * 获取所有可用的邮件模板列表
+   */
+  getTemplates(): Array<{
+    id: string;
+    name: string;
+    description: string;
+    subject: string;
+    mockData: Record<string, string>;
+  }> {
+    // 模板元信息配置
+    const templateMeta: Record<
+      string,
+      {
+        name: string;
+        description: string;
+        subject: string;
+        mockData: Record<string, string>;
+      }
+    > = {
+      welcome: {
+        name: '欢迎邮件',
+        description: '新用户注册成功后发送',
+        subject: `欢迎加入 ${this.appName}`,
+        mockData: {
+          username: '张三',
+          loginUrl: `${this.webUrl}/login`,
+        },
+      },
+      'password-reset': {
+        name: '密码重置',
+        description: '用户请求重置密码时发送',
+        subject: `重置您的密码 - ${this.appName}`,
+        mockData: {
+          username: '张三',
+          resetUrl: `${this.webUrl}/reset-password?token=abc123`,
+          expiresIn: '1小时',
+        },
+      },
+      'comment-notification': {
+        name: '评论通知',
+        description: '当有人评论用户文章时发送',
+        subject: '您的文章收到了新评论',
+        mockData: {
+          authorName: '张三',
+          commenterName: '李四',
+          postTitle: '如何使用 React 构建现代 Web 应用',
+          postUrl: `${this.webUrl}/posts/how-to-build-modern-web-app`,
+          commentContent: '这篇文章写得非常好！',
+        },
+      },
+      'reply-notification': {
+        name: '回复通知',
+        description: '当有人回复用户评论时发送',
+        subject: '有人回复了您的评论',
+        mockData: {
+          originalCommenterName: '张三',
+          replierName: '李四',
+          postTitle: '深入理解 JavaScript 异步编程',
+          postUrl: `${this.webUrl}/posts/understanding-javascript-async`,
+          originalComment: '请问这个例子中的 Promise 是如何工作的？',
+          replyContent: 'Promise 是一个代表异步操作最终完成或失败的对象。',
+        },
+      },
+      'verification-code': {
+        name: '验证码',
+        description: '用户注册或更换邮箱时发送',
+        subject: `您的验证码 - ${this.appName}`,
+        mockData: {
+          username: '张三',
+          purpose: '注册账号',
+          code: '386942',
+          expiresIn: '10分钟',
+        },
+      },
+    };
+
+    const templateDir = this.getTemplateDir();
+    const templates: Array<{
+      id: string;
+      name: string;
+      description: string;
+      subject: string;
+      mockData: Record<string, string>;
+    }> = [];
+
+    // 检查模板目录是否存在
+    if (!existsSync(templateDir)) {
+      this.logger.warn(`模板目录不存在: ${templateDir}`);
+      return templates;
+    }
+
+    // 读取模板目录中的 .hbs 文件
+    const files = readdirSync(templateDir);
+    for (const file of files) {
+      if (file.endsWith('.hbs')) {
+        const id = file.replace('.hbs', '');
+        const meta = templateMeta[id];
+        if (meta) {
+          templates.push({
+            id,
+            ...meta,
+          });
+        }
+      }
+    }
+
+    return templates;
+  }
+
+  /**
+   * 渲染模板预览
+   * @param templateName 模板名称（不含 .hbs 后缀）
+   * @param context 模板上下文数据
+   * @returns 渲染后的 HTML
+   */
+  renderTemplatePreview(
+    templateName: string,
+    context: Record<string, any>,
+  ): string {
+    const templateDir = this.getTemplateDir();
+    const templatePath = join(templateDir, `${templateName}.hbs`);
+
+    if (!existsSync(templatePath)) {
+      throw new Error(`模板不存在: ${templateName}`);
+    }
+
+    // 读取模板文件
+    const templateSource = readFileSync(templatePath, 'utf-8');
+
+    // 编译并渲染模板
+    const template = Handlebars.compile(templateSource);
+    const html = template({
+      ...context,
+      appName: this.appName,
+      webUrl: this.webUrl,
+      year: new Date().getFullYear(),
+    });
+
+    return html;
   }
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Mail,
   Eye,
@@ -43,324 +43,14 @@ interface MailStatus {
   connected: boolean;
 }
 
-// 邮件模板配置
+// 邮件模板配置（从后端获取）
 interface MailTemplate {
   id: string;
   name: string;
   description: string;
   subject: string;
   mockData: Record<string, string>;
-  htmlContent: string;
 }
-
-// 全局变量
-const globalContext = {
-  appName: 'Whispers of the Heart',
-  webUrl: 'https://131462.wang',
-  year: new Date().getFullYear().toString(),
-};
-
-// 邮件模板列表
-const mailTemplates: MailTemplate[] = [
-  {
-    id: 'welcome',
-    name: '欢迎邮件',
-    description: '新用户注册成功后发送',
-    subject: '欢迎加入 {{appName}}',
-    mockData: {
-      username: '张三',
-      loginUrl: 'https://131462.wang/login',
-    },
-    htmlContent: `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <title>欢迎加入</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5; margin: 0; padding: 0; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .card { background: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 40px; }
-    .header { text-align: center; margin-bottom: 30px; }
-    .logo { font-size: 24px; font-weight: bold; color: #333; }
-    .welcome-icon { font-size: 48px; margin-bottom: 16px; }
-    .button { display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: #ffffff !important; text-decoration: none; border-radius: 6px; font-weight: 500; }
-    .features { background-color: #f8fafc; border-radius: 6px; padding: 20px; margin: 20px 0; }
-    .features ul { margin: 0; padding-left: 20px; }
-    .features li { margin-bottom: 8px; }
-    .footer { text-align: center; color: #666; font-size: 14px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="card">
-      <div class="header">
-        <div class="welcome-icon">🎉</div>
-        <div class="logo">{{appName}}</div>
-      </div>
-      <div class="content">
-        <p>您好，{{username}}：</p>
-        <p>欢迎加入 {{appName}}！我们很高兴您成为我们社区的一员。</p>
-        <div class="features">
-          <p><strong>您现在可以：</strong></p>
-          <ul>
-            <li>阅读并评论精彩文章</li>
-            <li>收藏您喜欢的内容</li>
-            <li>与其他用户互动交流</li>
-          </ul>
-        </div>
-        <p style="text-align: center; margin: 30px 0;">
-          <a href="{{loginUrl}}" class="button">开始探索</a>
-        </p>
-      </div>
-      <div class="footer">
-        <p>如有任何问题，欢迎随时联系我们。</p>
-        <p>&copy; {{year}} {{appName}}. All rights reserved.</p>
-      </div>
-    </div>
-  </div>
-</body>
-</html>`,
-  },
-  {
-    id: 'password-reset',
-    name: '密码重置',
-    description: '用户请求重置密码时发送',
-    subject: '重置您的密码 - {{appName}}',
-    mockData: {
-      username: '张三',
-      resetUrl: 'https://131462.wang/reset-password?token=abc123',
-      expiresIn: '1小时',
-    },
-    htmlContent: `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <title>重置密码</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5; margin: 0; padding: 0; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .card { background: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 40px; }
-    .header { text-align: center; margin-bottom: 30px; }
-    .logo { font-size: 24px; font-weight: bold; color: #333; }
-    .button { display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: #ffffff !important; text-decoration: none; border-radius: 6px; font-weight: 500; }
-    .footer { text-align: center; color: #666; font-size: 14px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }
-    .warning { background-color: #fef3c7; border: 1px solid #fcd34d; border-radius: 6px; padding: 12px; margin-top: 20px; font-size: 14px; color: #92400e; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="card">
-      <div class="header"><div class="logo">{{appName}}</div></div>
-      <div class="content">
-        <p>您好，{{username}}：</p>
-        <p>我们收到了您的密码重置请求。请点击下面的按钮重置您的密码：</p>
-        <p style="text-align: center; margin: 30px 0;">
-          <a href="{{resetUrl}}" class="button">重置密码</a>
-        </p>
-        <p>如果按钮无法点击，请复制以下链接到浏览器中打开：</p>
-        <p style="word-break: break-all; color: #3b82f6; font-size: 14px;">{{resetUrl}}</p>
-        <div class="warning">
-          <strong>请注意：</strong>此链接将在 {{expiresIn}} 后失效。如果您没有请求重置密码，请忽略此邮件。
-        </div>
-      </div>
-      <div class="footer">
-        <p>此邮件由系统自动发送，请勿直接回复。</p>
-        <p>&copy; {{year}} {{appName}}. All rights reserved.</p>
-      </div>
-    </div>
-  </div>
-</body>
-</html>`,
-  },
-  {
-    id: 'comment-notification',
-    name: '评论通知',
-    description: '当有人评论用户文章时发送',
-    subject: '您的文章收到了新评论',
-    mockData: {
-      authorName: '张三',
-      commenterName: '李四',
-      postTitle: '如何使用 React 构建现代 Web 应用',
-      postUrl: 'https://131462.wang/posts/how-to-build-modern-web-app',
-      commentContent: '这篇文章写得非常好！',
-    },
-    htmlContent: `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <title>新评论通知</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5; margin: 0; padding: 0; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .card { background: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 40px; }
-    .header { text-align: center; margin-bottom: 30px; }
-    .logo { font-size: 24px; font-weight: bold; color: #333; }
-    .notification-icon { font-size: 48px; margin-bottom: 16px; }
-    .button { display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: #ffffff !important; text-decoration: none; border-radius: 6px; font-weight: 500; }
-    .comment-box { background-color: #f8fafc; border-left: 4px solid #3b82f6; border-radius: 0 6px 6px 0; padding: 16px; margin: 20px 0; }
-    .comment-author { font-weight: 600; color: #3b82f6; margin-bottom: 8px; }
-    .comment-content { color: #4b5563; }
-    .post-title { color: #3b82f6; text-decoration: none; font-weight: 500; }
-    .footer { text-align: center; color: #666; font-size: 14px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="card">
-      <div class="header">
-        <div class="notification-icon">💬</div>
-        <div class="logo">{{appName}}</div>
-      </div>
-      <div class="content">
-        <p>您好，{{authorName}}：</p>
-        <p><strong>{{commenterName}}</strong> 评论了您的文章 <a href="{{postUrl}}" class="post-title">「{{postTitle}}」</a>：</p>
-        <div class="comment-box">
-          <div class="comment-author">{{commenterName}} 说：</div>
-          <div class="comment-content">{{commentContent}}</div>
-        </div>
-        <p style="text-align: center; margin: 30px 0;">
-          <a href="{{postUrl}}" class="button">查看评论</a>
-        </p>
-      </div>
-      <div class="footer">
-        <p>&copy; {{year}} {{appName}}. All rights reserved.</p>
-      </div>
-    </div>
-  </div>
-</body>
-</html>`,
-  },
-  {
-    id: 'reply-notification',
-    name: '回复通知',
-    description: '当有人回复用户评论时发送',
-    subject: '有人回复了您的评论',
-    mockData: {
-      originalCommenterName: '张三',
-      replierName: '李四',
-      postTitle: '深入理解 JavaScript 异步编程',
-      postUrl: 'https://131462.wang/posts/understanding-javascript-async',
-      originalComment: '请问这个例子中的 Promise 是如何工作的？',
-      replyContent: 'Promise 是一个代表异步操作最终完成或失败的对象。',
-    },
-    htmlContent: `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <title>回复通知</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5; margin: 0; padding: 0; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .card { background: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 40px; }
-    .header { text-align: center; margin-bottom: 30px; }
-    .logo { font-size: 24px; font-weight: bold; color: #333; }
-    .notification-icon { font-size: 48px; margin-bottom: 16px; }
-    .button { display: inline-block; padding: 12px 24px; background-color: #3b82f6; color: #ffffff !important; text-decoration: none; border-radius: 6px; font-weight: 500; }
-    .comment-box { background-color: #f8fafc; border-left: 4px solid #9ca3af; border-radius: 0 6px 6px 0; padding: 16px; margin: 16px 0; }
-    .reply-box { background-color: #f0fdf4; border-left: 4px solid #22c55e; border-radius: 0 6px 6px 0; padding: 16px; margin: 16px 0; }
-    .comment-label { font-size: 12px; color: #6b7280; margin-bottom: 8px; }
-    .comment-author { font-weight: 600; margin-bottom: 8px; }
-    .comment-content { color: #4b5563; }
-    .post-title { color: #3b82f6; text-decoration: none; font-weight: 500; }
-    .footer { text-align: center; color: #666; font-size: 14px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="card">
-      <div class="header">
-        <div class="notification-icon">↩️</div>
-        <div class="logo">{{appName}}</div>
-      </div>
-      <div class="content">
-        <p>您好，{{originalCommenterName}}：</p>
-        <p><strong>{{replierName}}</strong> 回复了您在 <a href="{{postUrl}}" class="post-title">「{{postTitle}}」</a> 下的评论：</p>
-        <div class="comment-box">
-          <div class="comment-label">您的评论</div>
-          <div class="comment-content">{{originalComment}}</div>
-        </div>
-        <div class="reply-box">
-          <div class="comment-author" style="color: #22c55e;">{{replierName}} 回复：</div>
-          <div class="comment-content">{{replyContent}}</div>
-        </div>
-        <p style="text-align: center; margin: 30px 0;">
-          <a href="{{postUrl}}" class="button">查看回复</a>
-        </p>
-      </div>
-      <div class="footer">
-        <p>&copy; {{year}} {{appName}}. All rights reserved.</p>
-      </div>
-    </div>
-  </div>
-</body>
-</html>`,
-  },
-  {
-    id: 'verification-code',
-    name: '验证码',
-    description: '用户注册或更换邮箱时发送',
-    subject: '您的验证码 - {{appName}}',
-    mockData: {
-      username: '张三',
-      purpose: '注册账号',
-      code: '386942',
-      expiresIn: '10分钟',
-    },
-    htmlContent: `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <title>验证码</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5; margin: 0; padding: 0; }
-    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-    .card { background: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 40px; }
-    .header { text-align: center; margin-bottom: 30px; }
-    .logo { font-size: 24px; font-weight: bold; color: #333; }
-    .code-box { text-align: center; margin: 30px 0; padding: 20px; background-color: #f8fafc; border-radius: 8px; border: 2px dashed #cbd5e1; }
-    .code { font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #3b82f6; font-family: 'Courier New', monospace; }
-    .footer { text-align: center; color: #666; font-size: 14px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; }
-    .warning { background-color: #fef3c7; border: 1px solid #fcd34d; border-radius: 6px; padding: 12px; margin-top: 20px; font-size: 14px; color: #92400e; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="card">
-      <div class="header"><div class="logo">{{appName}}</div></div>
-      <div class="content">
-        <p>您好，{{username}}：</p>
-        <p>您正在进行<strong>{{purpose}}</strong>操作，请使用以下验证码完成验证：</p>
-        <div class="code-box">
-          <div class="code">{{code}}</div>
-        </div>
-        <div class="warning">
-          <strong>请注意：</strong>此验证码将在 {{expiresIn}} 后失效。如果您没有请求此操作，请忽略此邮件。
-        </div>
-      </div>
-      <div class="footer">
-        <p>此邮件由系统自动发送，请勿直接回复。</p>
-        <p>&copy; {{year}} {{appName}}. All rights reserved.</p>
-      </div>
-    </div>
-  </div>
-</body>
-</html>`,
-  },
-];
-
-// 替换模板变量
-const renderTemplate = (
-  template: string,
-  data: Record<string, string>
-): string => {
-  let result = template;
-  const allData = { ...globalContext, ...data };
-  Object.entries(allData).forEach(([key, value]) => {
-    const regex = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
-    result = result.replace(regex, value);
-  });
-  return result;
-};
 
 // 状态图标组件
 const StatusIcon: React.FC<{ status: string }> = ({ status }) => {
@@ -417,12 +107,20 @@ const MailPage: React.FC = () => {
   const [testEmail, setTestEmail] = useState('');
   const [sendingTest, setSendingTest] = useState(false);
 
+  // 模板相关状态
+  const [mailTemplates, setMailTemplates] = useState<MailTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(false);
+  const [previewHtml, setPreviewHtml] = useState<string>('');
+  const [previewLoading, setPreviewLoading] = useState(false);
+
   // 加载数据
   useEffect(() => {
     if (activeTab === 'logs') {
       fetchMailLogs();
       fetchStats();
       fetchMailStatus();
+    } else if (activeTab === 'templates') {
+      fetchMailTemplates();
     }
   }, [page, statusFilter, activeTab]);
 
@@ -509,14 +207,48 @@ const MailPage: React.FC = () => {
     });
   };
 
-  // 渲染后的模板预览 HTML
-  const renderedTemplateHtml = useMemo(() => {
-    if (!selectedTemplate) return '';
-    return renderTemplate(
-      selectedTemplate.htmlContent,
-      selectedTemplate.mockData
-    );
-  }, [selectedTemplate]);
+  // 获取邮件模板列表
+  const fetchMailTemplates = async () => {
+    try {
+      setTemplatesLoading(true);
+      const response = await api.get('/admin/mail/templates');
+      if (response.data?.success) {
+        setMailTemplates(response.data.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch mail templates:', err);
+    } finally {
+      setTemplatesLoading(false);
+    }
+  };
+
+  // 获取模板预览 HTML
+  const fetchTemplatePreview = async (template: MailTemplate) => {
+    try {
+      setPreviewLoading(true);
+      setSelectedTemplate(template);
+      const response = await api.post(
+        `/admin/mail/templates/${template.id}/preview`,
+        { context: template.mockData }
+      );
+      if (response.data?.success) {
+        setPreviewHtml(response.data.data.html || '');
+      } else {
+        showError(response.data?.message || '获取预览失败');
+      }
+    } catch (err: any) {
+      console.error('Failed to fetch template preview:', err);
+      showError(err.response?.data?.message || '获取预览失败');
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  // 关闭模板预览弹窗
+  const closeTemplatePreview = () => {
+    setSelectedTemplate(null);
+    setPreviewHtml('');
+  };
 
   return (
     <div className="space-y-6">
@@ -773,39 +505,50 @@ const MailPage: React.FC = () => {
               系统内置的邮件模板，点击预览查看实际效果
             </p>
           </div>
-          <div className="divide-y divide-border">
-            {mailTemplates.map(template => (
-              <div
-                key={template.id}
-                className="px-6 py-4 flex items-center justify-between hover:bg-muted/30 transition-colors"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                    <Mail className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-medium text-foreground">
-                      {template.name}
-                    </h3>
-                    <p className="text-sm text-muted-foreground mt-0.5">
-                      {template.description}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      ID: {template.id}
-                    </p>
-                  </div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSelectedTemplate(template)}
+          {templatesLoading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : mailTemplates.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+              <FileText className="h-12 w-12 mb-4 opacity-50" />
+              <p>暂无邮件模板</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-border">
+              {mailTemplates.map(template => (
+                <div
+                  key={template.id}
+                  className="px-6 py-4 flex items-center justify-between hover:bg-muted/30 transition-colors"
                 >
-                  <Eye className="h-4 w-4 mr-2" />
-                  预览
-                </Button>
-              </div>
-            ))}
-          </div>
+                  <div className="flex items-start gap-4">
+                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <Mail className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-foreground">
+                        {template.name}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mt-0.5">
+                        {template.description}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        ID: {template.id}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fetchTemplatePreview(template)}
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    预览
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -899,7 +642,7 @@ const MailPage: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div
             className="absolute inset-0 bg-black/50"
-            onClick={() => setSelectedTemplate(null)}
+            onClick={closeTemplatePreview}
           />
           <div className="relative bg-card rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col mx-4">
             <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
@@ -908,17 +651,13 @@ const MailPage: React.FC = () => {
                   {selectedTemplate.name}
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  主题:{' '}
-                  {renderTemplate(
-                    selectedTemplate.subject,
-                    selectedTemplate.mockData
-                  )}
+                  主题: {selectedTemplate.subject}
                 </p>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setSelectedTemplate(null)}
+                onClick={closeTemplatePreview}
               >
                 <X className="h-5 w-5" />
               </Button>
@@ -942,12 +681,18 @@ const MailPage: React.FC = () => {
               </div>
             </div>
             <div className="flex-1 overflow-auto p-4 bg-[#f5f5f5]">
-              <iframe
-                srcDoc={renderedTemplateHtml}
-                title="邮件预览"
-                className="w-full h-full min-h-[500px] bg-white rounded shadow"
-                sandbox="allow-same-origin"
-              />
+              {previewLoading ? (
+                <div className="flex items-center justify-center h-[500px] bg-white rounded shadow">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : (
+                <iframe
+                  srcDoc={previewHtml}
+                  title="邮件预览"
+                  className="w-full h-full min-h-[500px] bg-white rounded shadow"
+                  sandbox="allow-same-origin"
+                />
+              )}
             </div>
           </div>
         </div>

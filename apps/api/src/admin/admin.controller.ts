@@ -740,4 +740,46 @@ export class AdminController {
       };
     }
   }
+
+  @Get('mail/templates')
+  async getMailTemplates() {
+    try {
+      const templates = this.mailService.getTemplates();
+      return {
+        success: true,
+        data: templates,
+        message: '获取邮件模板列表成功',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        message: error.message || '获取邮件模板列表失败',
+      };
+    }
+  }
+
+  @Post('mail/templates/:name/preview')
+  async previewMailTemplate(
+    @Param('name') name: string,
+    @Body() body: { context?: Record<string, any> },
+  ) {
+    try {
+      const html = this.mailService.renderTemplatePreview(
+        name,
+        body.context || {},
+      );
+      return {
+        success: true,
+        data: { html },
+        message: '渲染模板预览成功',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        message: error.message || '渲染模板预览失败',
+      };
+    }
+  }
 }
