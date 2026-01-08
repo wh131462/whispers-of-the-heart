@@ -1,0 +1,1839 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/v1": {
+      "get": {
+        "operationId": "AppController_getHello",
+        "parameters": [],
+        "responses": { "200": { "description": "" } },
+        "tags": ["App"]
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "operationId": "AppController_getHealth",
+        "parameters": [],
+        "responses": { "200": { "description": "" } },
+        "tags": ["App"]
+      }
+    },
+    "/api/v1/mail/status": {
+      "get": {
+        "operationId": "AppController_getMailStatus",
+        "parameters": [],
+        "responses": { "200": { "description": "" } },
+        "tags": ["App"]
+      }
+    },
+    "/api/v1/mail/test": {
+      "post": {
+        "operationId": "AppController_sendTestMail",
+        "parameters": [],
+        "responses": { "201": { "description": "" } },
+        "tags": ["App"]
+      }
+    },
+    "/api/v1/hitokoto": {
+      "get": {
+        "operationId": "HitokotoController_getHitokoto",
+        "parameters": [],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Hitokoto"]
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/LoginDto" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "" } },
+        "tags": ["Auth"]
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "operationId": "AuthController_register",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RegisterDto" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "" } },
+        "tags": ["Auth"]
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "operationId": "AuthController_refreshToken",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RefreshTokenDto" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "" } },
+        "tags": ["Auth"]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout",
+        "parameters": [],
+        "responses": { "201": { "description": "" } },
+        "tags": ["Auth"]
+      }
+    },
+    "/api/v1/auth/profile": {
+      "get": {
+        "operationId": "AuthController_getProfile",
+        "parameters": [],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Auth"]
+      },
+      "patch": {
+        "operationId": "AuthController_updateProfile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateProfileDto" }
+            }
+          }
+        },
+        "responses": { "200": { "description": "" } },
+        "tags": ["Auth"]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "AuthController_getMe",
+        "parameters": [],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Auth"]
+      }
+    },
+    "/api/v1/auth/forgot-password": {
+      "post": {
+        "operationId": "AuthController_forgotPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ForgotPasswordDto" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "" } },
+        "tags": ["Auth"]
+      }
+    },
+    "/api/v1/auth/reset-password": {
+      "post": {
+        "operationId": "AuthController_resetPassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ResetPasswordDto" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "" } },
+        "tags": ["Auth"]
+      }
+    },
+    "/api/v1/auth/send-register-code": {
+      "post": {
+        "operationId": "AuthController_sendRegisterCode",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SendRegisterCodeDto" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "" } },
+        "tags": ["Auth"]
+      }
+    },
+    "/api/v1/auth/register-with-code": {
+      "post": {
+        "operationId": "AuthController_registerWithCode",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RegisterWithCodeDto" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "" } },
+        "tags": ["Auth"]
+      }
+    },
+    "/api/v1/auth/send-email-change-code": {
+      "post": {
+        "operationId": "AuthController_sendEmailChangeCode",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendEmailChangeCodeDto"
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "" } },
+        "tags": ["Auth"]
+      }
+    },
+    "/api/v1/auth/change-email": {
+      "post": {
+        "operationId": "AuthController_changeEmail",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ChangeEmailDto" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "" } },
+        "tags": ["Auth"]
+      }
+    },
+    "/api/v1/auth/check-username": {
+      "get": {
+        "operationId": "AuthController_checkUsername",
+        "parameters": [],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Auth"]
+      }
+    },
+    "/api/v1/users": {
+      "post": {
+        "operationId": "UserController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateUserDto" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "" } },
+        "tags": ["User"]
+      },
+      "get": {
+        "operationId": "UserController_findAll",
+        "parameters": [],
+        "responses": { "200": { "description": "" } },
+        "tags": ["User"]
+      }
+    },
+    "/api/v1/users/{id}": {
+      "get": {
+        "operationId": "UserController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["User"]
+      },
+      "patch": {
+        "operationId": "UserController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateUserDto" }
+            }
+          }
+        },
+        "responses": { "200": { "description": "" } },
+        "tags": ["User"]
+      },
+      "delete": {
+        "operationId": "UserController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["User"]
+      }
+    },
+    "/api/v1/media": {
+      "get": {
+        "operationId": "MediaController_findAll",
+        "parameters": [
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": { "type": "number" }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": { "type": "number" }
+          },
+          {
+            "name": "type",
+            "required": true,
+            "in": "query",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "search",
+            "required": true,
+            "in": "query",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "uploaderId",
+            "required": true,
+            "in": "query",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "summary": "获取媒体列表",
+        "tags": ["媒体"]
+      }
+    },
+    "/api/v1/media/stats": {
+      "get": {
+        "operationId": "MediaController_getStats",
+        "parameters": [],
+        "responses": { "200": { "description": "" } },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "获取媒体统计",
+        "tags": ["媒体"]
+      }
+    },
+    "/api/v1/media/{id}": {
+      "get": {
+        "operationId": "MediaController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "summary": "获取单个媒体",
+        "tags": ["媒体"]
+      },
+      "patch": {
+        "operationId": "MediaController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "更新媒体信息",
+        "tags": ["媒体"]
+      },
+      "delete": {
+        "operationId": "MediaController_delete",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "force",
+            "required": true,
+            "in": "query",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "删除媒体",
+        "tags": ["媒体"]
+      }
+    },
+    "/api/v1/media/upload": {
+      "post": {
+        "operationId": "MediaController_uploadFile",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": { "type": "string", "format": "binary" },
+                  "tags": { "type": "string", "description": "标签，逗号分隔" }
+                }
+              }
+            }
+          }
+        },
+        "responses": { "201": { "description": "" } },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "上传单个文件",
+        "tags": ["媒体"]
+      }
+    },
+    "/api/v1/media/upload/multiple": {
+      "post": {
+        "operationId": "MediaController_uploadMultipleFiles",
+        "parameters": [],
+        "responses": { "201": { "description": "" } },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "批量上传文件",
+        "tags": ["媒体"]
+      }
+    },
+    "/api/v1/media/batch/delete": {
+      "post": {
+        "operationId": "MediaController_deleteMany",
+        "parameters": [],
+        "responses": { "201": { "description": "" } },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "批量删除媒体",
+        "tags": ["媒体"]
+      }
+    },
+    "/api/v1/media/{id}/references": {
+      "get": {
+        "operationId": "MediaController_checkReferences",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "security": [{ "JWT-auth": [] }],
+        "summary": "检查媒体引用",
+        "tags": ["媒体"]
+      }
+    },
+    "/api/v1/blog": {
+      "get": {
+        "description": "获取所有文章列表，支持分页和搜索",
+        "operationId": "BlogController_findAll",
+        "parameters": [
+          {
+            "name": "published",
+            "required": false,
+            "in": "query",
+            "description": "是否已发布",
+            "schema": {}
+          },
+          {
+            "name": "search",
+            "required": false,
+            "in": "query",
+            "description": "搜索关键词",
+            "schema": {}
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "每页数量",
+            "schema": { "example": 10 }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "页码",
+            "schema": { "example": 1 }
+          }
+        ],
+        "responses": { "200": { "description": "获取成功" } },
+        "summary": "获取文章列表",
+        "tags": ["博客"]
+      },
+      "post": {
+        "description": "创建新文章，需要管理员权限",
+        "operationId": "BlogController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreatePostDto" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "创建成功" },
+          "401": { "description": "未授权" },
+          "403": { "description": "权限不足" }
+        },
+        "security": [{ "bearer": [] }],
+        "summary": "创建文章",
+        "tags": ["博客"]
+      }
+    },
+    "/api/v1/blog/search": {
+      "get": {
+        "description": "根据关键词搜索文章，支持多种排序方式",
+        "operationId": "BlogController_search",
+        "parameters": [
+          {
+            "name": "sortOrder",
+            "required": false,
+            "in": "query",
+            "description": "排序方向",
+            "schema": { "enum": ["asc", "desc"], "type": "string" }
+          },
+          {
+            "name": "sortBy",
+            "required": false,
+            "in": "query",
+            "description": "排序字段",
+            "schema": {
+              "enum": ["createdAt", "views", "publishedAt"],
+              "type": "string"
+            }
+          },
+          {
+            "name": "tag",
+            "required": false,
+            "in": "query",
+            "description": "标签ID或名称",
+            "schema": {}
+          },
+          {
+            "name": "q",
+            "required": false,
+            "in": "query",
+            "description": "搜索关键词",
+            "schema": {}
+          }
+        ],
+        "responses": { "200": { "description": "搜索成功" } },
+        "summary": "搜索文章",
+        "tags": ["博客"]
+      }
+    },
+    "/api/v1/blog/tags": {
+      "get": {
+        "description": "获取所有标签及其文章数量",
+        "operationId": "BlogController_findAllTags",
+        "parameters": [],
+        "responses": { "200": { "description": "获取成功" } },
+        "summary": "获取标签列表",
+        "tags": ["博客"]
+      },
+      "post": {
+        "description": "创建新标签，需要管理员权限",
+        "operationId": "BlogController_createTag",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateTagDto" }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "创建成功" },
+          "401": { "description": "未授权" },
+          "409": { "description": "标签已存在" }
+        },
+        "security": [{ "bearer": [] }],
+        "summary": "创建标签",
+        "tags": ["博客"]
+      }
+    },
+    "/api/v1/blog/categories": {
+      "get": {
+        "description": "获取所有分类及其文章数量（别名为标签）",
+        "operationId": "BlogController_findAllCategories",
+        "parameters": [],
+        "responses": { "200": { "description": "获取成功" } },
+        "summary": "获取分类列表",
+        "tags": ["博客"]
+      }
+    },
+    "/api/v1/blog/stats": {
+      "get": {
+        "description": "获取站点文章、评论、浏览、点赞等统计数据",
+        "operationId": "BlogController_getStats",
+        "parameters": [],
+        "responses": { "200": { "description": "获取成功" } },
+        "summary": "获取站点统计",
+        "tags": ["博客"]
+      }
+    },
+    "/api/v1/blog/slug/{slug}": {
+      "get": {
+        "description": "根据文章slug获取文章详情",
+        "operationId": "BlogController_findBySlug",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "description": "文章slug",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "获取成功" },
+          "404": { "description": "文章不存在" }
+        },
+        "summary": "通过slug获取文章",
+        "tags": ["博客"]
+      }
+    },
+    "/api/v1/blog/post/{id}": {
+      "get": {
+        "description": "根据ID获取文章详情",
+        "operationId": "BlogController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "文章ID",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "获取成功" },
+          "404": { "description": "文章不存在" }
+        },
+        "summary": "获取文章详情",
+        "tags": ["博客"]
+      },
+      "patch": {
+        "description": "更新文章内容，需要管理员权限",
+        "operationId": "BlogController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "文章ID",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdatePostDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "更新成功" },
+          "401": { "description": "未授权" },
+          "404": { "description": "文章不存在" }
+        },
+        "security": [{ "bearer": [] }],
+        "summary": "更新文章",
+        "tags": ["博客"]
+      },
+      "delete": {
+        "description": "删除文章，需要管理员权限",
+        "operationId": "BlogController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "文章ID",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "删除成功" },
+          "401": { "description": "未授权" },
+          "404": { "description": "文章不存在" }
+        },
+        "security": [{ "bearer": [] }],
+        "summary": "删除文章",
+        "tags": ["博客"]
+      }
+    },
+    "/api/v1/blog/post/{id}/edit": {
+      "get": {
+        "description": "获取文章详情用于编辑，不增加访问量",
+        "operationId": "BlogController_findOneForEdit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "文章ID",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "获取成功" },
+          "401": { "description": "未授权" }
+        },
+        "security": [{ "bearer": [] }],
+        "summary": "获取编辑文章详情",
+        "tags": ["博客"]
+      }
+    },
+    "/api/v1/blog/tags/{id}": {
+      "get": {
+        "description": "根据ID获取标签详情",
+        "operationId": "BlogController_getTagById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "标签ID",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "获取成功" },
+          "404": { "description": "标签不存在" }
+        },
+        "summary": "获取标签详情",
+        "tags": ["博客"]
+      },
+      "patch": {
+        "description": "更新标签信息，需要管理员权限",
+        "operationId": "BlogController_updateTag",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "标签ID",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateTagDto" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "更新成功" },
+          "401": { "description": "未授权" },
+          "404": { "description": "标签不存在" }
+        },
+        "security": [{ "bearer": [] }],
+        "summary": "更新标签",
+        "tags": ["博客"]
+      },
+      "delete": {
+        "description": "删除标签，需要管理员权限",
+        "operationId": "BlogController_removeTag",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "标签ID",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "删除成功" },
+          "401": { "description": "未授权" },
+          "404": { "description": "标签不存在" }
+        },
+        "security": [{ "bearer": [] }],
+        "summary": "删除标签",
+        "tags": ["博客"]
+      }
+    },
+    "/api/v1/blog/tags/{id}/posts": {
+      "get": {
+        "description": "获取指定标签下的所有文章",
+        "operationId": "BlogController_getTagPosts",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "标签ID",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "每页数量",
+            "schema": {}
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "页码",
+            "schema": {}
+          }
+        ],
+        "responses": { "200": { "description": "获取成功" } },
+        "summary": "获取标签下的文章",
+        "tags": ["博客"]
+      }
+    },
+    "/api/v1/blog/post/{id}/like": {
+      "post": {
+        "description": "点赞或取消点赞文章",
+        "operationId": "BlogController_toggleLike",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "文章ID",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "操作成功" },
+          "401": { "description": "未授权" }
+        },
+        "security": [{ "bearer": [] }],
+        "summary": "切换点赞状态",
+        "tags": ["博客"]
+      }
+    },
+    "/api/v1/blog/post/{id}/like-status": {
+      "get": {
+        "description": "获取当前用户对文章的点赞状态",
+        "operationId": "BlogController_getLikeStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "文章ID",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "获取成功" } },
+        "summary": "获取点赞状态",
+        "tags": ["博客"]
+      }
+    },
+    "/api/v1/blog/post/{id}/favorite": {
+      "post": {
+        "description": "收藏或取消收藏文章",
+        "operationId": "BlogController_toggleFavorite",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "文章ID",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "操作成功" },
+          "401": { "description": "未授权" }
+        },
+        "security": [{ "bearer": [] }],
+        "summary": "切换收藏状态",
+        "tags": ["博客"]
+      }
+    },
+    "/api/v1/blog/post/{id}/favorite-status": {
+      "get": {
+        "description": "获取当前用户对文章的收藏状态",
+        "operationId": "BlogController_getFavoriteStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "文章ID",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "获取成功" } },
+        "summary": "获取收藏状态",
+        "tags": ["博客"]
+      }
+    },
+    "/api/v1/blog/user/favorites": {
+      "get": {
+        "description": "获取当前用户的收藏文章列表",
+        "operationId": "BlogController_getUserFavorites",
+        "parameters": [
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "每页数量",
+            "schema": { "example": 10 }
+          },
+          {
+            "name": "page",
+            "required": false,
+            "in": "query",
+            "description": "页码",
+            "schema": { "example": 1 }
+          }
+        ],
+        "responses": {
+          "200": { "description": "获取成功" },
+          "401": { "description": "未授权" }
+        },
+        "security": [{ "bearer": [] }],
+        "summary": "获取用户收藏列表",
+        "tags": ["博客"]
+      }
+    },
+    "/api/v1/site-config": {
+      "get": {
+        "operationId": "SiteConfigController_findOne",
+        "parameters": [],
+        "responses": { "200": { "description": "" } },
+        "tags": ["SiteConfig"]
+      },
+      "post": {
+        "operationId": "SiteConfigController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateSiteConfigDto" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "" } },
+        "tags": ["SiteConfig"]
+      }
+    },
+    "/api/v1/site-config/{id}": {
+      "patch": {
+        "operationId": "SiteConfigController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateSiteConfigDto" }
+            }
+          }
+        },
+        "responses": { "200": { "description": "" } },
+        "tags": ["SiteConfig"]
+      },
+      "delete": {
+        "operationId": "SiteConfigController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["SiteConfig"]
+      }
+    },
+    "/api/v1/comments": {
+      "get": {
+        "operationId": "CommentController_findAll",
+        "parameters": [],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Comment"]
+      },
+      "post": {
+        "operationId": "CommentController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateCommentDto" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "" } },
+        "tags": ["Comment"]
+      }
+    },
+    "/api/v1/comments/post/{postId}": {
+      "get": {
+        "operationId": "CommentController_getPostComments",
+        "parameters": [
+          {
+            "name": "postId",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Comment"]
+      }
+    },
+    "/api/v1/comments/batch-approve": {
+      "patch": {
+        "operationId": "CommentController_batchApprove",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/BatchCommentDto" }
+            }
+          }
+        },
+        "responses": { "200": { "description": "" } },
+        "tags": ["Comment"]
+      }
+    },
+    "/api/v1/comments/batch-reject": {
+      "patch": {
+        "operationId": "CommentController_batchReject",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/BatchCommentDto" }
+            }
+          }
+        },
+        "responses": { "200": { "description": "" } },
+        "tags": ["Comment"]
+      }
+    },
+    "/api/v1/comments/{id}": {
+      "get": {
+        "operationId": "CommentController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Comment"]
+      },
+      "patch": {
+        "operationId": "CommentController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateCommentDto" }
+            }
+          }
+        },
+        "responses": { "200": { "description": "" } },
+        "tags": ["Comment"]
+      },
+      "delete": {
+        "operationId": "CommentController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Comment"]
+      }
+    },
+    "/api/v1/comments/{id}/like": {
+      "post": {
+        "operationId": "CommentController_toggleLike",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "201": { "description": "" } },
+        "tags": ["Comment"]
+      }
+    },
+    "/api/v1/comments/{id}/like-status": {
+      "get": {
+        "operationId": "CommentController_getLikeStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Comment"]
+      }
+    },
+    "/api/v1/comments/{id}/approve": {
+      "patch": {
+        "operationId": "CommentController_approve",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Comment"]
+      }
+    },
+    "/api/v1/comments/{id}/reject": {
+      "patch": {
+        "operationId": "CommentController_reject",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Comment"]
+      }
+    },
+    "/api/v1/comments/{id}/soft-delete": {
+      "patch": {
+        "operationId": "CommentController_softDelete",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Comment"]
+      }
+    },
+    "/api/v1/comments/{id}/restore": {
+      "patch": {
+        "operationId": "CommentController_restore",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Comment"]
+      }
+    },
+    "/api/v1/comments/{id}/permanent": {
+      "delete": {
+        "operationId": "CommentController_permanentDelete",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Comment"]
+      }
+    },
+    "/api/v1/comments/admin/trash": {
+      "get": {
+        "operationId": "CommentController_getTrash",
+        "parameters": [],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Comment"]
+      }
+    },
+    "/api/v1/comments/{id}/user": {
+      "delete": {
+        "operationId": "CommentController_userDelete",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Comment"]
+      }
+    },
+    "/api/v1/comments/{id}/edit": {
+      "patch": {
+        "operationId": "CommentController_userEdit",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UserEditCommentDto" }
+            }
+          }
+        },
+        "responses": { "200": { "description": "" } },
+        "tags": ["Comment"]
+      }
+    },
+    "/api/v1/comments/{id}/pin": {
+      "patch": {
+        "operationId": "CommentController_togglePin",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Comment"]
+      }
+    },
+    "/api/v1/comments/{id}/report": {
+      "post": {
+        "operationId": "CommentController_reportComment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ReportCommentDto" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "" } },
+        "tags": ["Comment"]
+      }
+    },
+    "/api/v1/comments/admin/reports": {
+      "get": {
+        "operationId": "CommentController_getReports",
+        "parameters": [],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Comment"]
+      }
+    },
+    "/api/v1/comments/admin/reports/{reportId}": {
+      "patch": {
+        "operationId": "CommentController_resolveReport",
+        "parameters": [
+          {
+            "name": "reportId",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ResolveReportDto" }
+            }
+          }
+        },
+        "responses": { "200": { "description": "" } },
+        "tags": ["Comment"]
+      }
+    },
+    "/api/v1/comments/admin/stats": {
+      "get": {
+        "operationId": "CommentController_getStats",
+        "parameters": [],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Comment"]
+      }
+    },
+    "/api/v1/admin/dashboard": {
+      "get": {
+        "operationId": "AdminController_getDashboard",
+        "parameters": [],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      }
+    },
+    "/api/v1/admin/tags": {
+      "get": {
+        "operationId": "AdminController_getTags",
+        "parameters": [],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      },
+      "post": {
+        "operationId": "AdminController_createTag",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CreateTagDto" }
+            }
+          }
+        },
+        "responses": { "201": { "description": "" } },
+        "tags": ["Admin"]
+      }
+    },
+    "/api/v1/admin/tags/{id}": {
+      "get": {
+        "operationId": "AdminController_getTagById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      },
+      "patch": {
+        "operationId": "AdminController_updateTag",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/UpdateTagDto" }
+            }
+          }
+        },
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      },
+      "delete": {
+        "operationId": "AdminController_deleteTag",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      }
+    },
+    "/api/v1/admin/tags/{id}/posts": {
+      "get": {
+        "operationId": "AdminController_getTagPosts",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      }
+    },
+    "/api/v1/admin/comments": {
+      "get": {
+        "operationId": "AdminController_getComments",
+        "parameters": [
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "search",
+            "required": true,
+            "in": "query",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      }
+    },
+    "/api/v1/admin/comments/stats": {
+      "get": {
+        "operationId": "AdminController_getCommentStats",
+        "parameters": [],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      }
+    },
+    "/api/v1/admin/comments/trash": {
+      "get": {
+        "operationId": "AdminController_getTrashComments",
+        "parameters": [
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      }
+    },
+    "/api/v1/admin/comments/reports": {
+      "get": {
+        "operationId": "AdminController_getCommentReports",
+        "parameters": [
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      }
+    },
+    "/api/v1/admin/comments/{id}": {
+      "get": {
+        "operationId": "AdminController_getCommentById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      },
+      "delete": {
+        "operationId": "AdminController_deleteComment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      }
+    },
+    "/api/v1/admin/comments/{id}/approve": {
+      "patch": {
+        "operationId": "AdminController_approveComment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      }
+    },
+    "/api/v1/admin/comments/{id}/reject": {
+      "patch": {
+        "operationId": "AdminController_rejectComment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      }
+    },
+    "/api/v1/admin/comments/batch-approve": {
+      "post": {
+        "operationId": "AdminController_batchApproveComments",
+        "parameters": [],
+        "responses": { "201": { "description": "" } },
+        "tags": ["Admin"]
+      }
+    },
+    "/api/v1/admin/comments/{id}/soft-delete": {
+      "patch": {
+        "operationId": "AdminController_softDeleteComment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      }
+    },
+    "/api/v1/admin/comments/{id}/restore": {
+      "patch": {
+        "operationId": "AdminController_restoreComment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      }
+    },
+    "/api/v1/admin/comments/{id}/permanent": {
+      "delete": {
+        "operationId": "AdminController_permanentDeleteComment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      }
+    },
+    "/api/v1/admin/comments/{id}/pin": {
+      "patch": {
+        "operationId": "AdminController_togglePinComment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      }
+    },
+    "/api/v1/admin/comments/reports/{reportId}": {
+      "patch": {
+        "operationId": "AdminController_resolveCommentReport",
+        "parameters": [
+          {
+            "name": "reportId",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      }
+    },
+    "/api/v1/admin/users": {
+      "get": {
+        "operationId": "AdminController_getUsers",
+        "parameters": [
+          {
+            "name": "page",
+            "required": true,
+            "in": "query",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "search",
+            "required": true,
+            "in": "query",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      }
+    },
+    "/api/v1/admin/users/{id}": {
+      "get": {
+        "operationId": "AdminController_getUserById",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      },
+      "patch": {
+        "operationId": "AdminController_updateUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      },
+      "delete": {
+        "operationId": "AdminController_deleteUser",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      }
+    },
+    "/api/v1/admin/site-config": {
+      "get": {
+        "operationId": "AdminController_getSiteConfig",
+        "parameters": [],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      },
+      "put": {
+        "operationId": "AdminController_updateSiteConfig",
+        "parameters": [],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      }
+    },
+    "/api/v1/admin/site-config/{id}": {
+      "patch": {
+        "operationId": "AdminController_patchSiteConfig",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "" } },
+        "tags": ["Admin"]
+      }
+    }
+  },
+  "info": {
+    "title": "Whispers of the Heart API",
+    "description": "博客平台后端 API 文档",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [
+    { "name": "博客", "description": "博客文章、分类、标签管理" },
+    { "name": "认证", "description": "用户认证相关接口" },
+    { "name": "用户", "description": "用户管理接口" },
+    { "name": "评论", "description": "评论管理接口" },
+    { "name": "文件", "description": "文件管理接口" }
+  ],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "JWT-auth": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http",
+        "name": "JWT",
+        "description": "输入 JWT token",
+        "in": "header"
+      }
+    },
+    "schemas": {
+      "LoginDto": { "type": "object", "properties": {} },
+      "RegisterDto": { "type": "object", "properties": {} },
+      "RefreshTokenDto": { "type": "object", "properties": {} },
+      "ForgotPasswordDto": { "type": "object", "properties": {} },
+      "ResetPasswordDto": { "type": "object", "properties": {} },
+      "SendRegisterCodeDto": { "type": "object", "properties": {} },
+      "RegisterWithCodeDto": { "type": "object", "properties": {} },
+      "SendEmailChangeCodeDto": { "type": "object", "properties": {} },
+      "ChangeEmailDto": { "type": "object", "properties": {} },
+      "UpdateProfileDto": { "type": "object", "properties": {} },
+      "CreateUserDto": { "type": "object", "properties": {} },
+      "UpdateUserDto": { "type": "object", "properties": {} },
+      "CreatePostDto": { "type": "object", "properties": {} },
+      "UpdatePostDto": { "type": "object", "properties": {} },
+      "CreateTagDto": { "type": "object", "properties": {} },
+      "UpdateTagDto": { "type": "object", "properties": {} },
+      "CreateSiteConfigDto": { "type": "object", "properties": {} },
+      "UpdateSiteConfigDto": { "type": "object", "properties": {} },
+      "CreateCommentDto": { "type": "object", "properties": {} },
+      "BatchCommentDto": { "type": "object", "properties": {} },
+      "UpdateCommentDto": { "type": "object", "properties": {} },
+      "UserEditCommentDto": { "type": "object", "properties": {} },
+      "ReportCommentDto": { "type": "object", "properties": {} },
+      "ResolveReportDto": { "type": "object", "properties": {} }
+    }
+  }
+}
