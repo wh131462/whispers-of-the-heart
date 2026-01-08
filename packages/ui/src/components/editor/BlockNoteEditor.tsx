@@ -1,12 +1,37 @@
-import React, { useEffect, useRef, useCallback, useState } from 'react';
+import React, {
+  useEffect,
+  useRef,
+  useCallback,
+  useState,
+  useMemo,
+} from 'react';
 import { BlockNoteView } from '@blocknote/mantine';
 import {
   useCreateBlockNote,
   getDefaultReactSlashMenuItems,
   SuggestionMenuController,
+  FormattingToolbarController,
+  FormattingToolbar,
+  blockTypeSelectItems,
 } from '@blocknote/react';
+import { filterSuggestionItems } from '@blocknote/core/extensions';
+import { zh } from '@blocknote/core/locales';
 import '@blocknote/mantine/style.css';
+
+// AI 相关导入
+import {
+  AIExtension,
+  AIMenuController,
+  AIToolbarButton,
+  getAISlashMenuItems,
+  ClientSideTransport,
+} from '@blocknote/xl-ai';
+import { zh as aiZh } from '@blocknote/xl-ai/locales';
+import '@blocknote/xl-ai/style.css';
+
 import { customSchema } from './customSchema';
+import { ImageIcon, VideoIcon, AudioIcon, MindMapIcon } from './assets/icons';
+import { AIConfig, createLanguageModel, validateAIConfig } from './ai';
 
 interface MediaPickerRequest {
   type: 'image' | 'video' | 'audio';
@@ -44,7 +69,7 @@ const fixTableMarkdown = (markdown: string): string => {
 };
 
 // 从 blocks 中提取代码块内容，用于修复 markdown 中的空代码块
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 const extractCodeBlocks = (
   blocks: any[]
 ): Array<{ language: string; code: string }> => {
@@ -111,7 +136,7 @@ const extractMindMapBlocks = (blocks: any[]): Array<{ markdown: string }> => {
 
 // 修复 markdown 中缺失的思维导图块
 // BlockNote 的 blocksToMarkdownLossy 可能不会正确输出自定义块
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 const fixMindMapBlocksInMarkdown = (
   markdown: string,
   blocks: any[]
@@ -192,6 +217,11 @@ export interface BlockNoteEditorProps {
     type: 'image' | 'video' | 'audio',
     onSelect: (url: string) => void
   ) => void;
+  /**
+   * AI 配置
+   * 支持 OpenAI、DeepSeek、Claude 等提供商
+   */
+  aiConfig?: AIConfig;
 }
 
 export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
@@ -202,6 +232,7 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
   authToken,
   uploadEndpoint = DEFAULT_UPLOAD_ENDPOINT,
   onOpenMediaPicker,
+  aiConfig,
 }) => {
   const isInitializedRef = useRef(false);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -213,6 +244,25 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
   // MediaPicker 状态
   const [_mediaPickerRequest, setMediaPickerRequest] =
     useState<MediaPickerRequest | null>(null);
+
+  // AI 是否启用
+  const isAIEnabled = useMemo(() => {
+    if (!aiConfig) return false;
+    const validation = validateAIConfig(aiConfig);
+    return validation.valid && aiConfig.enabled !== false;
+  }, [aiConfig]);
+
+  // 创建 AI Transport（使用 useMemo 缓存）
+  const aiTransport = useMemo(() => {
+    if (!isAIEnabled || !aiConfig) return null;
+    try {
+      const model = createLanguageModel(aiConfig);
+      return new ClientSideTransport({ model });
+    } catch (error) {
+      console.error('[BlockNoteEditor] Failed to create AI transport:', error);
+      return null;
+    }
+  }, [isAIEnabled, aiConfig]);
 
   // Update refs when props change
   useEffect(() => {
@@ -227,6 +277,27 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
   // 这个 hook 内部会处理 memoization，确保编辑器实例只创建一次
   const editor = useCreateBlockNote({
     schema: customSchema,
+    // 中文本地化配置
+    dictionary: {
+      ...zh,
+      ...(isAIEnabled ? { ai: aiZh } : {}),
+      placeholders: {
+        ...zh.placeholders,
+        default: "输入文字或按 '/' 唤出命令菜单",
+        heading: '标题',
+        bulletListItem: '列表项',
+        numberedListItem: '列表项',
+        checkListItem: '待办事项',
+      },
+    },
+    // AI 扩展配置
+    extensions: aiTransport
+      ? [
+          AIExtension({
+            transport: aiTransport,
+          }),
+        ]
+      : [],
     uploadFile: async (file: File): Promise<string> => {
       const formData = new FormData();
       formData.append('file', file);
@@ -260,18 +331,50 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
     async (query: string) => {
       const defaultItems = getDefaultReactSlashMenuItems(editor);
 
-      // 过滤掉默认的 image, video, audio
+      // 需要排除的项目：默认媒体块和可折叠列表
+      const excludedItems = [
+        'image',
+        'video',
+        'audio',
+        '图片',
+        '视频',
+        '音频',
+        'toggle',
+        'collapsible',
+        '折叠',
+        '可折叠',
+        '折叠列表',
+      ];
+
+      // 过滤掉默认的媒体块和可折叠列表
       const filteredItems = defaultItems.filter((item: any) => {
         const title = item.title.toLowerCase();
-        return !['image', 'video', 'audio', '图片', '视频', '音频'].includes(
-          title
-        );
+        return !excludedItems.some(excluded => title.includes(excluded));
       });
+
+      // 定义分组顺序
+      const groupOrder = ['基础块', '标题', '列表', '媒体', '高级'];
+
+      // 重新映射默认项目的分组名称为中文
+      const groupMapping: Record<string, string> = {
+        'basic blocks': '基础块',
+        headings: '标题',
+        lists: '列表',
+        media: '媒体',
+        advanced: '高级',
+        other: '其他',
+      };
+
+      const remappedItems = filteredItems.map((item: any) => ({
+        ...item,
+        group: groupMapping[item.group?.toLowerCase()] || item.group || '其他',
+      }));
 
       // 添加自定义媒体块和思维导图
       const customMediaItems = [
         {
           title: '图片',
+          subtext: '插入图片',
           onItemClick: () => {
             const currentBlock = editor.getTextCursorPosition().block;
             editor.insertBlocks(
@@ -286,11 +389,12 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
             );
           },
           aliases: ['image', 'img', 'picture', 'photo', 'tupian'],
-          group: 'Media',
-          icon: <span>🖼️</span>,
+          group: '媒体',
+          icon: <ImageIcon size={18} />,
         },
         {
           title: '视频',
+          subtext: '插入视频',
           onItemClick: () => {
             const currentBlock = editor.getTextCursorPosition().block;
             editor.insertBlocks(
@@ -300,11 +404,12 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
             );
           },
           aliases: ['video', 'movie', 'shipin'],
-          group: 'Media',
-          icon: <span>🎬</span>,
+          group: '媒体',
+          icon: <VideoIcon size={18} />,
         },
         {
           title: '音频',
+          subtext: '插入音频',
           onItemClick: () => {
             const currentBlock = editor.getTextCursorPosition().block;
             editor.insertBlocks(
@@ -319,11 +424,12 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
             );
           },
           aliases: ['audio', 'music', 'sound', 'yinpin'],
-          group: 'Media',
-          icon: <span>🎵</span>,
+          group: '媒体',
+          icon: <AudioIcon size={18} />,
         },
         {
           title: '思维导图',
+          subtext: '插入思维导图',
           onItemClick: () => {
             const currentBlock = editor.getTextCursorPosition().block;
             editor.insertBlocks(
@@ -340,24 +446,38 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
             );
           },
           aliases: ['mindmap', 'mind map', 'siwei', 'siweidaotu'],
-          group: 'Advanced',
-          icon: <span>🧠</span>,
+          group: '高级',
+          icon: <MindMapIcon size={18} />,
         },
       ];
 
-      const allItems = [...filteredItems, ...customMediaItems];
+      const allItems = [...remappedItems, ...customMediaItems];
+
+      // 按分组顺序排序
+      const sortedItems = allItems.sort((a: any, b: any) => {
+        const aIndex = groupOrder.indexOf(a.group);
+        const bIndex = groupOrder.indexOf(b.group);
+        const aOrder = aIndex === -1 ? groupOrder.length : aIndex;
+        const bOrder = bIndex === -1 ? groupOrder.length : bIndex;
+        return aOrder - bOrder;
+      });
+
+      // 如果启用了 AI，添加 AI 菜单项
+      if (isAIEnabled) {
+        const aiItems = getAISlashMenuItems(editor);
+        // 重新映射 AI 项目的分组名称
+        const remappedAIItems = aiItems.map((item: any) => ({
+          ...item,
+          group: 'AI',
+        }));
+        allItems.push(...remappedAIItems);
+      }
 
       // 根据查询过滤
-      if (!query) return allItems;
-      return allItems.filter(
-        (item: any) =>
-          item.title.toLowerCase().includes(query.toLowerCase()) ||
-          item.aliases?.some((alias: string) =>
-            alias.toLowerCase().includes(query.toLowerCase())
-          )
-      );
+      if (!query) return sortedItems;
+      return filterSuggestionItems(sortedItems, query);
     },
-    [editor]
+    [editor, isAIEnabled]
   );
 
   // 清理定时器
@@ -368,6 +488,52 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
       }
     };
   }, []);
+
+  // 修复 AI 输入框中文输入法 composing 状态下回车直接发送的问题
+  useEffect(() => {
+    if (!isAIEnabled) return;
+
+    let isComposing = false;
+
+    const handleCompositionStart = () => {
+      isComposing = true;
+    };
+
+    const handleCompositionEnd = () => {
+      isComposing = false;
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 只处理 AI 输入框中的回车事件
+      const target = e.target as HTMLElement;
+      const isAIInput =
+        target.closest('.bn-ai-menu') ||
+        target.closest('[data-ai-menu]') ||
+        target.closest('.mantine-TextInput-input');
+
+      if (isAIInput && e.key === 'Enter' && isComposing) {
+        e.stopPropagation();
+      }
+    };
+
+    document.addEventListener('compositionstart', handleCompositionStart, true);
+    document.addEventListener('compositionend', handleCompositionEnd, true);
+    document.addEventListener('keydown', handleKeyDown, true);
+
+    return () => {
+      document.removeEventListener(
+        'compositionstart',
+        handleCompositionStart,
+        true
+      );
+      document.removeEventListener(
+        'compositionend',
+        handleCompositionEnd,
+        true
+      );
+      document.removeEventListener('keydown', handleKeyDown, true);
+    };
+  }, [isAIEnabled]);
 
   // Initialize content once
   useEffect(() => {
@@ -527,6 +693,23 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
     };
   }, [editor, editable, onOpenMediaPicker]);
 
+  // 获取过滤后的 blockTypeSelectItems（移除 toggle 相关项目）
+  const getFilteredBlockTypeSelectItems = useCallback(() => {
+    const defaultItems = blockTypeSelectItems(editor.dictionary);
+    // 过滤掉 toggle/collapsible 相关的项目
+    return defaultItems.filter((item: any) => {
+      const name = (item.name || '').toLowerCase();
+      const type = (item.type || '').toLowerCase();
+      return (
+        !name.includes('toggle') &&
+        !name.includes('collapsible') &&
+        !name.includes('折叠') &&
+        !type.includes('toggle') &&
+        !type.includes('collapsible')
+      );
+    });
+  }, [editor]);
+
   return (
     <div className={`blocknote-wrapper ${className}`}>
       <BlockNoteView
@@ -535,11 +718,27 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
         onChange={handleChange}
         theme="light"
         slashMenu={false}
+        formattingToolbar={false}
         data-theming-css-variables-demo
       >
+        {/* AI 命令菜单（启用 AI 时显示） */}
+        {isAIEnabled && <AIMenuController />}
+
+        {/* 自定义 SlashMenu */}
         <SuggestionMenuController
           triggerCharacter="/"
           getItems={getCustomSlashMenuItems}
+        />
+
+        {/* 自定义 FormattingToolbar，启用 AI 时添加 AI 按钮 */}
+        <FormattingToolbarController
+          formattingToolbar={() => (
+            <FormattingToolbar
+              blockTypeSelectItems={getFilteredBlockTypeSelectItems()}
+            >
+              {isAIEnabled && <AIToolbarButton />}
+            </FormattingToolbar>
+          )}
         />
       </BlockNoteView>
       <style>{`

@@ -1,113 +1,285 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="x-apple-disable-message-reformatting">
   <title>新评论通知</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:AllowPNG/>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
   <style>
+    /* CSS Reset for email clients */
+    html, body {
+      margin: 0 !important;
+      padding: 0 !important;
+      height: 100% !important;
+      width: 100% !important;
+    }
+    * {
+      -ms-text-size-adjust: 100%;
+      -webkit-text-size-adjust: 100%;
+    }
+    table, td {
+      mso-table-lspace: 0pt !important;
+      mso-table-rspace: 0pt !important;
+    }
+    img {
+      -ms-interpolation-mode: bicubic;
+      border: 0;
+      height: auto;
+      line-height: 100%;
+      outline: none;
+      text-decoration: none;
+    }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif;
       line-height: 1.6;
-      color: #333;
-      background-color: #f5f5f5;
+      color: #333333;
+      background-color: #f0f4f8;
       margin: 0;
       padding: 0;
+      -webkit-font-smoothing: antialiased;
     }
-    .container {
+    .wrapper {
+      width: 100%;
+      table-layout: fixed;
+      background-color: #f0f4f8;
+      padding: 40px 0;
+    }
+    .main {
       max-width: 600px;
       margin: 0 auto;
-      padding: 20px;
-    }
-    .card {
       background: #ffffff;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      padding: 40px;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      overflow: hidden;
     }
     .header {
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      padding: 40px 30px;
       text-align: center;
-      margin-bottom: 30px;
     }
-    .logo {
-      font-size: 24px;
-      font-weight: bold;
-      color: #333;
-    }
-    .notification-icon {
-      font-size: 48px;
+    .header-icon {
+      width: 72px;
+      height: 72px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       margin-bottom: 16px;
+      font-size: 36px;
+      line-height: 72px;
+    }
+    .header-title {
+      color: #ffffff;
+      font-size: 26px;
+      font-weight: 700;
+      margin: 0;
+      letter-spacing: -0.5px;
+    }
+    .header-subtitle {
+      color: rgba(255,255,255,0.9);
+      font-size: 15px;
+      margin-top: 8px;
     }
     .content {
-      margin-bottom: 30px;
+      padding: 40px 40px 30px;
+    }
+    .greeting {
+      font-size: 18px;
+      color: #1f2937;
+      margin-bottom: 20px;
+    }
+    .message {
+      font-size: 16px;
+      color: #4b5563;
+      margin-bottom: 24px;
+    }
+    .post-link {
+      color: #3b82f6;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .post-link:hover {
+      text-decoration: underline;
+    }
+    .comment-box {
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border-radius: 12px;
+      padding: 24px;
+      margin: 24px 0;
+      border-left: 4px solid #3b82f6;
+    }
+    .comment-author {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .comment-avatar {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-weight: 600;
+      font-size: 16px;
+      margin-right: 12px;
+    }
+    .comment-author-name {
+      font-weight: 600;
+      color: #1e40af;
+      font-size: 15px;
+    }
+    .comment-author-label {
+      color: #6b7280;
+      font-size: 13px;
+    }
+    .comment-content {
+      color: #374151;
+      font-size: 15px;
+      line-height: 1.7;
+      background: #ffffff;
+      padding: 16px;
+      border-radius: 8px;
+    }
+    .button-wrapper {
+      text-align: center;
+      margin: 32px 0;
     }
     .button {
       display: inline-block;
-      padding: 12px 24px;
-      background-color: #3b82f6;
+      padding: 16px 40px;
+      background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
       color: #ffffff !important;
       text-decoration: none;
-      border-radius: 6px;
-      font-weight: 500;
-    }
-    .comment-box {
-      background-color: #f8fafc;
-      border-left: 4px solid #3b82f6;
-      border-radius: 0 6px 6px 0;
-      padding: 16px;
-      margin: 20px 0;
-    }
-    .comment-author {
+      border-radius: 50px;
       font-weight: 600;
-      color: #3b82f6;
-      margin-bottom: 8px;
-    }
-    .comment-content {
-      color: #4b5563;
-    }
-    .post-title {
-      color: #3b82f6;
-      text-decoration: none;
-      font-weight: 500;
+      font-size: 16px;
+      box-shadow: 0 4px 14px rgba(59,130,246,0.4);
     }
     .footer {
+      background-color: #f9fafb;
+      padding: 30px 40px;
       text-align: center;
-      color: #666;
-      font-size: 14px;
-      margin-top: 30px;
-      padding-top: 20px;
-      border-top: 1px solid #eee;
+      border-top: 1px solid #e5e7eb;
+    }
+    .footer-copyright {
+      color: #9ca3af;
+      font-size: 13px;
+      margin: 0 0 12px;
     }
     .unsubscribe {
       color: #9ca3af;
       font-size: 12px;
+      line-height: 1.6;
+    }
+
+    /* Responsive styles */
+    @media only screen and (max-width: 620px) {
+      .wrapper {
+        padding: 20px 16px !important;
+      }
+      .main {
+        border-radius: 12px !important;
+      }
+      .header {
+        padding: 32px 24px !important;
+      }
+      .header-icon {
+        width: 60px !important;
+        height: 60px !important;
+        font-size: 30px !important;
+        line-height: 60px !important;
+      }
+      .header-title {
+        font-size: 22px !important;
+      }
+      .content {
+        padding: 28px 24px 20px !important;
+      }
+      .greeting {
+        font-size: 16px !important;
+      }
+      .message {
+        font-size: 15px !important;
+      }
+      .comment-box {
+        padding: 20px !important;
+      }
+      .comment-avatar {
+        width: 36px !important;
+        height: 36px !important;
+        font-size: 14px !important;
+      }
+      .comment-author-name {
+        font-size: 14px !important;
+      }
+      .comment-content {
+        font-size: 14px !important;
+        padding: 12px !important;
+      }
+      .button {
+        padding: 14px 32px !important;
+        font-size: 15px !important;
+      }
+      .footer {
+        padding: 24px 24px !important;
+      }
+      .footer-copyright {
+        font-size: 12px !important;
+      }
+      .unsubscribe {
+        font-size: 11px !important;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="card">
+  <div class="wrapper">
+    <div class="main">
       <div class="header">
-        <div class="notification-icon">💬</div>
-        <div class="logo">{{appName}}</div>
+        <div class="header-icon">💬</div>
+        <h1 class="header-title">新评论通知</h1>
+        <p class="header-subtitle">{{appName}}</p>
       </div>
 
       <div class="content">
-        <p>您好，{{authorName}}：</p>
+        <p class="greeting">您好，<strong>{{authorName}}</strong>：</p>
 
-        <p><strong>{{commenterName}}</strong> 评论了您的文章 <a href="{{postUrl}}" class="post-title">「{{postTitle}}」</a>：</p>
+        <p class="message"><strong>{{commenterName}}</strong> 评论了您的文章 <a href="{{postUrl}}" class="post-link">「{{postTitle}}」</a>：</p>
 
         <div class="comment-box">
-          <div class="comment-author">{{commenterName}} 说：</div>
+          <div class="comment-author">
+            <div class="comment-avatar">{{commenterName}}</div>
+            <div>
+              <div class="comment-author-name">{{commenterName}}</div>
+              <div class="comment-author-label">发表了评论</div>
+            </div>
+          </div>
           <div class="comment-content">{{commentContent}}</div>
         </div>
 
-        <p style="text-align: center; margin: 30px 0;">
-          <a href="{{postUrl}}" class="button">查看评论</a>
-        </p>
+        <div class="button-wrapper">
+          <a href="{{postUrl}}" class="button">查看评论 →</a>
+        </div>
       </div>
 
       <div class="footer">
-        <p>&copy; {{year}} {{appName}}. All rights reserved.</p>
+        <p class="footer-copyright">&copy; {{year}} {{appName}}. All rights reserved.</p>
         <p class="unsubscribe">您收到此邮件是因为有人评论了您的文章。<br>您可以在账号设置中管理邮件通知偏好。</p>
       </div>
     </div>

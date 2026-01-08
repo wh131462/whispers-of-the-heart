@@ -351,3 +351,22 @@ model SiteConfig {
 
   @@map("site_config")
 }
+
+// 邮件发送记录模型
+model MailLog {
+  id        String   @id @default(cuid())
+  to        String   // 收件人邮箱
+  subject   String   // 邮件主题
+  template  String?  // 使用的模板名称
+  context   Json?    // 模板上下文数据
+  status    String   @default("pending") // pending, sent, failed
+  error     String?  // 失败时的错误信息
+  sentAt    DateTime? // 实际发送时间
+  createdAt DateTime @default(now())
+
+  @@index([to])
+  @@index([status])
+  @@index([template])
+  @@index([createdAt])
+  @@map("mail_logs")
+}

@@ -39,6 +39,7 @@ const AdminCommentsPage = lazy(
 const AdminMediaPage = lazy(() => import('./pages/admin/MediaPage'));
 const AdminUsersPage = lazy(() => import('./pages/admin/UsersPage'));
 const AdminSettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
+const AdminMailPage = lazy(() => import('./pages/admin/MailPage'));
 
 // Loading component for lazy-loaded pages
 const PageLoader = () => (
@@ -153,6 +154,15 @@ function App() {
               element={
                 <Suspense fallback={<PageLoader />}>
                   <AdminUsersPage />
+                </Suspense>
+              }
+            />
+            {/* 邮件管理 */}
+            <Route
+              path="mail"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <AdminMailPage />
                 </Suspense>
               }
             />

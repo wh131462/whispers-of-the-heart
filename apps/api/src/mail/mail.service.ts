@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
 import { ConfigService } from '@nestjs/config';
+import { PrismaService } from '../common/prisma/prisma.service';
 
 export interface SendMailOptions {
   to: string;
@@ -22,13 +23,15 @@ export class MailService implements OnModuleInit {
   constructor(
     private readonly mailerService: MailerService,
     private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
   ) {
     const mailHost = this.configService.get('MAIL_HOST');
     const mailUser = this.configService.get('MAIL_USERNAME');
     const mailPass = this.configService.get('MAIL_PASSWORD');
     this.isEnabled = !!(mailHost && mailUser && mailPass);
     this.webUrl = this.configService.get('WEB_URL') || 'https://131462.wang';
-    this.appName = this.configService.get('APP_NAME') || 'Whispers of the Heart';
+    this.appName =
+      this.configService.get('APP_NAME') || 'Whispers of the Heart';
 
     if (!this.isEnabled) {
       this.logger.warn('邮件服务未配置完整，将使用日志模式');
@@ -80,11 +83,21 @@ export class MailService implements OnModuleInit {
       if (error.code === 'ECONNREFUSED') {
         this.logger.error('💡 建议: 检查 MAIL_HOST 和 MAIL_PORT 是否正确');
       } else if (error.code === 'EAUTH' || error.responseCode === 535) {
-        this.logger.error('💡 建议: 检查 MAIL_USERNAME 和 MAIL_PASSWORD（QQ邮箱需使用授权码）');
-      } else if (error.code === 'ETIMEDOUT' || error.message?.includes('Greeting never received')) {
+        this.logger.error(
+          '💡 建议: 检查 MAIL_USERNAME 和 MAIL_PASSWORD（QQ邮箱需使用授权码）',
+        );
+      } else if (
+        error.code === 'ETIMEDOUT' ||
+        error.message?.includes('Greeting never received')
+      ) {
         this.logger.error('💡 建议: 网络超时，检查防火墙或网络连接');
-      } else if (error.code === 'ESOCKET' || error.message?.includes('certificate')) {
-        this.logger.error('💡 建议: SSL/TLS 问题，尝试设置 MAIL_TLS_REJECT_UNAUTHORIZED=false');
+      } else if (
+        error.code === 'ESOCKET' ||
+        error.message?.includes('certificate')
+      ) {
+        this.logger.error(
+          '💡 建议: SSL/TLS 问题，尝试设置 MAIL_TLS_REJECT_UNAUTHORIZED=false',
+        );
       }
 
       this.logger.warn('邮件服务将继续运行，但发送邮件可能失败');
@@ -108,12 +121,28 @@ export class MailService implements OnModuleInit {
   async sendMail(options: SendMailOptions): Promise<boolean> {
     const { to, subject, template, context, html, text } = options;
 
+    // 创建邮件记录
+    const mailLog = await this.prisma.mailLog.create({
+      data: {
+        to,
+        subject,
+        template,
+        context: context || {},
+        status: 'pending',
+      },
+    });
+
     // 如果邮件未配置，仅记录日志
     if (!this.isEnabled) {
       this.logger.log(`[模拟发送邮件] 收件人: ${to}, 主题: ${subject}`);
       if (context) {
         this.logger.debug(`[邮件内容] ${JSON.stringify(context, null, 2)}`);
       }
+      // 更新记录为已发送（模拟模式）
+      await this.prisma.mailLog.update({
+        where: { id: mailLog.id },
+        data: { status: 'sent', sentAt: new Date() },
+      });
       return true;
     }
 
@@ -136,6 +165,13 @@ export class MailService implements OnModuleInit {
 
       this.logger.log(`邮件发送成功: ${to} - ${subject}`);
       this.logger.debug(`邮件响应: ${JSON.stringify(result)}`);
+
+      // 更新记录为已发送
+      await this.prisma.mailLog.update({
+        where: { id: mailLog.id },
+        data: { status: 'sent', sentAt: new Date() },
+      });
+
       return true;
     } catch (error: any) {
       // 详细的错误日志
@@ -145,18 +181,30 @@ export class MailService implements OnModuleInit {
 
       // 常见错误提示
       if (error.code === 'ECONNREFUSED') {
-        this.logger.error('无法连接到 SMTP 服务器，请检查 MAIL_HOST 和 MAIL_PORT 配置');
+        this.logger.error(
+          '无法连接到 SMTP 服务器，请检查 MAIL_HOST 和 MAIL_PORT 配置',
+        );
       } else if (error.code === 'EAUTH' || error.responseCode === 535) {
-        this.logger.error('SMTP 认证失败，请检查 MAIL_USERNAME 和 MAIL_PASSWORD 配置');
+        this.logger.error(
+          'SMTP 认证失败，请检查 MAIL_USERNAME 和 MAIL_PASSWORD 配置',
+        );
       } else if (error.code === 'ETIMEDOUT') {
         this.logger.error('连接 SMTP 服务器超时，请检查网络或防火墙设置');
       } else if (error.code === 'ESOCKET') {
-        this.logger.error('Socket 错误，可能是 SSL/TLS 配置问题，尝试设置 MAIL_TLS_REJECT_UNAUTHORIZED=false');
+        this.logger.error(
+          'Socket 错误，可能是 SSL/TLS 配置问题，尝试设置 MAIL_TLS_REJECT_UNAUTHORIZED=false',
+        );
       }
 
       if (error.stack) {
         this.logger.debug(`错误堆栈: ${error.stack}`);
       }
+
+      // 更新记录为失败
+      await this.prisma.mailLog.update({
+        where: { id: mailLog.id },
+        data: { status: 'failed', error: error.message || 'Unknown error' },
+      });
 
       return false;
     }
@@ -301,5 +349,102 @@ export class MailService implements OnModuleInit {
   private truncateText(text: string, maxLength: number): string {
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + '...';
+  }
+
+  /**
+   * 获取邮件发送记录列表
+   */
+  async getMailLogs(
+    page: number = 1,
+    limit: number = 20,
+    status?: string,
+    search?: string,
+  ) {
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (status && status !== 'all') {
+      where.status = status;
+    }
+    if (search) {
+      where.OR = [
+        { to: { contains: search, mode: 'insensitive' } },
+        { subject: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    const [items, total] = await Promise.all([
+      this.prisma.mailLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.mailLog.count({ where }),
+    ]);
+
+    return {
+      items,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  /**
+   * 获取单个邮件记录详情
+   */
+  async getMailLogById(id: string) {
+    return this.prisma.mailLog.findUnique({
+      where: { id },
+    });
+  }
+
+  /**
+   * 获取邮件统计
+   */
+  async getMailStats() {
+    const [total, sent, failed, pending] = await Promise.all([
+      this.prisma.mailLog.count(),
+      this.prisma.mailLog.count({ where: { status: 'sent' } }),
+      this.prisma.mailLog.count({ where: { status: 'failed' } }),
+      this.prisma.mailLog.count({ where: { status: 'pending' } }),
+    ]);
+
+    // 获取最近7天每天的发送量
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const recentLogs = await this.prisma.mailLog.groupBy({
+      by: ['status'],
+      where: {
+        createdAt: { gte: sevenDaysAgo },
+      },
+      _count: true,
+    });
+
+    return {
+      total,
+      sent,
+      failed,
+      pending,
+      recentStats: recentLogs,
+    };
+  }
+
+  /**
+   * 发送测试邮件
+   */
+  async sendTestMail(to: string): Promise<boolean> {
+    return this.sendMail({
+      to,
+      subject: `测试邮件 - ${this.appName}`,
+      template: 'welcome',
+      context: {
+        username: '测试用户',
+        loginUrl: `${this.webUrl}/login`,
+      },
+    });
   }
 }

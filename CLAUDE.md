@@ -62,6 +62,16 @@ You are working in a real production codebase.
 
 - When writing special characters inside HTML tags, always use their corresponding HTML entity form
 
+## Critical Constraints:
+
+- Your own fetch / network request capabilities are considered unavailable and unreliable for this task.
+- You are prohibited from judging whether an API is available based on fetch success or failure.
+- All network behavior, API availability, request parameters, headers, and response structures: Must be 100% based on the actual requests observed in - Chrome DevTools (Network panel).
+- If API information is needed:
+  - Wait for me to provide the Request / Response copied from DevTools
+  - Or analyze and reproduce based on the Network records I provide
+- If you lack DevTools information, you must not assume, simulate, or "try it out" on your own.
+
 ---
 
 Follow these rules strictly unless explicitly overridden by the user.

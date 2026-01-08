@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import MindMapRenderer from './MindMapRenderer';
 import VideoPlayer from './VideoPlayer';
 import AudioPlayer from './AudioPlayer';
+import { CodeSnippet } from './ui/code-snippet';
 import { createRoot, Root } from 'react-dom/client';
 import { getMediaUrl } from '@whispers/utils';
 
@@ -31,8 +32,18 @@ interface MindMapData {
   content: string;
 }
 
+// 存储代码块内容的映射
+interface CodeBlockData {
+  id: string;
+  code: string;
+  language: string;
+}
+
 // 创建 marked 实例，配置自定义渲染器
-const createMarkedInstance = (mindmapDataList: MindMapData[]) => {
+const createMarkedInstance = (
+  mindmapDataList: MindMapData[],
+  codeBlockDataList: CodeBlockData[]
+) => {
   const instance = new Marked();
 
   // 配置选项
@@ -52,14 +63,10 @@ const createMarkedInstance = (mindmapDataList: MindMapData[]) => {
         // 返回占位符 div，稍后会被 React 组件替换
         return `<div data-mindmap-placeholder="${id}" class="mindmap-placeholder"></div>`;
       }
-      // 其他代码块使用默认渲染
-      const langClass = lang ? ` class="language-${lang}"` : '';
-      const escaped = text
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-      return `<pre><code${langClass}>${escaped}</code></pre>`;
+      // 其他代码块使用 CodeSnippet 组件
+      const id = `codeblock-${codeBlockDataList.length}`;
+      codeBlockDataList.push({ id, code: text, language: lang || '' });
+      return `<div data-codeblock-placeholder="${id}" class="codeblock-placeholder"></div>`;
     },
   };
 
@@ -74,19 +81,24 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const rootsRef = useRef<Map<string, Root>>(new Map());
   const [mindmapData, setMindmapData] = useState<MindMapData[]>([]);
+  const [codeBlockData, setCodeBlockData] = useState<CodeBlockData[]>([]);
 
   // Generate HTML from markdown content
   const htmlContent = useMemo(() => {
     if (!content || content.trim() === '') return '';
 
     try {
-      // 收集思维导图数据
-      const dataList: MindMapData[] = [];
-      const markedInstance = createMarkedInstance(dataList);
+      // 收集思维导图和代码块数据
+      const mindmapList: MindMapData[] = [];
+      const codeBlockList: CodeBlockData[] = [];
+      const markedInstance = createMarkedInstance(mindmapList, codeBlockList);
       const html = markedInstance.parse(content) as string;
 
-      // 更新思维导图数据（在下一个微任务中，避免在渲染期间 setState）
-      Promise.resolve().then(() => setMindmapData(dataList));
+      // 更新数据（在下一个微任务中，避免在渲染期间 setState）
+      Promise.resolve().then(() => {
+        setMindmapData(mindmapList);
+        setCodeBlockData(codeBlockList);
+      });
 
       return html;
     } catch {
@@ -132,6 +144,29 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
 
       const root = createRoot(container);
       root.render(<MindMapRenderer markdown={mdContent} height="500px" />);
+      rootsRef.current.set(id, root);
+    });
+
+    // 1.5 渲染代码块到占位符
+    codeBlockData.forEach(({ id, code, language }) => {
+      if (!isMounted || !containerRef.current) return;
+      const placeholder = containerRef.current.querySelector(
+        `[data-codeblock-placeholder="${id}"]`
+      );
+      if (!placeholder) return;
+
+      const container = document.createElement('div');
+      container.className = 'codeblock-container';
+      placeholder.replaceWith(container);
+
+      const root = createRoot(container);
+      root.render(
+        <CodeSnippet
+          code={code}
+          language={language || 'text'}
+          showLineNumbers={true}
+        />
+      );
       rootsRef.current.set(id, root);
     });
 
@@ -215,7 +250,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       // 直接清理，不能延迟（否则会清理掉新创建的 roots）
       cleanupRoots();
     };
-  }, [htmlContent, mindmapData]);
+  }, [htmlContent, mindmapData, codeBlockData]);
 
   // 缓存 dangerouslySetInnerHTML 对象，避免父组件重新渲染时重置 DOM
   // 这样可以防止 React 认为 DOM 需要更新，从而保留用 replaceWith 替换的思维导图容器

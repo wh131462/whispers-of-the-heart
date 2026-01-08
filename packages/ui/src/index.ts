@@ -72,6 +72,14 @@ export {
   MindMapBlock,
 } from './components/editor/blocks';
 
+// AI 配置
+export type { AIConfig, AIProvider } from './components/editor/ai';
+export {
+  PROVIDER_DEFAULTS,
+  getFullAIConfig,
+  validateAIConfig,
+} from './components/editor/ai';
+
 // 文件预览组件 (从 @eternalheart/react-file-preview 重新导出)
 export * from '@eternalheart/react-file-preview';
 

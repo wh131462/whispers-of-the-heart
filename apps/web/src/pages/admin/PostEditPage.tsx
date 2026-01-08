@@ -25,6 +25,7 @@ import {
   TagSelector,
   ExcerptEditor,
 } from '../../components/admin/post-editor';
+import { getAIConfig } from '../../configs';
 
 interface TagData {
   id: string;
@@ -417,6 +418,7 @@ const PostEditPage: React.FC = () => {
               placeholder="开始写作，输入 / 打开命令菜单..."
               editable={true}
               authToken={accessToken}
+              aiConfig={getAIConfig()}
               onOpenMediaPicker={(type, onSelect) => {
                 console.log(
                   '[PostEditPage] Opening media picker for editor:',

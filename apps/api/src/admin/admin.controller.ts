@@ -1,9 +1,21 @@
-import { Controller, Get, Post, Delete, Body, Param, Patch, Put, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Delete,
+  Body,
+  Param,
+  Patch,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { BlogService } from '../blog/blog.service';
 import { CommentService } from '../comment/comment.service';
 import { UserService } from '../user/user.service';
 import { SiteConfigService } from '../site-config/site-config.service';
+import { MailService } from '../mail/mail.service';
 import { CreateTagDto, UpdateTagDto } from '../blog/dto/blog.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/roles.guard';
@@ -17,6 +29,7 @@ export class AdminController {
     private readonly commentService: CommentService,
     private readonly userService: UserService,
     private readonly siteConfigService: SiteConfigService,
+    private readonly mailService: MailService,
   ) {}
 
   @Get('dashboard')
@@ -26,13 +39,13 @@ export class AdminController {
       return {
         success: true,
         data,
-        message: 'Dashboard data retrieved successfully'
+        message: 'Dashboard data retrieved successfully',
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || 'Failed to retrieve dashboard data'
+        message: error.message || 'Failed to retrieve dashboard data',
       };
     }
   }
@@ -45,13 +58,13 @@ export class AdminController {
       return {
         success: true,
         data: tags,
-        message: '获取标签列表成功'
+        message: '获取标签列表成功',
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '获取标签列表失败'
+        message: error.message || '获取标签列表失败',
       };
     }
   }
@@ -63,13 +76,13 @@ export class AdminController {
       return {
         success: true,
         data: tag,
-        message: '获取标签详情成功'
+        message: '获取标签详情成功',
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '获取标签详情失败'
+        message: error.message || '获取标签详情失败',
       };
     }
   }
@@ -89,13 +102,13 @@ export class AdminController {
           createdAt: tag.createdAt,
           updatedAt: tag.updatedAt,
         },
-        message: '创建标签成功'
+        message: '创建标签成功',
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '创建标签失败'
+        message: error.message || '创建标签失败',
       };
     }
   }
@@ -115,13 +128,13 @@ export class AdminController {
           createdAt: tag.createdAt,
           updatedAt: tag.updatedAt,
         },
-        message: '更新标签成功'
+        message: '更新标签成功',
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '更新标签失败'
+        message: error.message || '更新标签失败',
       };
     }
   }
@@ -133,13 +146,13 @@ export class AdminController {
       return {
         success: true,
         data: result,
-        message: '删除标签成功'
+        message: '删除标签成功',
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '删除标签失败'
+        message: error.message || '删除标签失败',
       };
     }
   }
@@ -157,13 +170,13 @@ export class AdminController {
       return {
         success: true,
         data: result,
-        message: '获取标签文章成功'
+        message: '获取标签文章成功',
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '获取标签文章失败'
+        message: error.message || '获取标签文章失败',
       };
     }
   }
@@ -179,17 +192,22 @@ export class AdminController {
     try {
       const pageNum = parseInt(page || '1') || 1;
       const limitNum = parseInt(limit || '20') || 20;
-      const result = await this.commentService.findAll(pageNum, limitNum, search, status);
+      const result = await this.commentService.findAll(
+        pageNum,
+        limitNum,
+        search,
+        status,
+      );
       return {
         success: true,
         data: result,
-        message: '获取评论列表成功'
+        message: '获取评论列表成功',
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '获取评论列表失败'
+        message: error.message || '获取评论列表失败',
       };
     }
   }
@@ -202,13 +220,13 @@ export class AdminController {
       return {
         success: true,
         data: stats,
-        message: '获取评论统计成功'
+        message: '获取评论统计成功',
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '获取评论统计失败'
+        message: error.message || '获取评论统计失败',
       };
     }
   }
@@ -226,13 +244,13 @@ export class AdminController {
       return {
         success: true,
         data: result,
-        message: '获取回收站评论成功'
+        message: '获取回收站评论成功',
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '获取回收站评论失败'
+        message: error.message || '获取回收站评论失败',
       };
     }
   }
@@ -247,17 +265,21 @@ export class AdminController {
     try {
       const pageNum = parseInt(page || '1') || 1;
       const limitNum = parseInt(limit || '20') || 20;
-      const result = await this.commentService.getReports(pageNum, limitNum, status || 'pending');
+      const result = await this.commentService.getReports(
+        pageNum,
+        limitNum,
+        status || 'pending',
+      );
       return {
         success: true,
         data: result,
-        message: '获取举报列表成功'
+        message: '获取举报列表成功',
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '获取举报列表失败'
+        message: error.message || '获取举报列表失败',
       };
     }
   }
@@ -270,13 +292,13 @@ export class AdminController {
       return {
         success: true,
         data: comment,
-        message: '获取评论详情成功'
+        message: '获取评论详情成功',
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '获取评论详情失败'
+        message: error.message || '获取评论详情失败',
       };
     }
   }
@@ -288,13 +310,13 @@ export class AdminController {
       return {
         success: true,
         data: comment,
-        message: '评论审核通过'
+        message: '评论审核通过',
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '审核失败'
+        message: error.message || '审核失败',
       };
     }
   }
@@ -306,13 +328,13 @@ export class AdminController {
       return {
         success: true,
         data: comment,
-        message: '评论已拒绝'
+        message: '评论已拒绝',
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '操作失败'
+        message: error.message || '操作失败',
       };
     }
   }
@@ -324,13 +346,13 @@ export class AdminController {
       return {
         success: true,
         data: result,
-        message: '评论删除成功'
+        message: '评论删除成功',
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '删除失败'
+        message: error.message || '删除失败',
       };
     }
   }
@@ -342,13 +364,13 @@ export class AdminController {
       return {
         success: true,
         data: result,
-        message: result.message
+        message: result.message,
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '批量审核失败'
+        message: error.message || '批量审核失败',
       };
     }
   }
@@ -360,13 +382,13 @@ export class AdminController {
       return {
         success: true,
         data: result,
-        message: result.message
+        message: result.message,
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '删除失败'
+        message: error.message || '删除失败',
       };
     }
   }
@@ -378,13 +400,13 @@ export class AdminController {
       return {
         success: true,
         data: result,
-        message: result.message
+        message: result.message,
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '恢复失败'
+        message: error.message || '恢复失败',
       };
     }
   }
@@ -396,13 +418,13 @@ export class AdminController {
       return {
         success: true,
         data: result,
-        message: result.message
+        message: result.message,
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '永久删除失败'
+        message: error.message || '永久删除失败',
       };
     }
   }
@@ -415,13 +437,13 @@ export class AdminController {
       return {
         success: true,
         data: result,
-        message: result.message
+        message: result.message,
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '操作失败'
+        message: error.message || '操作失败',
       };
     }
   }
@@ -440,13 +462,13 @@ export class AdminController {
       return {
         success: true,
         data: result,
-        message: result.message
+        message: result.message,
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '处理举报失败'
+        message: error.message || '处理举报失败',
       };
     }
   }
@@ -465,13 +487,13 @@ export class AdminController {
       return {
         success: true,
         data: result,
-        message: '获取用户列表成功'
+        message: '获取用户列表成功',
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '获取用户列表失败'
+        message: error.message || '获取用户列表失败',
       };
     }
   }
@@ -483,13 +505,13 @@ export class AdminController {
       return {
         success: true,
         data: user,
-        message: '获取用户详情成功'
+        message: '获取用户详情成功',
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '获取用户详情失败'
+        message: error.message || '获取用户详情失败',
       };
     }
   }
@@ -501,13 +523,13 @@ export class AdminController {
       return {
         success: true,
         data: user,
-        message: '用户更新成功'
+        message: '用户更新成功',
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '用户更新失败'
+        message: error.message || '用户更新失败',
       };
     }
   }
@@ -519,13 +541,13 @@ export class AdminController {
       return {
         success: true,
         data: result,
-        message: '用户删除成功'
+        message: '用户删除成功',
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '用户删除失败'
+        message: error.message || '用户删除失败',
       };
     }
   }
@@ -538,13 +560,13 @@ export class AdminController {
       return {
         success: true,
         data: config,
-        message: '获取站点配置成功'
+        message: '获取站点配置成功',
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '获取站点配置失败'
+        message: error.message || '获取站点配置失败',
       };
     }
   }
@@ -561,22 +583,25 @@ export class AdminController {
         return {
           success: true,
           data: newConfig,
-          message: '站点配置创建成功'
+          message: '站点配置创建成功',
         };
       }
 
       // 否则更新现有配置
-      const config = await this.siteConfigService.update(existingConfig.id, updateData);
+      const config = await this.siteConfigService.update(
+        existingConfig.id,
+        updateData,
+      );
       return {
         success: true,
         data: config,
-        message: '站点配置更新成功'
+        message: '站点配置更新成功',
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '站点配置更新失败'
+        message: error.message || '站点配置更新失败',
       };
     }
   }
@@ -588,13 +613,130 @@ export class AdminController {
       return {
         success: true,
         data: config,
-        message: '站点配置更新成功'
+        message: '站点配置更新成功',
       };
     } catch (error) {
       return {
         success: false,
         data: null,
-        message: error.message || '站点配置更新失败'
+        message: error.message || '站点配置更新失败',
+      };
+    }
+  }
+
+  // ==================== 邮件管理接口 ====================
+  @Get('mail/logs')
+  async getMailLogs(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+  ) {
+    try {
+      const pageNum = parseInt(page || '1') || 1;
+      const limitNum = parseInt(limit || '20') || 20;
+      const result = await this.mailService.getMailLogs(
+        pageNum,
+        limitNum,
+        status,
+        search,
+      );
+      return {
+        success: true,
+        data: result,
+        message: '获取邮件记录成功',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        message: error.message || '获取邮件记录失败',
+      };
+    }
+  }
+
+  @Get('mail/stats')
+  async getMailStats() {
+    try {
+      const stats = await this.mailService.getMailStats();
+      return {
+        success: true,
+        data: stats,
+        message: '获取邮件统计成功',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        message: error.message || '获取邮件统计失败',
+      };
+    }
+  }
+
+  @Get('mail/status')
+  async getMailStatus() {
+    try {
+      const status = this.mailService.getStatus();
+      return {
+        success: true,
+        data: status,
+        message: '获取邮件服务状态成功',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        message: error.message || '获取邮件服务状态失败',
+      };
+    }
+  }
+
+  @Get('mail/logs/:id')
+  async getMailLogById(@Param('id') id: string) {
+    try {
+      const log = await this.mailService.getMailLogById(id);
+      if (!log) {
+        return {
+          success: false,
+          data: null,
+          message: '邮件记录不存在',
+        };
+      }
+      return {
+        success: true,
+        data: log,
+        message: '获取邮件详情成功',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        message: error.message || '获取邮件详情失败',
+      };
+    }
+  }
+
+  @Post('mail/test')
+  async sendTestMail(@Body() body: { to: string }) {
+    try {
+      if (!body.to) {
+        return {
+          success: false,
+          data: null,
+          message: '请提供收件人邮箱',
+        };
+      }
+      const result = await this.mailService.sendTestMail(body.to);
+      return {
+        success: result,
+        data: { sent: result },
+        message: result ? '测试邮件发送成功' : '测试邮件发送失败',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: null,
+        message: error.message || '发送测试邮件失败',
       };
     }
   }
