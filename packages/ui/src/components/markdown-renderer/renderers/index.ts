@@ -9,3 +9,6 @@ export type { AudioRendererProps } from './AudioRenderer';
 
 export { MindMapRendererWrapper } from './MindMapRendererWrapper';
 export type { MindMapRendererWrapperProps } from './MindMapRendererWrapper';
+
+export { MathRenderer } from './MathRenderer';
+export type { MathRendererProps } from './MathRenderer';

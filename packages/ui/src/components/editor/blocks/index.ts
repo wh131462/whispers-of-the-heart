@@ -8,3 +8,6 @@ export { CustomImageBlock } from './ImageBlock';
 export { CustomVideoBlock } from './VideoBlock';
 export { CustomAudioBlock } from './AudioBlock';
 export { MindMapBlock } from './MindMapBlock';
+export { MathBlock } from './MathBlock';
+export { InlineMathBlock } from './InlineMathBlock';
+export { InlineImage } from './InlineImageBlock';

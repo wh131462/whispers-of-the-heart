@@ -6,6 +6,7 @@ import {
   VideoRenderer,
   AudioRenderer,
   MindMapRendererWrapper,
+  MathRenderer,
 } from './renderers';
 import { createRoot, Root } from 'react-dom/client';
 import { getMediaUrl } from '@whispers/utils';
@@ -41,10 +42,18 @@ interface CodeBlockData {
   language: string;
 }
 
+// 存储数学公式内容的映射
+interface MathBlockData {
+  id: string;
+  formula: string;
+  displayMode: boolean;
+}
+
 // 创建 marked 实例，配置自定义渲染器
 const createMarkedInstance = (
   mindmapDataList: MindMapData[],
-  codeBlockDataList: CodeBlockData[]
+  codeBlockDataList: CodeBlockData[],
+  mathBlockDataList: MathBlockData[]
 ) => {
   const instance = new Marked();
 
@@ -73,6 +82,71 @@ const createMarkedInstance = (
   };
 
   instance.use({ renderer });
+
+  // 添加数学公式扩展
+  instance.use({
+    extensions: [
+      // 块级数学公式 $$...$$
+      {
+        name: 'mathBlock',
+        level: 'block',
+        start(src: string) {
+          return src.match(/^\$\$/)?.index;
+        },
+        tokenizer(src: string) {
+          const match = src.match(/^\$\$([\s\S]*?)\$\$/);
+          if (match) {
+            return {
+              type: 'mathBlock',
+              raw: match[0],
+              text: match[1].trim(),
+            };
+          }
+          return undefined;
+        },
+        renderer(token: Tokens.Generic) {
+          const id = `math-block-${mathBlockDataList.length}`;
+          mathBlockDataList.push({
+            id,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            formula: (token as any).text || '',
+            displayMode: true,
+          });
+          return `<div data-math-placeholder="${id}" class="math-placeholder"></div>`;
+        },
+      },
+      // 行内数学公式 $...$
+      {
+        name: 'mathInline',
+        level: 'inline',
+        start(src: string) {
+          return src.match(/\$(?!\$)/)?.index;
+        },
+        tokenizer(src: string) {
+          const match = src.match(/^\$([^$\n]+?)\$/);
+          if (match) {
+            return {
+              type: 'mathInline',
+              raw: match[0],
+              text: match[1].trim(),
+            };
+          }
+          return undefined;
+        },
+        renderer(token: Tokens.Generic) {
+          const id = `math-inline-${mathBlockDataList.length}`;
+          mathBlockDataList.push({
+            id,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            formula: (token as any).text || '',
+            displayMode: false,
+          });
+          return `<span data-math-inline-placeholder="${id}" class="math-inline-placeholder"></span>`;
+        },
+      },
+    ],
+  });
+
   return instance;
 };
 
@@ -84,22 +158,29 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   const rootsRef = useRef<Map<string, Root>>(new Map());
   const [mindmapData, setMindmapData] = useState<MindMapData[]>([]);
   const [codeBlockData, setCodeBlockData] = useState<CodeBlockData[]>([]);
+  const [mathBlockData, setMathBlockData] = useState<MathBlockData[]>([]);
 
   // Generate HTML from markdown content
   const htmlContent = useMemo(() => {
     if (!content || content.trim() === '') return '';
 
     try {
-      // 收集思维导图和代码块数据
+      // 收集思维导图、代码块和数学公式数据
       const mindmapList: MindMapData[] = [];
       const codeBlockList: CodeBlockData[] = [];
-      const markedInstance = createMarkedInstance(mindmapList, codeBlockList);
+      const mathBlockList: MathBlockData[] = [];
+      const markedInstance = createMarkedInstance(
+        mindmapList,
+        codeBlockList,
+        mathBlockList
+      );
       const html = markedInstance.parse(content) as string;
 
       // 更新数据（在下一个微任务中，避免在渲染期间 setState）
       Promise.resolve().then(() => {
         setMindmapData(mindmapList);
         setCodeBlockData(codeBlockList);
+        setMathBlockData(mathBlockList);
       });
 
       return html;
@@ -249,12 +330,39 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       });
     }
 
+    // 5. 渲染数学公式到占位符
+    mathBlockData.forEach(({ id, formula, displayMode }) => {
+      if (!isMounted || !containerRef.current) return;
+
+      // 查找块级数学公式占位符
+      let placeholder = containerRef.current.querySelector(
+        `[data-math-placeholder="${id}"]`
+      );
+      // 查找行内数学公式占位符
+      if (!placeholder) {
+        placeholder = containerRef.current.querySelector(
+          `[data-math-inline-placeholder="${id}"]`
+        );
+      }
+      if (!placeholder) return;
+
+      const container = document.createElement(displayMode ? 'div' : 'span');
+      container.className = displayMode
+        ? 'math-container my-4'
+        : 'math-inline-container';
+      placeholder.replaceWith(container);
+
+      const root = createRoot(container);
+      root.render(<MathRenderer formula={formula} displayMode={displayMode} />);
+      rootsRef.current.set(id, root);
+    });
+
     return () => {
       isMounted = false;
       // 直接清理，不能延迟（否则会清理掉新创建的 roots）
       cleanupRoots();
     };
-  }, [htmlContent, mindmapData, codeBlockData]);
+  }, [htmlContent, mindmapData, codeBlockData, mathBlockData]);
 
   // 缓存 dangerouslySetInnerHTML 对象，避免父组件重新渲染时重置 DOM
   // 这样可以防止 React 认为 DOM 需要更新，从而保留用 replaceWith 替换的思维导图容器
