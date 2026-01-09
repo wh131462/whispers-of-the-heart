@@ -42,7 +42,7 @@ export {
   PopoverTrigger,
   PopoverContent,
 } from './components/ui/popover';
-export { default as MarkdownRenderer } from './components/MarkdownRenderer';
+export { default as MarkdownRenderer } from './components/markdown-renderer';
 export { default as DefaultAvatar } from './components/DefaultAvatar';
 export { Avatar, AvatarImage, AvatarFallback } from './components/Avatar';
 export { default as BlockNoteEditor } from './components/editor/BlockNoteEditor';
@@ -58,8 +58,8 @@ export { default as AudioPlayer } from './components/AudioPlayer';
 export { default as VideoPlayer } from './components/VideoPlayer';
 
 // 动画背景组件
-export { default as AnimatedShaderBackground } from './components/AnimatedShaderBackground';
-export { FallingPattern } from './components/FallingPattern';
+export { default as AnimatedShaderBackground } from './components/background/AnimatedShaderBackground';
+export { FallingPattern } from './components/background/FallingPattern';
 
 // 思维导图组件
 export { default as MindMapRenderer } from './components/MindMapRenderer';
@@ -96,5 +96,5 @@ export type { TreeNode } from './components/ui/tree-select';
 export type { AudioPlayerProps } from './components/AudioPlayer';
 export type { VideoPlayerProps } from './components/VideoPlayer';
 export type { MindMapRendererProps } from './components/MindMapRenderer';
-export type { AnimatedShaderBackgroundProps } from './components/AnimatedShaderBackground';
-export type { FallingPatternProps } from './components/FallingPattern';
+export type { AnimatedShaderBackgroundProps } from './components/background/AnimatedShaderBackground';
+export type { FallingPatternProps } from './components/background/FallingPattern';

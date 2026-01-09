@@ -277,8 +277,8 @@ const PostDetailPage: React.FC = () => {
           ]);
           setIsLiked(likeStatus.liked);
           setIsBookmarked(favoriteStatus.favorited);
-        } catch (error) {
-          console.error('Failed to fetch user status:', error);
+        } catch (_error) {
+          // ignore error
         }
       } else if (!isAuthenticated) {
         // 用户退出登录时重置状态
@@ -317,8 +317,7 @@ const PostDetailPage: React.FC = () => {
       } else {
         setPost(null);
       }
-    } catch (error) {
-      console.error('Failed to fetch post:', error);
+    } catch (_error) {
       setPost(null);
     } finally {
       setLoading(false);
@@ -469,7 +468,7 @@ const PostDetailPage: React.FC = () => {
             {/* 更新时间气泡提示 */}
             {post.updatedAt !== post.createdAt && (
               <>
-                <span className="absolute -top-1 -right-2 w-2 h-2 bg-primary rounded-full" />
+                <span className="absolute -top-1 -right-2 size-[6px] bg-primary rounded-full" />
                 <div className="absolute left-0 top-full mt-2 px-3 py-2 bg-popover border rounded-md shadow-md text-xs whitespace-nowrap opacity-0 invisible group-hover/time:opacity-100 group-hover/time:visible transition-all z-10">
                   更新于{' '}
                   {new Date(post.updatedAt).toLocaleString('zh-CN', {

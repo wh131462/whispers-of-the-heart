@@ -1,10 +1,12 @@
 import React, { useMemo, useEffect, useRef, useState } from 'react';
 import { Marked, Tokens } from 'marked';
 import { cn } from '@/lib/utils';
-import MindMapRenderer from './MindMapRenderer';
-import VideoPlayer from './VideoPlayer';
-import AudioPlayer from './AudioPlayer';
-import { CodeSnippet } from './ui/code-snippet';
+import {
+  CodeRenderer,
+  VideoRenderer,
+  AudioRenderer,
+  MindMapRendererWrapper,
+} from './renderers';
 import { createRoot, Root } from 'react-dom/client';
 import { getMediaUrl } from '@whispers/utils';
 
@@ -63,7 +65,7 @@ const createMarkedInstance = (
         // 返回占位符 div，稍后会被 React 组件替换
         return `<div data-mindmap-placeholder="${id}" class="mindmap-placeholder"></div>`;
       }
-      // 其他代码块使用 CodeSnippet 组件
+      // 其他代码块使用 CodeRenderer 组件
       const id = `codeblock-${codeBlockDataList.length}`;
       codeBlockDataList.push({ id, code: text, language: lang || '' });
       return `<div data-codeblock-placeholder="${id}" class="codeblock-placeholder"></div>`;
@@ -143,7 +145,9 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       placeholder.replaceWith(container);
 
       const root = createRoot(container);
-      root.render(<MindMapRenderer markdown={mdContent} height="500px" />);
+      root.render(
+        <MindMapRendererWrapper markdown={mdContent} height="500px" />
+      );
       rootsRef.current.set(id, root);
     });
 
@@ -161,7 +165,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
 
       const root = createRoot(container);
       root.render(
-        <CodeSnippet
+        <CodeRenderer
           code={code}
           language={language || 'text'}
           showLineNumbers={true}
@@ -187,7 +191,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
 
         const root = createRoot(container);
         root.render(
-          <MindMapRenderer markdown={markdownContent} height="500px" />
+          <MindMapRendererWrapper markdown={markdownContent} height="500px" />
         );
         rootsRef.current.set(`mindmap-fallback-${index}`, root);
       });
@@ -211,7 +215,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
         figure.replaceWith(container);
 
         const root = createRoot(container);
-        root.render(<VideoPlayer src={getMediaUrl(src)} title={title} />);
+        root.render(<VideoRenderer src={getMediaUrl(src)} title={title} />);
         rootsRef.current.set(`video-${index}`, root);
       });
     }
@@ -239,7 +243,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
 
         const root = createRoot(container);
         root.render(
-          <AudioPlayer src={getMediaUrl(src)} title={title} artist={artist} />
+          <AudioRenderer src={getMediaUrl(src)} title={title} artist={artist} />
         );
         rootsRef.current.set(`audio-${index}`, root);
       });
