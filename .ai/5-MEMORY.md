@@ -8,6 +8,153 @@
 
 ## 📝 会话日志
 
+### 2026-01-09 - BlockNote FormattingToolbar 自定义与 MarkdownRenderer 图片预览
+
+**任务概览**:
+优化 BlockNote 编辑器的 FormattingToolbar，以及将图片预览功能从页面组件移至 MarkdownRenderer 组件。
+
+**实施内容**:
+
+#### 1. FormattingToolbar 完整自定义 ✅
+
+**修改文件**: `packages/ui/src/components/editor/BlockNoteEditor.tsx`
+
+**问题**: 选中文本后只显示 AI 编辑按钮，缺少默认的格式化工具栏按钮
+
+**原因**: BlockNote 的 FormattingToolbar 子元素会完全替换默认按钮，需要手动列出所有需要的按钮
+
+**解决方案**: 创建 CustomFormattingToolbar 组件，手动添加所有按钮
+
+```typescript
+import {
+  FormattingToolbar,
+  BlockTypeSelect,
+  BasicTextStyleButton,
+  TextAlignButton,
+  ColorStyleButton,
+  NestBlockButton,
+  UnnestBlockButton,
+  CreateLinkButton,
+  useSelectedBlocks,
+} from '@blocknote/react';
+import { AIToolbarButton } from '@blocknote/xl-ai';
+
+const CustomFormattingToolbar: React.FC<{
+  blockTypeSelectItems: ReturnType<typeof blockTypeSelectItems>;
+  showAIButton: boolean;
+}> = ({ blockTypeSelectItems: items, showAIButton }) => {
+  const selectedBlocks = useSelectedBlocks();
+  const isMediaBlockSelected = selectedBlocks.some(block =>
+    MEDIA_BLOCK_TYPES.includes(block.type)
+  );
+  const shouldShowAIButton = showAIButton && !isMediaBlockSelected;
+
+  return (
+    <FormattingToolbar>
+      {shouldShowAIButton && <AIToolbarButton />}
+      <BlockTypeSelect items={items} />
+      <BasicTextStyleButton basicTextStyle="bold" />
+      <BasicTextStyleButton basicTextStyle="italic" />
+      <BasicTextStyleButton basicTextStyle="underline" />
+      <BasicTextStyleButton basicTextStyle="strike" />
+      <TextAlignButton textAlignment="left" />
+      <TextAlignButton textAlignment="center" />
+      <TextAlignButton textAlignment="right" />
+      <ColorStyleButton />
+      <NestBlockButton />
+      <UnnestBlockButton />
+      <CreateLinkButton />
+      {isMediaBlockSelected && (
+        <>
+          <MediaReplaceButton />
+          <MediaDeleteButton />
+        </>
+      )}
+    </FormattingToolbar>
+  );
+};
+```
+
+**关键点**:
+
+- AI 按钮放在最前面（仅文本块显示）
+- 媒体块选中时隐藏 AI 按钮，显示替换/删除按钮
+- 使用 `useSelectedBlocks()` 检测当前选中的块类型
+
+#### 2. MarkdownRenderer 图片预览功能 ✅
+
+**修改文件**: `packages/ui/src/components/markdown-renderer/MarkdownRenderer.tsx`
+
+**功能**: 点击 Markdown 渲染内容中的图片，打开预览模态框
+
+**实现**:
+
+```typescript
+import {
+  FilePreviewModal,
+  type PreviewFileLink,
+} from '@eternalheart/react-file-preview';
+
+// 图片预览状态
+const [previewFiles, setPreviewFiles] = useState<PreviewFileLink[]>([]);
+const [previewIndex, setPreviewIndex] = useState(0);
+const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+// 收集内容中的所有图片
+const collectImages = useCallback((): PreviewFileLink[] => {
+  const files: PreviewFileLink[] = [];
+  if (!containerRef.current) return files;
+  const images = containerRef.current.querySelectorAll('img');
+  images.forEach((img, index) => {
+    files.push({
+      id: `img-${index}`,
+      name: img.alt || `图片 ${index + 1}`,
+      url: img.src,
+      type: getMimeType(img.src),
+    });
+  });
+  return files;
+}, []);
+
+// 处理图片点击
+const handleContentClick = useCallback(
+  (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.tagName === 'IMG') {
+      e.preventDefault();
+      const img = target as HTMLImageElement;
+      const files = collectImages();
+      const clickedIndex = files.findIndex(f => f.url === img.src);
+      setPreviewFiles(files);
+      setPreviewIndex(clickedIndex >= 0 ? clickedIndex : 0);
+      setIsPreviewOpen(true);
+    }
+  },
+  [collectImages]
+);
+```
+
+**优势**: 图片预览逻辑封装在 MarkdownRenderer 内部，使用该组件的页面无需额外处理
+
+#### 3. PostDetailPage 简化 ✅
+
+**修改文件**: `apps/web/src/pages/PostDetailPage.tsx`
+
+**移除内容**:
+
+- 图片预览相关状态 (previewFiles, previewIndex, isPreviewOpen)
+- collectMediaFiles 函数
+- handleContentClick 函数
+- FilePreviewModal 组件
+- 相关导入 (useRef, useCallback, FilePreviewModal, PreviewFileLink)
+
+**关键代码位置**:
+
+- FormattingToolbar 自定义: `BlockNoteEditor.tsx:440-492`
+- 图片预览: `MarkdownRenderer.tsx:186-225`
+
+---
+
 ### 2026-01-07 - 应用中心模块开发
 
 **任务概览**:
@@ -476,7 +623,17 @@ Response: {
 
 ## 🎯 当前上下文（最近3次会话）
 
-### 会话 #3: 2026-01-07
+### 会话 #3: 2026-01-09
+
+**主题**: BlockNote FormattingToolbar 自定义与 MarkdownRenderer 图片预览
+**关键文件**:
+
+- `packages/ui/src/components/editor/BlockNoteEditor.tsx`
+- `packages/ui/src/components/markdown-renderer/MarkdownRenderer.tsx`
+- `apps/web/src/pages/PostDetailPage.tsx`
+  **状态**: 已完成
+
+### 会话 #2: 2026-01-07
 
 **主题**: 应用中心模块开发
 **关键文件**:
@@ -484,10 +641,9 @@ Response: {
 - `apps/web/src/apps/` (新建目录)
 - `apps/web/src/pages/apps/` (新建目录)
 - `apps/web/src/layouts/MainLayout.tsx`
-- `apps/web/src/App.tsx`
   **状态**: 已完成
 
-### 会话 #2: 2025-12-26
+### 会话 #1: 2025-12-26
 
 **主题**: BlockNote编辑器优化与功能扩展
 **关键文件**:
@@ -495,15 +651,6 @@ Response: {
 - `packages/ui/src/components/editor/`
 - `packages/ui/src/components/VideoPlayer.tsx`
 - `packages/ui/src/components/MindMapRenderer.tsx`
-  **状态**: 已完成
-
-### 会话 #1: 2025-12-25
-
-**主题**: 修复点赞/收藏状态反显功能
-**关键文件**:
-
-- `apps/api/src/auth/guards/optional-jwt-auth.guard.ts`
-- `apps/web/src/pages/PostDetailPage.tsx`
   **状态**: 已完成
 
 ---
@@ -531,6 +678,8 @@ Response: {
 | 可选认证实现             | **必须使用 OptionalJwtAuthGuard**，否则 Passport 不会解析 token |
 | 评论点赞状态批量查询     | 收集所有评论 ID,使用 `{ in: allCommentIds }` 一次性查询         |
 | 登录后状态不更新         | 使用 `useEffect` 监听 `isAuthenticated` 变化并重新获取          |
+| FormattingToolbar 自定义 | 子元素完全替换默认按钮，需手动列出所有需要的按钮组件            |
+| 媒体块工具栏按钮         | 使用 `useSelectedBlocks()` 检测块类型，条件渲染对应按钮         |
 
 ### 性能优化记录
 
@@ -543,27 +692,32 @@ Response: {
 
 ## 🔗 关键代码位置（快速索引）
 
-| 功能           | 文件路径                                              | 备注                        |
-| -------------- | ----------------------------------------------------- | --------------------------- |
-| 认证Store      | `apps/web/src/stores/useAuthStore.ts`                 | JWT认证状态管理             |
-| JWT Guard      | `apps/api/src/auth/guards/jwt-auth.guard.ts`          | 强制JWT认证                 |
-| 可选JWT Guard  | `apps/api/src/auth/guards/optional-jwt-auth.guard.ts` | 可选JWT认证（已登录则解析） |
-| 博客Service    | `apps/api/src/blog/blog.service.ts`                   | 文章CRUD核心逻辑            |
-| 博客Controller | `apps/api/src/blog/blog.controller.ts`                | 文章API接口+点赞收藏状态    |
-| 评论Service    | `apps/api/src/comment/comment.service.ts`             | 评论CRUD+批量点赞状态查询   |
-| 评论Controller | `apps/api/src/comment/comment.controller.ts`          | 评论API接口+点赞状态        |
-| 文章详情页     | `apps/web/src/pages/PostDetailPage.tsx`               | 点赞/收藏状态获取+登录监听  |
-| 评论列表       | `apps/web/src/components/CommentList.tsx`             | 评论列表+登录监听           |
-| 评论组件       | `apps/web/src/components/CommentItem.tsx`             | 评论点赞状态展示            |
-| 评论API        | `apps/web/src/services/commentApi.ts`                 | 评论相关API调用             |
-| Prisma Schema  | `apps/api/prisma/schema.prisma`                       | 数据库模型定义              |
-| UI组件库       | `packages/ui/src/components/`                         | 共享UI组件                  |
-| API工具        | `packages/utils/src/`                                 | API客户端等                 |
-| 邮件模板       | `apps/api/src/mail/templates/`                        | Handlebars模板              |
-| 环境配置       | `configs/env.*`                                       | 环境变量配置                |
-| 应用注册表     | `apps/web/src/apps/index.ts`                          | 小工具应用注册              |
-| 键盘检测器     | `apps/web/src/apps/keyboard-tester/index.tsx`         | 108键键盘检测应用           |
-| 应用列表页     | `apps/web/src/pages/apps/AppsPage.tsx`                | 应用中心入口页              |
+| 功能              | 文件路径                                                    | 备注                             |
+| ----------------- | ----------------------------------------------------------- | -------------------------------- |
+| 认证Store         | `apps/web/src/stores/useAuthStore.ts`                       | JWT认证状态管理                  |
+| JWT Guard         | `apps/api/src/auth/guards/jwt-auth.guard.ts`                | 强制JWT认证                      |
+| 可选JWT Guard     | `apps/api/src/auth/guards/optional-jwt-auth.guard.ts`       | 可选JWT认证（已登录则解析）      |
+| 博客Service       | `apps/api/src/blog/blog.service.ts`                         | 文章CRUD核心逻辑                 |
+| 博客Controller    | `apps/api/src/blog/blog.controller.ts`                      | 文章API接口+点赞收藏状态         |
+| 评论Service       | `apps/api/src/comment/comment.service.ts`                   | 评论CRUD+批量点赞状态查询        |
+| 评论Controller    | `apps/api/src/comment/comment.controller.ts`                | 评论API接口+点赞状态             |
+| 文章详情页        | `apps/web/src/pages/PostDetailPage.tsx`                     | 点赞/收藏状态获取+登录监听       |
+| 评论列表          | `apps/web/src/components/CommentList.tsx`                   | 评论列表+登录监听                |
+| 评论组件          | `apps/web/src/components/CommentItem.tsx`                   | 评论点赞状态展示                 |
+| 评论API           | `apps/web/src/services/commentApi.ts`                       | 评论相关API调用                  |
+| Prisma Schema     | `apps/api/prisma/schema.prisma`                             | 数据库模型定义                   |
+| UI组件库          | `packages/ui/src/components/`                               | 共享UI组件                       |
+| API工具           | `packages/utils/src/`                                       | API客户端等                      |
+| 邮件模板          | `apps/api/src/mail/templates/`                              | Handlebars模板                   |
+| 环境配置          | `configs/env.*`                                             | 环境变量配置                     |
+| 应用注册表        | `apps/web/src/apps/index.ts`                                | 小工具应用注册                   |
+| 键盘检测器        | `apps/web/src/apps/keyboard-tester/index.tsx`               | 108键键盘检测应用                |
+| 应用列表页        | `apps/web/src/pages/apps/AppsPage.tsx`                      | 应用中心入口页                   |
+| BlockNote编辑器   | `packages/ui/src/components/editor/BlockNoteEditor.tsx`     | 富文本编辑器+AI+自定义工具栏     |
+| CommentEditor     | `packages/ui/src/components/editor/CommentEditor.tsx`       | 评论编辑器                       |
+| FormattingToolbar | `packages/ui/src/components/editor/BlockNoteEditor.tsx:440` | 自定义格式化工具栏组件           |
+| MarkdownRenderer  | `packages/ui/src/components/markdown-renderer/`             | Markdown渲染+图片预览            |
+| 自定义媒体块      | `packages/ui/src/components/editor/blocks/`                 | ImageBlock/VideoBlock/AudioBlock |
 
 ---
 
@@ -635,5 +789,5 @@ Response: {
 
 ---
 
-**最后更新**: 2025-12-26
+**最后更新**: 2026-01-09
 **自动维护**: 由AI在每次会话结束时更新

@@ -1,365 +1,153 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import {
   createReactBlockSpec,
   ReactCustomBlockRenderProps,
 } from '@blocknote/react';
-import { Music, Upload, X, Link as LinkIcon } from 'lucide-react';
 import AudioPlayer from '../../AudioPlayer';
 import { getMediaUrl } from '@whispers/utils';
+import {
+  MediaPlaceholder,
+  MediaUrlInput,
+  MediaCaption,
+  useMediaBlock,
+} from './shared';
 
-interface AudioBlockProps {
+interface AudioBlockComponentProps {
   url: string;
-  title?: string;
-  artist?: string;
-  cover?: string;
+  /** 音频标题/名称 */
+  title: string;
+  /** 音频说明 */
+  caption: string;
+  editable: boolean;
   onUrlChange: (url: string) => void;
   onTitleChange: (title: string) => void;
-  onArtistChange: (artist: string) => void;
-  onOpenMediaPicker?: () => void;
-  editable: boolean;
+  onCaptionChange: (caption: string) => void;
+  /** 打开媒体选择器，返回 true 表示事件被处理 */
+  onOpenMediaPicker?: () => boolean;
+  /** 当通过内置文件选择器选择文件时触发 */
+  onFileSelect?: (file: File) => void;
 }
 
-const AudioBlockComponent: React.FC<AudioBlockProps> = ({
+const AudioBlockComponent: React.FC<AudioBlockComponentProps> = ({
   url,
-  title = '',
-  artist = '',
+  title,
+  caption,
+  editable,
   onUrlChange,
   onTitleChange,
-  onArtistChange,
+  onCaptionChange,
   onOpenMediaPicker,
-  editable,
+  onFileSelect,
 }) => {
-  const [isUrlInput, setIsUrlInput] = useState(false);
-  const [urlInputValue, setUrlInputValue] = useState(url || '');
-  const [titleInputValue, setTitleInputValue] = useState(title || '');
-  const [artistInputValue, setArtistInputValue] = useState(artist || '');
+  const {
+    isUrlInput,
+    setIsUrlInput,
+    urlInputValue,
+    setUrlInputValue,
+    handleUrlSubmit,
+    handleUrlCancel,
+    isDragging,
+    handleDragEnter,
+    handleDragLeave,
+    handleDragOver,
+    handleDrop,
+    handlePaste,
+    isSelected,
+    setIsSelected,
+  } = useMediaBlock({ url, onUrlChange });
 
-  const handleUrlSubmit = useCallback(() => {
-    if (urlInputValue.trim()) {
-      onUrlChange(urlInputValue.trim());
-      setIsUrlInput(false);
+  const handleContainerClick = useCallback(() => {
+    if (editable) {
+      setIsSelected(true);
     }
-  }, [urlInputValue, onUrlChange]);
+  }, [editable, setIsSelected]);
 
-  const handleTitleBlur = useCallback(() => {
-    onTitleChange(titleInputValue);
-  }, [titleInputValue, onTitleChange]);
+  const handleContainerBlur = useCallback(() => {
+    setIsSelected(false);
+  }, [setIsSelected]);
 
-  const handleArtistBlur = useCallback(() => {
-    onArtistChange(artistInputValue);
-  }, [artistInputValue, onArtistChange]);
-
-  const handleRemove = useCallback(() => {
-    onUrlChange('');
-    setUrlInputValue('');
-  }, [onUrlChange]);
-
+  // 空状态
   if (!url && !isUrlInput) {
     return (
-      <div className="bn-audio-block-empty" contentEditable={false}>
-        <div className="audio-placeholder">
-          <Music className="placeholder-icon" size={48} />
-          <p className="placeholder-text">添加音频</p>
-          {editable && (
-            <div className="placeholder-actions">
-              {onOpenMediaPicker && (
-                <button
-                  onClick={onOpenMediaPicker}
-                  className="action-btn primary"
-                >
-                  <Upload size={16} />
-                  <span>从媒体库选择</span>
-                </button>
-              )}
-              <button
-                onClick={() => setIsUrlInput(true)}
-                className="action-btn"
-              >
-                <LinkIcon size={16} />
-                <span>通过URL添加</span>
-              </button>
-            </div>
-          )}
-        </div>
-        <style>{`
-          .bn-audio-block-empty {
-            padding: 2.5rem 2rem;
-            border: 2px dashed hsl(var(--border));
-            border-radius: 0.5rem;
-            background: hsl(var(--muted) / 0.3);
-          }
-
-          .audio-placeholder {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 1rem;
-          }
-
-          .placeholder-icon {
-            color: hsl(var(--muted-foreground));
-          }
-
-          .placeholder-text {
-            color: hsl(var(--muted-foreground));
-            font-size: 0.875rem;
-            margin: 0;
-          }
-
-          .placeholder-actions {
-            display: flex;
-            gap: 0.75rem;
-            margin-top: 0.5rem;
-          }
-
-          .action-btn {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            border: 1px solid hsl(var(--border));
-            background: hsl(var(--background));
-            color: hsl(var(--foreground));
-            border-radius: 0.375rem;
-            cursor: pointer;
-            font-size: 0.875rem;
-            transition: all 0.15s;
-          }
-
-          .action-btn:hover {
-            background: hsl(var(--accent));
-            border-color: hsl(var(--primary));
-          }
-
-          .action-btn.primary {
-            background: hsl(var(--primary));
-            color: hsl(var(--primary-foreground));
-            border-color: hsl(var(--primary));
-          }
-
-          .action-btn.primary:hover {
-            opacity: 0.9;
-          }
-        `}</style>
-      </div>
+      <MediaPlaceholder
+        type="audio"
+        isDragging={isDragging}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={e => handleDrop(e)}
+        onClick={onOpenMediaPicker}
+        onUrlInputClick={() => setIsUrlInput(true)}
+        onPaste={handlePaste}
+        onFileSelect={onFileSelect}
+      />
     );
   }
 
+  // URL 输入状态
   if (isUrlInput) {
     return (
-      <div className="bn-audio-url-input" contentEditable={false}>
-        <input
-          type="url"
-          value={urlInputValue}
-          onChange={e => setUrlInputValue(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'Enter') {
-              handleUrlSubmit();
-            } else if (e.key === 'Escape') {
-              setIsUrlInput(false);
-              setUrlInputValue(url);
-            }
-          }}
-          placeholder="输入音频URL (支持mp3, wav, ogg等)..."
-          autoFocus
-          className="url-input"
-        />
-        <div className="url-actions">
-          <button onClick={handleUrlSubmit} className="btn-submit">
-            确定
-          </button>
-          <button onClick={() => setIsUrlInput(false)} className="btn-cancel">
-            取消
-          </button>
-        </div>
-        <style>{`
-          .bn-audio-url-input {
-            padding: 1rem;
-            border: 1px solid hsl(var(--border));
-            border-radius: 0.5rem;
-            background: hsl(var(--background));
-          }
-
-          .url-input {
-            width: 100%;
-            padding: 0.5rem;
-            border: 1px solid hsl(var(--border));
-            border-radius: 0.375rem;
-            background: hsl(var(--background));
-            color: hsl(var(--foreground));
-            font-size: 0.875rem;
-            outline: none;
-          }
-
-          .url-input:focus {
-            border-color: hsl(var(--primary));
-          }
-
-          .url-actions {
-            display: flex;
-            gap: 0.5rem;
-            margin-top: 0.75rem;
-          }
-
-          .btn-submit,
-          .btn-cancel {
-            padding: 0.375rem 0.75rem;
-            border: 1px solid hsl(var(--border));
-            border-radius: 0.375rem;
-            cursor: pointer;
-            font-size: 0.875rem;
-            transition: all 0.15s;
-          }
-
-          .btn-submit {
-            background: hsl(var(--primary));
-            color: hsl(var(--primary-foreground));
-            border-color: hsl(var(--primary));
-          }
-
-          .btn-cancel {
-            background: hsl(var(--background));
-            color: hsl(var(--foreground));
-          }
-
-          .btn-submit:hover,
-          .btn-cancel:hover {
-            opacity: 0.8;
-          }
-        `}</style>
-      </div>
+      <MediaUrlInput
+        value={urlInputValue}
+        onChange={setUrlInputValue}
+        onSubmit={handleUrlSubmit}
+        onCancel={handleUrlCancel}
+        placeholder="输入音频链接 (支持 mp3, wav, ogg)..."
+      />
     );
   }
 
+  // 音频展示状态
   return (
-    <div className="bn-audio-block-content" contentEditable={false}>
-      <div className="audio-wrapper">
-        <AudioPlayer
-          src={getMediaUrl(url)}
-          title={title || '未命名音频'}
-          artist={artist}
-        />
-        {editable && (
-          <button
-            onClick={handleRemove}
-            className="remove-btn"
-            title="删除音频"
-          >
-            <X size={16} />
-          </button>
-        )}
-      </div>
-      {editable ? (
-        <div className="metadata-inputs">
-          <input
-            type="text"
-            value={titleInputValue}
-            onChange={e => setTitleInputValue(e.target.value)}
-            onBlur={handleTitleBlur}
-            placeholder="音频标题..."
-            className="meta-input"
-          />
-          <input
-            type="text"
-            value={artistInputValue}
-            onChange={e => setArtistInputValue(e.target.value)}
-            onBlur={handleArtistBlur}
-            placeholder="艺术家/作者..."
-            className="meta-input"
-          />
+    <div
+      className="media-block-wrapper"
+      data-align="center"
+      data-selected={isSelected}
+      contentEditable={false}
+      onClick={handleContainerClick}
+      onBlur={handleContainerBlur}
+      tabIndex={editable ? 0 : undefined}
+    >
+      <div className="media-block-container" style={{ width: '100%' }}>
+        <div className="media-block-content media-audio-wrapper">
+          <AudioPlayer src={getMediaUrl(url)} title={title || '未命名音频'} />
         </div>
-      ) : (
-        (title || artist) && (
-          <div className="metadata-display">
-            {title && <p className="meta-title">{title}</p>}
-            {artist && <p className="meta-artist">{artist}</p>}
-          </div>
-        )
-      )}
-      <style>{`
-        .bn-audio-block-content {
-          margin: 1.5rem 0;
-        }
 
-        .audio-wrapper {
-          position: relative;
-        }
+        {/* 音频名称输入 */}
+        <MediaCaption
+          value={title}
+          onChange={onTitleChange}
+          editable={editable}
+          placeholder="添加音频名称..."
+        />
 
-        .remove-btn {
-          position: absolute;
-          top: 0.75rem;
-          right: 0.75rem;
-          z-index: 20;
-          padding: 0.375rem;
-          background: rgba(0, 0, 0, 0.7);
-          border: none;
-          border-radius: 0.375rem;
-          color: white;
-          cursor: pointer;
-          backdrop-filter: blur(4px);
-          transition: background 0.15s;
-        }
-
-        .remove-btn:hover {
-          background: rgba(0, 0, 0, 0.9);
-        }
-
-        .metadata-inputs {
-          display: flex;
-          gap: 0.75rem;
-          margin-top: 0.75rem;
-        }
-
-        .meta-input {
-          flex: 1;
-          padding: 0.5rem;
-          border: 1px solid hsl(var(--border));
-          border-radius: 0.375rem;
-          background: hsl(var(--background));
-          color: hsl(var(--foreground));
-          font-size: 0.875rem;
-          outline: none;
-        }
-
-        .meta-input:focus {
-          border-color: hsl(var(--primary));
-        }
-
-        .metadata-display {
-          margin-top: 0.75rem;
-          padding: 0.75rem;
-          border-radius: 0.375rem;
-          background: hsl(var(--muted) / 0.3);
-          text-align: center;
-        }
-
-        .meta-title {
-          margin: 0;
-          font-size: 0.9rem;
-          font-weight: 500;
-          color: hsl(var(--foreground));
-        }
-
-        .meta-artist {
-          margin: 0.25rem 0 0 0;
-          font-size: 0.8rem;
-          color: hsl(var(--muted-foreground));
-        }
-      `}</style>
+        {/* 音频说明输入 */}
+        <MediaCaption
+          value={caption}
+          onChange={onCaptionChange}
+          editable={editable}
+          placeholder="添加音频说明..."
+        />
+      </div>
     </div>
   );
 };
 
-// 导出HTML组件
+// 导出 HTML
+
 const AudioBlockExternalHTML: React.FC<
   ReactCustomBlockRenderProps<any, any, any>
 > = ({ block }) => {
-  const { url = '', title = '', artist = '' } = block.props;
+  const { url = '', title = '', caption = '' } = block.props;
 
   if (!url) return null;
 
+  // 输出格式：title|caption（如果有说明）
+  const displayText = caption ? `${title}|${caption}` : title;
+
   return (
     <figure
+      data-audio-block="true"
       style={{
         margin: '1.5rem 0',
       }}
@@ -373,34 +161,18 @@ const AudioBlockExternalHTML: React.FC<
           borderRadius: '0.5rem',
         }}
       >
-        您的浏览器不支持音频播放
+        {displayText}
       </audio>
-      {(title || artist) && (
+      {caption && (
         <figcaption
           style={{
             marginTop: '0.75rem',
-            padding: '0.75rem',
-            borderRadius: '0.375rem',
-            background: '#f5f5f5',
+            fontSize: '0.875rem',
+            color: '#666',
             textAlign: 'center',
           }}
         >
-          {title && (
-            <div style={{ fontSize: '0.9rem', fontWeight: 500, color: '#333' }}>
-              {title}
-            </div>
-          )}
-          {artist && (
-            <div
-              style={{
-                marginTop: '0.25rem',
-                fontSize: '0.8rem',
-                color: '#666',
-              }}
-            >
-              {artist}
-            </div>
-          )}
+          {caption}
         </figcaption>
       )}
     </figure>
@@ -413,22 +185,24 @@ const createCustomAudioBlock = createReactBlockSpec(
     type: 'customAudio',
     propSchema: {
       url: { default: '' },
+      /** 音频标题/名称 */
       title: { default: '' },
-      artist: { default: '' },
-      cover: { default: '' },
+      /** 音频说明 */
+      caption: { default: '' },
     },
     content: 'none',
   },
   {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     render: (props: ReactCustomBlockRenderProps<any, any, any>) => {
       const { block, editor } = props;
-      const { url = '', title = '', artist = '' } = block.props;
+      const { url = '', title = '', caption = '' } = block.props;
 
       return (
         <AudioBlockComponent
           url={url}
           title={title}
-          artist={artist}
+          caption={caption}
           editable={editor.isEditable}
           onUrlChange={newUrl => {
             editor.updateBlock(block, {
@@ -440,60 +214,98 @@ const createCustomAudioBlock = createReactBlockSpec(
               props: { ...block.props, title: newTitle },
             });
           }}
-          onArtistChange={newArtist => {
+          onCaptionChange={newCaption => {
             editor.updateBlock(block, {
-              props: { ...block.props, artist: newArtist },
+              props: { ...block.props, caption: newCaption },
             });
           }}
           onOpenMediaPicker={() => {
-            window.dispatchEvent(
-              new CustomEvent('blocknote:openMediaPicker', {
-                detail: { type: 'audio', blockId: block.id },
-              })
-            );
+            const event = new CustomEvent('blocknote:openMediaPicker', {
+              cancelable: true,
+              detail: { type: 'audio', blockId: block.id },
+            });
+            window.dispatchEvent(event);
+            return event.defaultPrevented;
+          }}
+          onFileSelect={async file => {
+            if (editor.uploadFile) {
+              try {
+                const result = await editor.uploadFile(file);
+                const uploadedUrl = typeof result === 'string' ? result : null;
+                if (uploadedUrl) {
+                  editor.updateBlock(block, {
+                    props: {
+                      ...block.props,
+                      url: uploadedUrl,
+                      title: file.name, // 使用文件名作为默认标题
+                    },
+                  });
+                }
+              } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error('[AudioBlock] Failed to upload file:', error);
+              }
+            }
           }}
         />
       );
     },
     toExternalHTML: AudioBlockExternalHTML,
     parse: (element: HTMLElement) => {
+      // 音频扩展名
+      const audioExtensions = ['.mp3', '.wav', '.ogg', '.aac', '.flac', '.m4a'];
+      const isAudioUrl = (url: string) =>
+        audioExtensions.some(ext => url.toLowerCase().includes(ext));
+
+      // 解析 title|caption 格式
+      const parseDisplayText = (
+        text: string
+      ): { title: string; caption: string } => {
+        if (text.includes('|')) {
+          const parts = text.split('|');
+          return {
+            title: parts[0].trim(),
+            caption: parts.slice(1).join('|').trim(),
+          };
+        }
+        return { title: text, caption: '' };
+      };
+
       if (element.tagName === 'FIGURE') {
         const audio = element.querySelector('audio');
-        const caption = element.querySelector('figcaption');
+        const figcaption = element.querySelector('figcaption');
         if (audio) {
-          let title = '';
-          let artist = '';
-
-          // Try parsing new format (div elements)
-          const titleDiv = caption?.querySelector('div:first-child');
-          const artistDiv = caption?.querySelector('div:nth-child(2)');
-          if (titleDiv) {
-            title = titleDiv.textContent?.trim() || '';
-          }
-          if (artistDiv) {
-            artist = artistDiv.textContent?.trim() || '';
-          }
-
-          // Fallback to old format (text with " - " separator)
-          if (!title && !artist && caption?.textContent) {
-            const parts = caption.textContent.split(' - ');
-            title = parts[0]?.trim() || '';
-            artist = parts[1]?.trim() || '';
-          }
-
+          // 从 audio 内容中解析 title|caption
+          const audioText = audio.textContent?.trim() || '';
+          const { title, caption: parsedCaption } = parseDisplayText(audioText);
           return {
             url: audio.getAttribute('src') || '',
-            title,
-            artist,
+            title: title,
+            caption: figcaption?.textContent || parsedCaption || '',
           };
         }
       }
       if (element.tagName === 'AUDIO') {
+        const audioText = element.textContent?.trim() || '';
+        const { title, caption } = parseDisplayText(audioText);
         return {
           url: element.getAttribute('src') || '',
-          title: '',
-          artist: '',
+          title: title,
+          caption: caption,
         };
+      }
+      // 检查 a 标签是否指向音频文件（markdown [text](audio.mp3) 会生成 a 标签）
+      if (element.tagName === 'A') {
+        const href = element.getAttribute('href') || '';
+        if (isAudioUrl(href)) {
+          const linkText = element.textContent?.trim() || '';
+          const { title, caption } = parseDisplayText(linkText);
+          return {
+            url: href,
+            title: title,
+            caption: caption,
+          };
+        }
       }
       return undefined;
     },

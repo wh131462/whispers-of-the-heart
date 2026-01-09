@@ -300,6 +300,7 @@ model Media {
   thumbnail    String?
   hash         String?  @unique // 文件内容哈希，用于去重
   tags         String[] @default([]) // 用于分类和搜索
+  duration     Float?   // 音视频时长（秒）
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -369,4 +370,22 @@ model MailLog {
   @@index([template])
   @@index([createdAt])
   @@map("mail_logs")
+}
+
+// 用户反馈模型
+model Feedback {
+  id        String   @id @default(cuid())
+  type      String   // suggestion, bug, question, other
+  content   String   @db.Text
+  contact   String?  // 联系方式（选填）
+  status    String   @default("pending") // pending, read, resolved
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+  @@index([status])
+  @@index([createdAt])
+  @@map("feedbacks")
 }

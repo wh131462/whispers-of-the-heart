@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   Calendar,
@@ -22,11 +22,6 @@ import { blogApi } from '../services/blogApi';
 import { useAuthStore } from '../stores/useAuthStore';
 import { useToast } from '../contexts/ToastContext';
 import { api, getMediaUrl } from '@whispers/utils';
-import {
-  FilePreviewModal,
-  type PreviewFileLink,
-} from '@eternalheart/react-file-preview';
-import '@eternalheart/react-file-preview/style.css';
 
 interface Post {
   id: string;
@@ -75,190 +70,6 @@ const PostDetailPage: React.FC = () => {
   >(null);
   const { isAuthenticated } = useAuthStore();
   const { addToast } = useToast();
-
-  // 文件预览状态
-  const [previewFiles, setPreviewFiles] = useState<PreviewFileLink[]>([]);
-  const [previewIndex, setPreviewIndex] = useState(0);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const contentRef = useRef<HTMLDivElement>(null);
-
-  // 根据 URL 获取文件类型
-  const getMimeType = useCallback((url: string): string => {
-    const ext = url.split('.').pop()?.toLowerCase() || '';
-    const mimeTypes: Record<string, string> = {
-      // 图片
-      jpg: 'image/jpeg',
-      jpeg: 'image/jpeg',
-      png: 'image/png',
-      gif: 'image/gif',
-      webp: 'image/webp',
-      svg: 'image/svg+xml',
-      ico: 'image/x-icon',
-      bmp: 'image/bmp',
-      // 视频
-      mp4: 'video/mp4',
-      webm: 'video/webm',
-      ogg: 'video/ogg',
-      mov: 'video/quicktime',
-      avi: 'video/x-msvideo',
-      mkv: 'video/x-matroska',
-      // 音频
-      mp3: 'audio/mpeg',
-      wav: 'audio/wav',
-      flac: 'audio/flac',
-      aac: 'audio/aac',
-      m4a: 'audio/mp4',
-      wma: 'audio/x-ms-wma',
-      // 文档
-      pdf: 'application/pdf',
-      doc: 'application/msword',
-      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      xls: 'application/vnd.ms-excel',
-      xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      ppt: 'application/vnd.ms-powerpoint',
-      pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-      txt: 'text/plain',
-      md: 'text/markdown',
-      json: 'application/json',
-    };
-    return mimeTypes[ext] || 'application/octet-stream';
-  }, []);
-
-  // 收集内容中的所有媒体文件
-  const collectMediaFiles = useCallback((): PreviewFileLink[] => {
-    const files: PreviewFileLink[] = [];
-    if (!contentRef.current) return files;
-
-    // 收集图片
-    const images = contentRef.current.querySelectorAll('img');
-    images.forEach((img, index) => {
-      files.push({
-        id: `img-${index}`,
-        name: img.alt || `图片 ${index + 1}`,
-        url: img.src,
-        type: getMimeType(img.src),
-      });
-    });
-
-    // 收集视频
-    const videos = contentRef.current.querySelectorAll('video');
-    videos.forEach((video, index) => {
-      const src = video.src || video.querySelector('source')?.src;
-      if (src) {
-        files.push({
-          id: `video-${index}`,
-          name: `视频 ${index + 1}`,
-          url: src,
-          type: getMimeType(src),
-        });
-      }
-    });
-
-    // 收集音频
-    const audios = contentRef.current.querySelectorAll('audio');
-    audios.forEach((audio, index) => {
-      const src = audio.src || audio.querySelector('source')?.src;
-      if (src) {
-        files.push({
-          id: `audio-${index}`,
-          name: `音频 ${index + 1}`,
-          url: src,
-          type: getMimeType(src),
-        });
-      }
-    });
-
-    // 收集指向媒体文件的链接
-    const links = contentRef.current.querySelectorAll('a[href]');
-    const mediaExtensions =
-      /\.(jpg|jpeg|png|gif|webp|svg|mp4|webm|ogg|mov|mp3|wav|flac|pdf|doc|docx|xls|xlsx|ppt|pptx)$/i;
-    links.forEach((link, index) => {
-      const href = (link as HTMLAnchorElement).href;
-      if (mediaExtensions.test(href)) {
-        // 避免重复添加已经作为 img/video/audio 收集的文件
-        if (!files.find(f => f.url === href)) {
-          files.push({
-            id: `link-${index}`,
-            name: link.textContent || `文件 ${index + 1}`,
-            url: href,
-            type: getMimeType(href),
-          });
-        }
-      }
-    });
-
-    return files;
-  }, [getMimeType]);
-
-  // 处理内容区域的点击
-  const handleContentClick = useCallback(
-    (e: React.MouseEvent) => {
-      const target = e.target as HTMLElement;
-
-      // 处理图片点击
-      if (target.tagName === 'IMG') {
-        e.preventDefault();
-        const img = target as HTMLImageElement;
-        const files = collectMediaFiles();
-        const clickedIndex = files.findIndex(f => f.url === img.src);
-        setPreviewFiles(files);
-        setPreviewIndex(clickedIndex >= 0 ? clickedIndex : 0);
-        setIsPreviewOpen(true);
-        return;
-      }
-
-      // 处理视频点击
-      if (target.tagName === 'VIDEO' || target.closest('video')) {
-        e.preventDefault();
-        const video = (
-          target.tagName === 'VIDEO' ? target : target.closest('video')
-        ) as HTMLVideoElement;
-        const src = video.src || video.querySelector('source')?.src;
-        if (src) {
-          const files = collectMediaFiles();
-          const clickedIndex = files.findIndex(f => f.url === src);
-          setPreviewFiles(files);
-          setPreviewIndex(clickedIndex >= 0 ? clickedIndex : 0);
-          setIsPreviewOpen(true);
-        }
-        return;
-      }
-
-      // 处理音频点击
-      if (target.tagName === 'AUDIO' || target.closest('audio')) {
-        e.preventDefault();
-        const audio = (
-          target.tagName === 'AUDIO' ? target : target.closest('audio')
-        ) as HTMLAudioElement;
-        const src = audio.src || audio.querySelector('source')?.src;
-        if (src) {
-          const files = collectMediaFiles();
-          const clickedIndex = files.findIndex(f => f.url === src);
-          setPreviewFiles(files);
-          setPreviewIndex(clickedIndex >= 0 ? clickedIndex : 0);
-          setIsPreviewOpen(true);
-        }
-        return;
-      }
-
-      // 处理媒体文件链接点击
-      const link = target.closest('a[href]') as HTMLAnchorElement | null;
-      if (link) {
-        const href = link.href;
-        const mediaExtensions =
-          /\.(jpg|jpeg|png|gif|webp|svg|mp4|webm|ogg|mov|mp3|wav|flac|pdf|doc|docx|xls|xlsx|ppt|pptx)$/i;
-        if (mediaExtensions.test(href)) {
-          e.preventDefault();
-          const files = collectMediaFiles();
-          const clickedIndex = files.findIndex(f => f.url === href);
-          setPreviewFiles(files);
-          setPreviewIndex(clickedIndex >= 0 ? clickedIndex : 0);
-          setIsPreviewOpen(true);
-        }
-      }
-    },
-    [collectMediaFiles]
-  );
 
   useEffect(() => {
     if (slug) {
@@ -520,11 +331,7 @@ const PostDetailPage: React.FC = () => {
       )}
 
       {/* 文章内容 */}
-      <div
-        ref={contentRef}
-        onClick={handleContentClick}
-        className="prose prose-sm sm:prose-base md:prose-lg dark:prose-invert max-w-none mb-8 md:mb-12 overflow-x-auto [&_img]:cursor-pointer [&_img]:transition-opacity [&_img:hover]:opacity-90 [&_video]:cursor-pointer [&_audio]:cursor-pointer"
-      >
+      <div className="prose prose-sm sm:prose-base md:prose-lg dark:prose-invert max-w-none mb-8 md:mb-12 overflow-x-auto">
         <MarkdownRenderer content={post.content} className="prose-article" />
       </div>
 
@@ -595,15 +402,6 @@ const PostDetailPage: React.FC = () => {
         title={post.title}
         url={window.location.href}
         description={post.excerpt || undefined}
-      />
-
-      {/* 文件预览 */}
-      <FilePreviewModal
-        files={previewFiles}
-        currentIndex={previewIndex}
-        isOpen={isPreviewOpen}
-        onClose={() => setIsPreviewOpen(false)}
-        onNavigate={setPreviewIndex}
       />
     </article>
   );

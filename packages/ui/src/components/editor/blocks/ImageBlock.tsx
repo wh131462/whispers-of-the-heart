@@ -1,483 +1,180 @@
-import React, { useState, useCallback } from 'react';
+import React, { useRef, useCallback } from 'react';
 import {
   createReactBlockSpec,
   ReactCustomBlockRenderProps,
 } from '@blocknote/react';
-import {
-  Image,
-  Upload,
-  X,
-  Link as LinkIcon,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-} from 'lucide-react';
 import { getMediaUrl } from '@whispers/utils';
+import {
+  MediaPlaceholder,
+  MediaUrlInput,
+  MediaToolbar,
+  MediaCaption,
+  ResizeHandle,
+  useMediaBlock,
+  type MediaAlign,
+} from './shared';
 
-type ImageWidth = '25%' | '50%' | '75%' | '100%';
-type ImageAlign = 'left' | 'center' | 'right';
-
-interface ImageBlockProps {
+interface ImageBlockComponentProps {
   url: string;
-  caption?: string;
-  width?: ImageWidth;
-  align?: ImageAlign;
+  caption: string;
+  width: number;
+  align: MediaAlign;
+  editable: boolean;
   onUrlChange: (url: string) => void;
   onCaptionChange: (caption: string) => void;
-  onWidthChange: (width: ImageWidth) => void;
-  onAlignChange: (align: ImageAlign) => void;
-  onOpenMediaPicker?: () => void;
-  editable: boolean;
+  onWidthChange: (width: number) => void;
+  onAlignChange: (align: MediaAlign) => void;
+  /** 打开媒体选择器，返回 true 表示事件被处理 */
+  onOpenMediaPicker?: () => boolean;
+  /** 当通过内置文件选择器选择文件时触发 */
+  onFileSelect?: (file: File) => void;
 }
 
-const ImageBlockComponent: React.FC<ImageBlockProps> = ({
+const ImageBlockComponent: React.FC<ImageBlockComponentProps> = ({
   url,
-  caption = '',
-  width = '100%',
-  align = 'center',
+  caption,
+  width,
+  align,
+  editable,
   onUrlChange,
   onCaptionChange,
   onWidthChange,
   onAlignChange,
   onOpenMediaPicker,
-  editable,
+  onFileSelect,
 }) => {
-  const [isUrlInput, setIsUrlInput] = useState(false);
-  const [urlInputValue, setUrlInputValue] = useState(url || '');
-  const [captionInputValue, setCaptionInputValue] = useState(caption || '');
-  const [showControls, setShowControls] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const handleUrlSubmit = useCallback(() => {
-    if (urlInputValue.trim()) {
-      onUrlChange(urlInputValue.trim());
-      setIsUrlInput(false);
+  const {
+    isUrlInput,
+    setIsUrlInput,
+    urlInputValue,
+    setUrlInputValue,
+    handleUrlSubmit,
+    handleUrlCancel,
+    isDragging,
+    handleDragEnter,
+    handleDragLeave,
+    handleDragOver,
+    handleDrop,
+    handlePaste,
+    isSelected,
+    setIsSelected,
+    resizing,
+    handleResizeStart,
+  } = useMediaBlock({ url, onUrlChange });
+
+  const handleContainerClick = useCallback(() => {
+    if (editable) {
+      setIsSelected(true);
     }
-  }, [urlInputValue, onUrlChange]);
+  }, [editable, setIsSelected]);
 
-  const handleCaptionBlur = useCallback(() => {
-    onCaptionChange(captionInputValue);
-  }, [captionInputValue, onCaptionChange]);
+  const handleContainerBlur = useCallback(() => {
+    setIsSelected(false);
+  }, [setIsSelected]);
 
-  const handleRemove = useCallback(() => {
-    onUrlChange('');
-    setUrlInputValue('');
-  }, [onUrlChange]);
-
+  // 空状态
   if (!url && !isUrlInput) {
     return (
-      <div className="bn-image-block-empty" contentEditable={false}>
-        <div className="image-placeholder">
-          <Image className="placeholder-icon" size={48} />
-          <p className="placeholder-text">添加图片</p>
-          {editable && (
-            <div className="placeholder-actions">
-              {onOpenMediaPicker && (
-                <button
-                  onClick={onOpenMediaPicker}
-                  className="action-btn primary"
-                >
-                  <Upload size={16} />
-                  <span>从媒体库选择</span>
-                </button>
-              )}
-              <button
-                onClick={() => setIsUrlInput(true)}
-                className="action-btn"
-              >
-                <LinkIcon size={16} />
-                <span>通过URL添加</span>
-              </button>
-            </div>
-          )}
-        </div>
-        <style>{`
-          .bn-image-block-empty {
-            padding: 2rem;
-            border: 2px dashed hsl(var(--border));
-            border-radius: 0.5rem;
-            background: hsl(var(--muted) / 0.3);
-          }
-
-          .image-placeholder {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 1rem;
-          }
-
-          .placeholder-icon {
-            color: hsl(var(--muted-foreground));
-          }
-
-          .placeholder-text {
-            color: hsl(var(--muted-foreground));
-            font-size: 0.875rem;
-            margin: 0;
-          }
-
-          .placeholder-actions {
-            display: flex;
-            gap: 0.75rem;
-            margin-top: 0.5rem;
-          }
-
-          .action-btn {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            padding: 0.5rem 1rem;
-            border: 1px solid hsl(var(--border));
-            background: hsl(var(--background));
-            color: hsl(var(--foreground));
-            border-radius: 0.375rem;
-            cursor: pointer;
-            font-size: 0.875rem;
-            transition: all 0.15s;
-          }
-
-          .action-btn:hover {
-            background: hsl(var(--accent));
-            border-color: hsl(var(--primary));
-          }
-
-          .action-btn.primary {
-            background: hsl(var(--primary));
-            color: hsl(var(--primary-foreground));
-            border-color: hsl(var(--primary));
-          }
-
-          .action-btn.primary:hover {
-            opacity: 0.9;
-          }
-        `}</style>
-      </div>
+      <MediaPlaceholder
+        type="image"
+        isDragging={isDragging}
+        onDragEnter={handleDragEnter}
+        onDragLeave={handleDragLeave}
+        onDragOver={handleDragOver}
+        onDrop={e => handleDrop(e)}
+        onClick={onOpenMediaPicker}
+        onUrlInputClick={() => setIsUrlInput(true)}
+        onPaste={handlePaste}
+        onFileSelect={onFileSelect}
+      />
     );
   }
 
+  // URL 输入状态
   if (isUrlInput) {
     return (
-      <div className="bn-image-url-input" contentEditable={false}>
-        <input
-          type="url"
-          value={urlInputValue}
-          onChange={e => setUrlInputValue(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'Enter') {
-              handleUrlSubmit();
-            } else if (e.key === 'Escape') {
-              setIsUrlInput(false);
-              setUrlInputValue(url);
-            }
-          }}
-          placeholder="输入图片URL..."
-          autoFocus
-          className="url-input"
-        />
-        <div className="url-actions">
-          <button onClick={handleUrlSubmit} className="btn-submit">
-            确定
-          </button>
-          <button onClick={() => setIsUrlInput(false)} className="btn-cancel">
-            取消
-          </button>
-        </div>
-        <style>{`
-          .bn-image-url-input {
-            padding: 1rem;
-            border: 1px solid hsl(var(--border));
-            border-radius: 0.5rem;
-            background: hsl(var(--background));
-          }
-
-          .url-input {
-            width: 100%;
-            padding: 0.5rem;
-            border: 1px solid hsl(var(--border));
-            border-radius: 0.375rem;
-            background: hsl(var(--background));
-            color: hsl(var(--foreground));
-            font-size: 0.875rem;
-            outline: none;
-          }
-
-          .url-input:focus {
-            border-color: hsl(var(--primary));
-          }
-
-          .url-actions {
-            display: flex;
-            gap: 0.5rem;
-            margin-top: 0.75rem;
-          }
-
-          .btn-submit,
-          .btn-cancel {
-            padding: 0.375rem 0.75rem;
-            border: 1px solid hsl(var(--border));
-            border-radius: 0.375rem;
-            cursor: pointer;
-            font-size: 0.875rem;
-            transition: all 0.15s;
-          }
-
-          .btn-submit {
-            background: hsl(var(--primary));
-            color: hsl(var(--primary-foreground));
-            border-color: hsl(var(--primary));
-          }
-
-          .btn-cancel {
-            background: hsl(var(--background));
-            color: hsl(var(--foreground));
-          }
-
-          .btn-submit:hover,
-          .btn-cancel:hover {
-            opacity: 0.8;
-          }
-        `}</style>
-      </div>
+      <MediaUrlInput
+        value={urlInputValue}
+        onChange={setUrlInputValue}
+        onSubmit={handleUrlSubmit}
+        onCancel={handleUrlCancel}
+        placeholder="输入图片链接..."
+      />
     );
   }
 
-  const widthOptions: ImageWidth[] = ['25%', '50%', '75%', '100%'];
-
+  // 媒体展示状态
   return (
     <div
-      className="bn-image-block-content"
+      className="media-block-wrapper"
+      data-align={align}
+      data-selected={isSelected}
       contentEditable={false}
-      onMouseEnter={() => editable && setShowControls(true)}
-      onMouseLeave={() => setShowControls(false)}
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems:
-          align === 'left'
-            ? 'flex-start'
-            : align === 'right'
-              ? 'flex-end'
-              : 'center',
-      }}
+      onClick={handleContainerClick}
+      onBlur={handleContainerBlur}
+      tabIndex={editable ? 0 : undefined}
     >
-      <div className="image-container" style={{ width }}>
-        <div className="image-wrapper">
-          <img
-            src={getMediaUrl(url)}
-            alt={caption || '图片'}
-            className="block-image"
-          />
-          {editable && (
-            <>
-              <button
-                onClick={handleRemove}
-                className="remove-btn"
-                title="删除图片"
-              >
-                <X size={16} />
-              </button>
-              {showControls && (
-                <div className="image-controls">
-                  {/* 尺寸控制 */}
-                  <div className="control-group">
-                    <span className="control-label">宽度</span>
-                    <div className="width-buttons">
-                      {widthOptions.map(w => (
-                        <button
-                          key={w}
-                          onClick={() => onWidthChange(w)}
-                          className={`width-btn ${width === w ? 'active' : ''}`}
-                          title={`宽度 ${w}`}
-                        >
-                          {w}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  {/* 对齐控制 */}
-                  <div className="control-group">
-                    <span className="control-label">对齐</span>
-                    <div className="align-buttons">
-                      <button
-                        onClick={() => onAlignChange('left')}
-                        className={`align-btn ${align === 'left' ? 'active' : ''}`}
-                        title="左对齐"
-                      >
-                        <AlignLeft size={14} />
-                      </button>
-                      <button
-                        onClick={() => onAlignChange('center')}
-                        className={`align-btn ${align === 'center' ? 'active' : ''}`}
-                        title="居中"
-                      >
-                        <AlignCenter size={14} />
-                      </button>
-                      <button
-                        onClick={() => onAlignChange('right')}
-                        className={`align-btn ${align === 'right' ? 'active' : ''}`}
-                        title="右对齐"
-                      >
-                        <AlignRight size={14} />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+      <div
+        ref={containerRef}
+        className="media-block-container"
+        style={{ width: `${width}%` }}
+      >
         {editable && (
-          <input
-            type="text"
-            value={captionInputValue}
-            onChange={e => setCaptionInputValue(e.target.value)}
-            onBlur={handleCaptionBlur}
-            placeholder="添加图片说明..."
-            className="caption-input"
+          <MediaToolbar
+            align={align}
+            onAlignChange={onAlignChange}
+            onReplace={onOpenMediaPicker}
           />
         )}
-        {!editable && caption && <p className="caption-text">{caption}</p>}
+
+        <div className="media-block-content">
+          <img src={getMediaUrl(url)} alt={caption || '图片'} />
+        </div>
+
+        {editable && (
+          <>
+            <ResizeHandle
+              side="left"
+              resizing={resizing}
+              onMouseDown={e =>
+                handleResizeStart(e, 'left', width, containerRef, onWidthChange)
+              }
+            />
+            <ResizeHandle
+              side="right"
+              resizing={resizing}
+              onMouseDown={e =>
+                handleResizeStart(
+                  e,
+                  'right',
+                  width,
+                  containerRef,
+                  onWidthChange
+                )
+              }
+            />
+          </>
+        )}
+
+        <MediaCaption
+          value={caption}
+          onChange={onCaptionChange}
+          editable={editable}
+          placeholder="添加图片说明..."
+        />
       </div>
-      <style>{`
-        .bn-image-block-content {
-          margin: 1rem 0;
-          width: 100%;
-        }
-
-        .image-container {
-          transition: width 0.2s ease;
-        }
-
-        .image-wrapper {
-          position: relative;
-          border-radius: 0.5rem;
-          overflow: hidden;
-          border: 1px solid hsl(var(--border));
-        }
-
-        .block-image {
-          width: 100%;
-          height: auto;
-          display: block;
-        }
-
-        .remove-btn {
-          position: absolute;
-          top: 0.5rem;
-          right: 0.5rem;
-          padding: 0.375rem;
-          background: rgba(0, 0, 0, 0.7);
-          border: none;
-          border-radius: 0.375rem;
-          color: white;
-          cursor: pointer;
-          backdrop-filter: blur(4px);
-          transition: background 0.15s;
-          z-index: 10;
-        }
-
-        .remove-btn:hover {
-          background: rgba(0, 0, 0, 0.9);
-        }
-
-        .image-controls {
-          position: absolute;
-          bottom: 0.5rem;
-          left: 0.5rem;
-          right: 0.5rem;
-          padding: 0.75rem;
-          background: rgba(0, 0, 0, 0.85);
-          border-radius: 0.5rem;
-          backdrop-filter: blur(8px);
-          display: flex;
-          gap: 1rem;
-          align-items: center;
-          justify-content: center;
-          flex-wrap: wrap;
-        }
-
-        .control-group {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-        }
-
-        .control-label {
-          font-size: 0.75rem;
-          color: rgba(255, 255, 255, 0.7);
-          font-weight: 500;
-        }
-
-        .width-buttons,
-        .align-buttons {
-          display: flex;
-          gap: 0.25rem;
-        }
-
-        .width-btn,
-        .align-btn {
-          padding: 0.25rem 0.5rem;
-          background: rgba(255, 255, 255, 0.1);
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          border-radius: 0.25rem;
-          color: white;
-          font-size: 0.75rem;
-          cursor: pointer;
-          transition: all 0.15s;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .width-btn:hover,
-        .align-btn:hover {
-          background: rgba(255, 255, 255, 0.2);
-          border-color: rgba(255, 255, 255, 0.4);
-        }
-
-        .width-btn.active,
-        .align-btn.active {
-          background: hsl(var(--primary));
-          border-color: hsl(var(--primary));
-        }
-
-        .caption-input {
-          width: 100%;
-          margin-top: 0.5rem;
-          padding: 0.5rem;
-          border: 1px solid hsl(var(--border));
-          border-radius: 0.375rem;
-          background: hsl(var(--background));
-          color: hsl(var(--foreground));
-          font-size: 0.875rem;
-          outline: none;
-        }
-
-        .caption-input:focus {
-          border-color: hsl(var(--primary));
-        }
-
-        .caption-text {
-          margin-top: 0.5rem;
-          padding: 0.5rem;
-          color: hsl(var(--muted-foreground));
-          font-size: 0.875rem;
-          text-align: center;
-        }
-      `}</style>
     </div>
   );
 };
 
-// 导出HTML组件
+// 导出 HTML
+
 const ImageBlockExternalHTML: React.FC<
   ReactCustomBlockRenderProps<any, any, any>
 > = ({ block }) => {
-  const {
-    url = '',
-    caption = '',
-    width = '100%',
-    align = 'center',
-  } = block.props;
+  const { url = '', caption = '', width = 100, align = 'center' } = block.props;
 
   if (!url) return null;
 
@@ -494,7 +191,7 @@ const ImageBlockExternalHTML: React.FC<
         margin: '1rem 0',
       }}
     >
-      <div style={{ width }}>
+      <div style={{ width: `${width}%` }}>
         <img
           src={url}
           alt={caption || '图片'}
@@ -529,18 +226,19 @@ const createCustomImageBlock = createReactBlockSpec(
     propSchema: {
       url: { default: '' },
       caption: { default: '' },
-      width: { default: '100%' as ImageWidth },
-      align: { default: 'center' as ImageAlign },
+      width: { default: 100 },
+      align: { default: 'center' as MediaAlign },
     },
     content: 'none',
   },
   {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     render: (props: ReactCustomBlockRenderProps<any, any, any>) => {
       const { block, editor } = props;
       const {
         url = '',
         caption = '',
-        width = '100%',
+        width = 100,
         align = 'center',
       } = block.props;
 
@@ -548,8 +246,8 @@ const createCustomImageBlock = createReactBlockSpec(
         <ImageBlockComponent
           url={url}
           caption={caption}
-          width={width as ImageWidth}
-          align={align as ImageAlign}
+          width={width}
+          align={align as MediaAlign}
           editable={editor.isEditable}
           onUrlChange={newUrl => {
             editor.updateBlock(block, {
@@ -572,40 +270,85 @@ const createCustomImageBlock = createReactBlockSpec(
             });
           }}
           onOpenMediaPicker={() => {
-            window.dispatchEvent(
-              new CustomEvent('blocknote:openMediaPicker', {
-                detail: { type: 'image', blockId: block.id },
-              })
-            );
+            const event = new CustomEvent('blocknote:openMediaPicker', {
+              cancelable: true,
+              detail: { type: 'image', blockId: block.id },
+            });
+            window.dispatchEvent(event);
+            return event.defaultPrevented;
+          }}
+          onFileSelect={async file => {
+            if (editor.uploadFile) {
+              try {
+                const result = await editor.uploadFile(file);
+                const uploadedUrl = typeof result === 'string' ? result : null;
+                if (uploadedUrl) {
+                  editor.updateBlock(block, {
+                    props: { ...block.props, url: uploadedUrl },
+                  });
+                }
+              } catch (error) {
+                // eslint-disable-next-line no-console
+                console.error('[ImageBlock] Failed to upload file:', error);
+              }
+            }
           }}
         />
       );
     },
     toExternalHTML: ImageBlockExternalHTML,
     parse: (element: HTMLElement) => {
+      // 视频和音频扩展名，这些应该由对应的块处理
+      const videoExtensions = [
+        '.mp4',
+        '.webm',
+        '.mov',
+        '.avi',
+        '.mkv',
+        '.m3u8',
+      ];
+      const audioExtensions = ['.mp3', '.wav', '.ogg', '.aac', '.flac', '.m4a'];
+
+      const isVideoUrl = (url: string) =>
+        videoExtensions.some(ext => url.toLowerCase().includes(ext));
+      const isAudioUrl = (url: string) =>
+        audioExtensions.some(ext => url.toLowerCase().includes(ext));
+
       if (element.tagName === 'FIGURE') {
         const img = element.querySelector('img');
         const caption = element.querySelector('figcaption');
         const container = element.querySelector('div');
         if (img) {
+          const src = img.getAttribute('src') || '';
+          // 如果是视频或音频 URL，不作为图片处理
+          if (isVideoUrl(src) || isAudioUrl(src)) {
+            return undefined;
+          }
+          const widthStr = container?.style.width || '100%';
+          const width = parseInt(widthStr, 10) || 100;
           return {
-            url: img.getAttribute('src') || '',
+            url: src,
             caption: caption?.textContent || '',
-            width: (container?.style.width || '100%') as ImageWidth,
+            width,
             align: (element.style.alignItems === 'flex-start'
               ? 'left'
               : element.style.alignItems === 'flex-end'
                 ? 'right'
-                : 'center') as ImageAlign,
+                : 'center') as MediaAlign,
           };
         }
       }
       if (element.tagName === 'IMG') {
+        const src = element.getAttribute('src') || '';
+        // 如果是视频或音频 URL，不作为图片处理
+        if (isVideoUrl(src) || isAudioUrl(src)) {
+          return undefined;
+        }
         return {
-          url: element.getAttribute('src') || '',
+          url: src,
           caption: element.getAttribute('alt') || '',
-          width: '100%' as ImageWidth,
-          align: 'center' as ImageAlign,
+          width: 100,
+          align: 'center' as MediaAlign,
         };
       }
       return undefined;

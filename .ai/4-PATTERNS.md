@@ -711,6 +711,116 @@ api.interceptors.response.use(
 
 ---
 
+## 编辑器模式
+
+### 模式1: BlockNote FormattingToolbar 自定义
+
+```tsx
+// packages/ui/src/components/editor/BlockNoteEditor.tsx
+import {
+  FormattingToolbar,
+  FormattingToolbarController,
+  BlockTypeSelect,
+  BasicTextStyleButton,
+  TextAlignButton,
+  ColorStyleButton,
+  NestBlockButton,
+  UnnestBlockButton,
+  CreateLinkButton,
+  blockTypeSelectItems,
+  useSelectedBlocks,
+  useBlockNoteEditor,
+  useComponentsContext,
+  useEditorState,
+} from '@blocknote/react';
+import { AIToolbarButton } from '@blocknote/xl-ai';
+
+// 媒体块类型列表
+const MEDIA_BLOCK_TYPES = [
+  'customImage',
+  'customVideo',
+  'customAudio',
+  'customFile',
+];
+
+// 自定义 FormattingToolbar 组件
+const CustomFormattingToolbar: React.FC<{
+  blockTypeSelectItems: ReturnType<typeof blockTypeSelectItems>;
+  showAIButton: boolean;
+}> = ({ blockTypeSelectItems: items, showAIButton }) => {
+  const selectedBlocks = useSelectedBlocks();
+
+  // 检查是否选中了媒体块
+  const isMediaBlockSelected = selectedBlocks.some(block =>
+    MEDIA_BLOCK_TYPES.includes(block.type)
+  );
+
+  // 媒体块选中时不显示 AI 按钮
+  const shouldShowAIButton = showAIButton && !isMediaBlockSelected;
+
+  return (
+    <FormattingToolbar>
+      {/* AI 编辑按钮放在最前面 */}
+      {shouldShowAIButton && <AIToolbarButton />}
+
+      {/* 段落类型选择 */}
+      <BlockTypeSelect items={items} />
+
+      {/* 基本文本样式 */}
+      <BasicTextStyleButton basicTextStyle="bold" />
+      <BasicTextStyleButton basicTextStyle="italic" />
+      <BasicTextStyleButton basicTextStyle="underline" />
+      <BasicTextStyleButton basicTextStyle="strike" />
+
+      {/* 文本对齐 */}
+      <TextAlignButton textAlignment="left" />
+      <TextAlignButton textAlignment="center" />
+      <TextAlignButton textAlignment="right" />
+
+      {/* 颜色 */}
+      <ColorStyleButton />
+
+      {/* 缩进 */}
+      <NestBlockButton />
+      <UnnestBlockButton />
+
+      {/* 链接 */}
+      <CreateLinkButton />
+
+      {/* 媒体块选中时显示自定义按钮 */}
+      {isMediaBlockSelected && (
+        <>
+          <MediaReplaceButton />
+          <MediaDeleteButton />
+        </>
+      )}
+    </FormattingToolbar>
+  );
+};
+
+// 在 BlockNoteView 中使用
+<BlockNoteView editor={editor} formattingToolbar={false}>
+  <FormattingToolbarController
+    formattingToolbar={() => (
+      <CustomFormattingToolbar
+        blockTypeSelectItems={getFilteredBlockTypeSelectItems()}
+        showAIButton={isAIEnabled}
+      />
+    )}
+  />
+</BlockNoteView>;
+```
+
+**使用场景**: 需要自定义 BlockNote 编辑器工具栏时
+**关键点**:
+
+- `formattingToolbar={false}` 禁用默认工具栏
+- FormattingToolbar 的子元素会**完全替换**默认按钮
+- 使用 `useSelectedBlocks()` 检测当前选中的块类型
+- 根据块类型条件渲染不同的按钮
+
+---
+
 ## AI使用指南
 
 **当AI需要创建新功能时：**
@@ -728,5 +838,5 @@ api.interceptors.response.use(
 
 ---
 
-**最后更新**: 2025-12-25
+**最后更新**: 2026-01-09
 **新增模式**: 在重复实现类似功能3次后，应提取为新模式

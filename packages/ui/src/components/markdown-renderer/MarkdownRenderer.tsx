@@ -1,15 +1,27 @@
-import React, { useMemo, useEffect, useRef, useState } from 'react';
+import React, {
+  useMemo,
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+} from 'react';
 import { Marked, Tokens } from 'marked';
 import { cn } from '@/lib/utils';
 import {
   CodeRenderer,
-  VideoRenderer,
-  AudioRenderer,
   MindMapRendererWrapper,
   MathRenderer,
+  FileRenderer,
 } from './renderers';
+import { VideoPlayer } from '../VideoPlayer';
+import { AudioPlayer } from '../AudioPlayer';
 import { createRoot, Root } from 'react-dom/client';
 import { getMediaUrl } from '@whispers/utils';
+import {
+  FilePreviewModal,
+  type PreviewFileLink,
+} from '@eternalheart/react-file-preview';
+import '@eternalheart/react-file-preview/style.css';
 
 interface MarkdownRendererProps {
   content: string;
@@ -150,15 +162,73 @@ const createMarkedInstance = (
   return instance;
 };
 
+// 根据 URL 获取文件类型
+const getMimeType = (url: string): string => {
+  const ext = url.split('.').pop()?.toLowerCase() || '';
+  const mimeTypes: Record<string, string> = {
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+    webp: 'image/webp',
+    svg: 'image/svg+xml',
+    ico: 'image/x-icon',
+    bmp: 'image/bmp',
+  };
+  return mimeTypes[ext] || 'image/png';
+};
+
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
   content,
   className,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const rootsRef = useRef<Map<string, Root>>(new Map());
+  const mediaRootsRef = useRef<Map<string, Root>>(new Map());
   const [mindmapData, setMindmapData] = useState<MindMapData[]>([]);
   const [codeBlockData, setCodeBlockData] = useState<CodeBlockData[]>([]);
   const [mathBlockData, setMathBlockData] = useState<MathBlockData[]>([]);
+
+  // 图片预览状态
+  const [previewFiles, setPreviewFiles] = useState<PreviewFileLink[]>([]);
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  // 收集内容中的所有图片
+  const collectImages = useCallback((): PreviewFileLink[] => {
+    const files: PreviewFileLink[] = [];
+    if (!containerRef.current) return files;
+
+    const images = containerRef.current.querySelectorAll('img');
+    images.forEach((img, index) => {
+      files.push({
+        id: `img-${index}`,
+        name: img.alt || `图片 ${index + 1}`,
+        url: img.src,
+        type: getMimeType(img.src),
+      });
+    });
+
+    return files;
+  }, []);
+
+  // 处理图片点击
+  const handleContentClick = useCallback(
+    (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement;
+
+      if (target.tagName === 'IMG') {
+        e.preventDefault();
+        const img = target as HTMLImageElement;
+        const files = collectImages();
+        const clickedIndex = files.findIndex(f => f.url === img.src);
+        setPreviewFiles(files);
+        setPreviewIndex(clickedIndex >= 0 ? clickedIndex : 0);
+        setIsPreviewOpen(true);
+      }
+    },
+    [collectImages]
+  );
 
   // Generate HTML from markdown content
   const htmlContent = useMemo(() => {
@@ -278,59 +348,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       });
     }
 
-    // 3. 查找所有自定义视频块
-    if (isMounted && containerRef.current) {
-      const videoFigures =
-        containerRef.current.querySelectorAll('figure:has(video)');
-      videoFigures.forEach((figure, index) => {
-        if (!isMounted) return;
-        const videoEl = figure.querySelector('video');
-        const caption = figure.querySelector('figcaption');
-        if (!videoEl) return;
-
-        const src = videoEl.getAttribute('src') || '';
-        const title = caption?.textContent || '';
-
-        const container = document.createElement('div');
-        container.className = 'video-container my-6';
-        figure.replaceWith(container);
-
-        const root = createRoot(container);
-        root.render(<VideoRenderer src={getMediaUrl(src)} title={title} />);
-        rootsRef.current.set(`video-${index}`, root);
-      });
-    }
-
-    // 4. 查找所有自定义音频块
-    if (isMounted && containerRef.current) {
-      const audioFigures =
-        containerRef.current.querySelectorAll('figure:has(audio)');
-      audioFigures.forEach((figure, index) => {
-        if (!isMounted) return;
-        const audioEl = figure.querySelector('audio');
-        const caption = figure.querySelector('figcaption');
-        if (!audioEl) return;
-
-        const src = audioEl.getAttribute('src') || '';
-        const captionText = caption?.textContent || '';
-        // 解析 title - artist 格式
-        const parts = captionText.split(' - ');
-        const title = parts[0]?.trim() || '未命名音频';
-        const artist = parts[1]?.trim();
-
-        const container = document.createElement('div');
-        container.className = 'audio-container my-6';
-        figure.replaceWith(container);
-
-        const root = createRoot(container);
-        root.render(
-          <AudioRenderer src={getMediaUrl(src)} title={title} artist={artist} />
-        );
-        rootsRef.current.set(`audio-${index}`, root);
-      });
-    }
-
-    // 5. 渲染数学公式到占位符
+    // 3. 渲染数学公式到占位符
     mathBlockData.forEach(({ id, formula, displayMode }) => {
       if (!isMounted || !containerRef.current) return;
 
@@ -364,16 +382,384 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
     };
   }, [htmlContent, mindmapData, codeBlockData, mathBlockData]);
 
+  // 单独处理视频和音频元素（只依赖 htmlContent，避免被其他状态变化触发重复清理）
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    let isMounted = true;
+
+    // 清理媒体相关的 React 根
+    const cleanupMediaRoots = () => {
+      mediaRootsRef.current.forEach(root => {
+        try {
+          root.unmount();
+        } catch {
+          // 忽略卸载错误
+        }
+      });
+      mediaRootsRef.current.clear();
+    };
+
+    cleanupMediaRoots();
+
+    if (!isMounted || !containerRef.current) return;
+
+    // 解析 title|caption 格式的辅助函数
+    const parseDisplayText = (
+      text: string
+    ): { title: string; caption: string } => {
+      if (text.includes('|')) {
+        const parts = text.split('|');
+        return {
+          title: parts[0].trim(),
+          caption: parts.slice(1).join('|').trim(),
+        };
+      }
+      return { title: text, caption: '' };
+    };
+
+    // 处理视频元素
+    // 先处理 figure 包裹的视频
+    const videoFigures =
+      containerRef.current.querySelectorAll('figure:has(video)');
+    videoFigures.forEach((figure, index) => {
+      if (!isMounted) return;
+      const videoEl = figure.querySelector('video');
+      const figcaption = figure.querySelector('figcaption');
+      if (!videoEl) return;
+
+      const src = videoEl.getAttribute('src') || '';
+      if (!src) return;
+
+      // 解析 title|caption 格式
+      const videoText = videoEl.textContent?.trim() || '';
+      const { title: parsedTitle, caption: parsedCaption } =
+        parseDisplayText(videoText);
+      // 优先使用 figcaption，其次使用解析的 caption
+      const title = parsedTitle;
+      const caption = figcaption?.textContent?.trim() || parsedCaption;
+
+      const container = document.createElement('div');
+      container.className = 'video-container my-6';
+      figure.replaceWith(container);
+
+      const root = createRoot(container);
+      root.render(
+        <figure className="video-wrapper">
+          <VideoPlayer src={getMediaUrl(src)} title={title || undefined} />
+          {caption && (
+            <figcaption
+              style={{
+                marginTop: '0.75rem',
+                fontSize: '0.875rem',
+                color: 'hsl(var(--muted-foreground))',
+                textAlign: 'center',
+              }}
+            >
+              {caption}
+            </figcaption>
+          )}
+        </figure>
+      );
+      mediaRootsRef.current.set(`video-figure-${index}`, root);
+    });
+
+    // 再处理独立的 video 标签
+    const standaloneVideos = containerRef.current.querySelectorAll('video');
+    standaloneVideos.forEach((videoEl, index) => {
+      if (!isMounted) return;
+
+      const src = videoEl.getAttribute('src') || '';
+      if (!src) return;
+
+      // 解析 title|caption 格式
+      const videoText = videoEl.textContent?.trim() || '';
+      const { title, caption } = parseDisplayText(videoText);
+
+      const container = document.createElement('div');
+      container.className = 'video-container my-6';
+      videoEl.replaceWith(container);
+
+      const root = createRoot(container);
+      root.render(
+        <figure className="video-wrapper">
+          <VideoPlayer src={getMediaUrl(src)} title={title || undefined} />
+          {caption && (
+            <figcaption
+              style={{
+                marginTop: '0.75rem',
+                fontSize: '0.875rem',
+                color: 'hsl(var(--muted-foreground))',
+                textAlign: 'center',
+              }}
+            >
+              {caption}
+            </figcaption>
+          )}
+        </figure>
+      );
+      mediaRootsRef.current.set(`video-standalone-${index}`, root);
+    });
+
+    // 处理音频元素
+    // 先处理 figure 包裹的音频
+    const audioFigures =
+      containerRef.current.querySelectorAll('figure:has(audio)');
+    audioFigures.forEach((figure, index) => {
+      if (!isMounted) return;
+      const audioEl = figure.querySelector('audio');
+      const figcaption = figure.querySelector('figcaption');
+      if (!audioEl) return;
+
+      const src = audioEl.getAttribute('src') || '';
+      if (!src) return;
+
+      // 解析 title|caption 格式
+      const audioText = audioEl.textContent?.trim() || '';
+      const { title: parsedTitle, caption: parsedCaption } =
+        parseDisplayText(audioText);
+      // 优先使用 figcaption，其次使用解析的 caption
+      const title = parsedTitle || '未命名音频';
+      const caption = figcaption?.textContent?.trim() || parsedCaption;
+
+      const container = document.createElement('div');
+      container.className = 'audio-container my-6';
+      figure.replaceWith(container);
+
+      const root = createRoot(container);
+      root.render(
+        <figure className="audio-wrapper">
+          <AudioPlayer src={getMediaUrl(src)} title={title} />
+          {caption && (
+            <figcaption
+              style={{
+                marginTop: '0.75rem',
+                fontSize: '0.875rem',
+                color: 'hsl(var(--muted-foreground))',
+                textAlign: 'center',
+              }}
+            >
+              {caption}
+            </figcaption>
+          )}
+        </figure>
+      );
+      mediaRootsRef.current.set(`audio-figure-${index}`, root);
+    });
+
+    // 再处理独立的 audio 标签
+    const standaloneAudios = containerRef.current.querySelectorAll('audio');
+    standaloneAudios.forEach((audioEl, index) => {
+      if (!isMounted) return;
+
+      const src = audioEl.getAttribute('src') || '';
+      if (!src) return;
+
+      // 解析 title|caption 格式
+      const audioText = audioEl.textContent?.trim() || '';
+      const { title, caption } = parseDisplayText(audioText);
+
+      const container = document.createElement('div');
+      container.className = 'audio-container my-6';
+      audioEl.replaceWith(container);
+
+      const root = createRoot(container);
+      root.render(
+        <figure className="audio-wrapper">
+          <AudioPlayer src={getMediaUrl(src)} title={title || '未命名音频'} />
+          {caption && (
+            <figcaption
+              style={{
+                marginTop: '0.75rem',
+                fontSize: '0.875rem',
+                color: 'hsl(var(--muted-foreground))',
+                textAlign: 'center',
+              }}
+            >
+              {caption}
+            </figcaption>
+          )}
+        </figure>
+      );
+      mediaRootsRef.current.set(`audio-standalone-${index}`, root);
+    });
+
+    // 处理文件块（新格式：figure[data-file-block]）
+    const fileFiguresNew = containerRef.current.querySelectorAll(
+      'figure[data-file-block]'
+    );
+    fileFiguresNew.forEach((figure, index) => {
+      if (!isMounted) return;
+
+      const linkEl = figure.querySelector('a');
+
+      const href = linkEl?.getAttribute('href') || '';
+      if (!href) return;
+
+      // fileSize 从 figure 属性获取
+      const fileSize = parseInt(
+        figure.getAttribute('data-file-size') || '0',
+        10
+      );
+
+      // 解析 文件名|说明 格式
+      const textContent = linkEl?.textContent?.trim() || '';
+      let title = '';
+      let description = '';
+
+      if (textContent.includes('|')) {
+        const parts = textContent.split('|');
+        title = parts[0].trim();
+        description = parts.slice(1).join('|').trim();
+      } else if (textContent) {
+        title = textContent;
+      }
+
+      // 如果没有标题，从 URL 提取文件名
+      if (!title) {
+        try {
+          const pathname = href.split('?')[0];
+          const segments = pathname.split('/');
+          title = decodeURIComponent(segments[segments.length - 1]) || '文件';
+        } catch {
+          title = '文件';
+        }
+      }
+
+      const container = document.createElement('div');
+      container.className = 'file-container my-4';
+      figure.replaceWith(container);
+
+      const root = createRoot(container);
+      root.render(
+        <FileRenderer
+          src={getMediaUrl(href)}
+          title={title}
+          description={description}
+          fileSize={fileSize}
+        />
+      );
+      mediaRootsRef.current.set(`file-figure-new-${index}`, root);
+    });
+
+    // 处理文件链接（旧格式：a[data-file-block]，不在 figure 内）
+    const fileLinks =
+      containerRef.current.querySelectorAll('a[data-file-block]');
+    fileLinks.forEach((linkEl, index) => {
+      if (!isMounted) return;
+
+      const href = linkEl.getAttribute('href') || '';
+      if (!href) return;
+
+      const fileSize = parseInt(
+        linkEl.getAttribute('data-file-size') || '0',
+        10
+      );
+      let title = linkEl.textContent?.trim() || '';
+      if (!title) {
+        try {
+          const pathname = href.split('?')[0];
+          const segments = pathname.split('/');
+          title = decodeURIComponent(segments[segments.length - 1]) || '文件';
+        } catch {
+          title = '文件';
+        }
+      }
+
+      const container = document.createElement('div');
+      container.className = 'file-container my-4';
+      linkEl.replaceWith(container);
+
+      const root = createRoot(container);
+      root.render(
+        <FileRenderer
+          src={getMediaUrl(href)}
+          title={title}
+          fileSize={fileSize}
+        />
+      );
+      mediaRootsRef.current.set(`file-${index}`, root);
+    });
+
+    // 处理 figure 包裹的文件链接（旧格式：figure:has(a[data-file-block])）
+    const fileFigures = containerRef.current.querySelectorAll(
+      'figure:has(a[data-file-block])'
+    );
+    fileFigures.forEach((figure, index) => {
+      if (!isMounted) return;
+      // 跳过已处理的新格式 figure
+      if (figure.hasAttribute('data-file-block')) return;
+
+      const linkEl = figure.querySelector('a[data-file-block]');
+      const caption = figure.querySelector('figcaption');
+      if (!linkEl) return;
+
+      const href = linkEl.getAttribute('href') || '';
+      if (!href) return;
+
+      const fileSize = parseInt(
+        linkEl.getAttribute('data-file-size') || '0',
+        10
+      );
+      let title =
+        caption?.textContent?.trim() || linkEl.textContent?.trim() || '';
+      if (!title) {
+        try {
+          const pathname = href.split('?')[0];
+          const segments = pathname.split('/');
+          title = decodeURIComponent(segments[segments.length - 1]) || '文件';
+        } catch {
+          title = '文件';
+        }
+      }
+
+      const container = document.createElement('div');
+      container.className = 'file-container my-4';
+      figure.replaceWith(container);
+
+      const root = createRoot(container);
+      root.render(
+        <FileRenderer
+          src={getMediaUrl(href)}
+          title={title}
+          fileSize={fileSize}
+        />
+      );
+      mediaRootsRef.current.set(`file-figure-${index}`, root);
+    });
+
+    return () => {
+      isMounted = false;
+      cleanupMediaRoots();
+    };
+  }, [htmlContent]);
+
   // 缓存 dangerouslySetInnerHTML 对象，避免父组件重新渲染时重置 DOM
   // 这样可以防止 React 认为 DOM 需要更新，从而保留用 replaceWith 替换的思维导图容器
   const dangerousHtml = useMemo(() => ({ __html: htmlContent }), [htmlContent]);
 
   return (
-    <div
-      ref={containerRef}
-      className={cn('markdown-content', className)}
-      dangerouslySetInnerHTML={dangerousHtml}
-    />
+    <>
+      <div
+        ref={containerRef}
+        className={cn(
+          'markdown-content',
+          '[&_img]:cursor-pointer [&_img]:transition-opacity [&_img:hover]:opacity-90',
+          className
+        )}
+        onClick={handleContentClick}
+        dangerouslySetInnerHTML={dangerousHtml}
+      />
+
+      {/* 图片预览 */}
+      <FilePreviewModal
+        files={previewFiles}
+        currentIndex={previewIndex}
+        isOpen={isPreviewOpen}
+        onClose={() => setIsPreviewOpen(false)}
+        onNavigate={setPreviewIndex}
+      />
+    </>
   );
 };
 

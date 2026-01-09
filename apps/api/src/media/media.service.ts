@@ -132,6 +132,7 @@ export class MediaService {
     file: Express.Multer.File,
     uploaderId: string,
     tags: string[] = [],
+    duration?: number,
   ) {
     // 验证用户是否存在
     const user = await this.prisma.user.findUnique({
@@ -220,6 +221,7 @@ export class MediaService {
         hash: fileHash,
         tags,
         uploaderId,
+        duration,
       },
       include: {
         uploader: {

@@ -24,6 +24,11 @@ import { randomBytes } from 'crypto';
 import { existsSync, mkdirSync } from 'fs';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { MediaService } from './media.service';
+import { Request as ExpressRequest } from 'express';
+
+interface AuthenticatedRequest extends ExpressRequest {
+  user?: { id: string; isAdmin?: boolean };
+}
 import {
   ApiTags,
   ApiOperation,
@@ -58,7 +63,8 @@ const storage = diskStorage({
 });
 
 // File filter for allowed types
-const fileFilter = (req: any, file: Express.Multer.File, callback: any) => {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const fileFilter = (_req: any, file: Express.Multer.File, callback: any) => {
   const allowedMimes = [
     'image/jpeg',
     'image/png',
@@ -98,7 +104,7 @@ export class MediaController {
     @Query('type') type?: string,
     @Query('search') search?: string,
     @Query('uploaderId') uploaderId?: string,
-    @Request() req?: any,
+    @Request() req?: AuthenticatedRequest,
   ) {
     const skip = (page - 1) * limit;
     const result = await this.mediaService.findAll({
@@ -162,6 +168,10 @@ export class MediaController {
           type: 'string',
           description: '标签，逗号分隔',
         },
+        duration: {
+          type: 'number',
+          description: '音视频时长（秒）',
+        },
       },
     },
   })
@@ -176,8 +186,9 @@ export class MediaController {
   )
   async uploadFile(
     @UploadedFile() file: Express.Multer.File,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Body('tags') tagsString?: string,
+    @Body('duration') durationString?: string,
   ) {
     if (!file) {
       throw new HttpException(
@@ -194,7 +205,13 @@ export class MediaController {
     }
 
     const tags = tagsString ? tagsString.split(',').map((t) => t.trim()) : [];
-    const media = await this.mediaService.create(file, req.user.id, tags);
+    const duration = durationString ? parseFloat(durationString) : undefined;
+    const media = await this.mediaService.create(
+      file,
+      req.user.id,
+      tags,
+      duration,
+    );
 
     return {
       success: true,
@@ -219,7 +236,7 @@ export class MediaController {
   )
   async uploadMultipleFiles(
     @UploadedFiles() files: Express.Multer.File[],
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Body('tags') tagsString?: string,
   ) {
     const tags = tagsString ? tagsString.split(',').map((t) => t.trim()) : [];
@@ -256,7 +273,7 @@ export class MediaController {
   @ApiOperation({ summary: '删除媒体' })
   async delete(
     @Param('id') id: string,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Query('force') force?: string,
   ) {
     try {
@@ -296,7 +313,7 @@ export class MediaController {
   @ApiOperation({ summary: '批量删除媒体' })
   async deleteMany(
     @Body() body: { ids: string[]; force?: boolean },
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     const ids = body.ids || [];
     if (ids.length === 0) {

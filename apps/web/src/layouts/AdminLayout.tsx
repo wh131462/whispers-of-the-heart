@@ -14,6 +14,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Mail,
+  MessageCircle,
 } from 'lucide-react';
 import { Button } from '@whispers/ui';
 import { useAuthStore } from '../stores/useAuthStore';
@@ -56,6 +57,7 @@ const AdminLayout: React.FC = () => {
     { name: '评论管理', href: '/admin/comments', icon: MessageSquare },
     { name: '用户管理', href: '/admin/users', icon: Users },
     { name: '媒体库', href: '/admin/media', icon: FolderOpen },
+    { name: '反馈管理', href: '/admin/feedback', icon: MessageCircle },
     { name: '邮件管理', href: '/admin/mail', icon: Mail },
     { name: '站点配置', href: '/admin/settings', icon: Settings },
   ];

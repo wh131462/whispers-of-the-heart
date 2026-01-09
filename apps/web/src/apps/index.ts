@@ -155,6 +155,23 @@ export const appRegistry: AppMeta[] = [
     tags: ['娱乐'],
     component: lazy(() => import('./gomoku')),
   },
+  // 媒体工具
+  {
+    id: 'audio-player',
+    name: '音频播放器',
+    description: '支持拖拽文件或粘贴链接播放音频，带进度控制和循环播放',
+    icon: 'Music',
+    tags: ['实用'],
+    component: lazy(() => import('./audio-player')),
+  },
+  {
+    id: 'video-player',
+    name: '视频播放器',
+    description: '支持拖拽文件或粘贴链接播放视频，带全屏和倍速控制',
+    icon: 'Video',
+    tags: ['实用'],
+    component: lazy(() => import('./video-player')),
+  },
 ];
 
 export function getAppById(id: string): AppMeta | undefined {

@@ -38,6 +38,7 @@ const AdminCommentsPage = lazy(
 );
 const AdminMediaPage = lazy(() => import('./pages/admin/MediaPage'));
 const AdminUsersPage = lazy(() => import('./pages/admin/UsersPage'));
+const AdminFeedbackPage = lazy(() => import('./pages/admin/FeedbackPage'));
 const AdminSettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
 const AdminMailPage = lazy(() => import('./pages/admin/MailPage'));
 
@@ -145,6 +146,15 @@ function App() {
               element={
                 <Suspense fallback={<PageLoader />}>
                   <AdminMediaPage />
+                </Suspense>
+              }
+            />
+            {/* 反馈管理 */}
+            <Route
+              path="feedback"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <AdminFeedbackPage />
                 </Suspense>
               }
             />

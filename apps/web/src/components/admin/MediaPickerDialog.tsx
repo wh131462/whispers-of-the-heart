@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Button, Input } from '@whispers/ui';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Button, Input, FileTree, type FileNode } from '@whispers/ui';
 import {
   Search,
   Image,
@@ -12,6 +12,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { api, getMediaUrl } from '@whispers/utils';
+import { useToastContext } from '../../contexts/ToastContext';
 
 interface Media {
   id: string;
@@ -28,7 +29,7 @@ interface MediaPickerDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onSelect: (url: string, media?: Media) => void;
-  filterType?: 'image' | 'video' | 'audio' | 'all';
+  filterType?: 'image' | 'video' | 'audio' | 'file' | 'all';
   multiple?: boolean;
   title?: string;
 }
@@ -38,7 +39,7 @@ const MediaPickerDialog: React.FC<MediaPickerDialogProps> = ({
   onClose,
   onSelect,
   filterType = 'all',
-  multiple: _multiple = false,
+  multiple: _multiple,
   title = '选择媒体文件',
 }) => {
   const [media, setMedia] = useState<Media[]>([]);
@@ -50,6 +51,7 @@ const MediaPickerDialog: React.FC<MediaPickerDialogProps> = ({
   const [totalPages, setTotalPages] = useState(1);
   // 当 filterType 不是 'all' 时，锁定为指定类型
   const [activeFilter, setActiveFilter] = useState(filterType);
+  const toast = useToastContext();
   const isFilterLocked = filterType !== 'all';
 
   useEffect(() => {
@@ -61,9 +63,10 @@ const MediaPickerDialog: React.FC<MediaPickerDialogProps> = ({
   const fetchMedia = async () => {
     try {
       setLoading(true);
-      const params: any = { page, limit: 24 };
+      const params: Record<string, string | number> = { page, limit: 24 };
 
-      if (activeFilter !== 'all') {
+      // file 类型和 all 类型不过滤 mimeType
+      if (activeFilter !== 'all' && activeFilter !== 'file') {
         params.mimeType = `${activeFilter}/`;
       }
 
@@ -91,15 +94,11 @@ const MediaPickerDialog: React.FC<MediaPickerDialogProps> = ({
   // 验证媒体类型是否符合 filterType 要求
   const isMediaTypeAllowed = (media: Media) => {
     if (filterType === 'all') return true;
-    return media.mimeType.startsWith(`${filterType}/`);
-  };
-
-  const handleMediaClick = (media: Media) => {
-    // 如果 filterType 锁定，验证类型是否匹配
-    if (isFilterLocked && !isMediaTypeAllowed(media)) {
-      return; // 不允许选择不匹配的类型
+    if (filterType === 'file') {
+      // file 类型允许所有文件（包括文档等非媒体文件）
+      return true;
     }
-    setSelectedMedia(media);
+    return media.mimeType.startsWith(`${filterType}/`);
   };
 
   const handleSelect = () => {
@@ -115,18 +114,40 @@ const MediaPickerDialog: React.FC<MediaPickerDialogProps> = ({
     if (!files || files.length === 0) return;
 
     setUploading(true);
+    let successCount = 0;
+    const failedFiles: string[] = [];
+
     try {
       for (const file of Array.from(files)) {
-        const formData = new FormData();
-        formData.append('file', file);
+        try {
+          const formData = new FormData();
+          formData.append('file', file);
 
-        await api.post('/media/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
+          await api.post('/media/upload', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          successCount++;
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } catch (err: any) {
+          const errorMessage =
+            err?.response?.data?.message || err?.message || '上传失败';
+          failedFiles.push(`${file.name}: ${errorMessage}`);
+        }
       }
-      fetchMedia();
-    } catch (err) {
-      console.error('Upload failed:', err);
+
+      if (successCount > 0) {
+        fetchMedia();
+        toast.success(`成功上传 ${successCount} 个文件`);
+      }
+
+      if (failedFiles.length > 0) {
+        toast.error(failedFiles.join('\n'), '上传失败');
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } catch (err: any) {
+      const errorMessage =
+        err?.response?.data?.message || err?.message || '上传失败';
+      toast.error(errorMessage, '上传失败');
     } finally {
       setUploading(false);
       event.target.value = '';
@@ -149,6 +170,100 @@ const MediaPickerDialog: React.FC<MediaPickerDialogProps> = ({
     if (mimeType.startsWith('audio/'))
       return <Music className="h-6 w-6 text-green-500" />;
     return <FileText className="h-6 w-6 text-orange-500" />;
+  };
+
+  // 将媒体文件转换为树形结构
+  const fileTreeData: FileNode[] = useMemo(() => {
+    const createFileNode = (item: Media): FileNode => {
+      const ext = item.originalName.split('.').pop()?.toLowerCase() || '';
+      return {
+        name: item.originalName,
+        type: 'file',
+        extension: ext,
+        id: item.id,
+        data: item,
+      };
+    };
+
+    // 按类型过滤
+    const images = media.filter(m => m.mimeType.startsWith('image/'));
+    const videos = media.filter(m => m.mimeType.startsWith('video/'));
+    const audios = media.filter(m => m.mimeType.startsWith('audio/'));
+    const documents = media.filter(
+      m =>
+        !m.mimeType.startsWith('image/') &&
+        !m.mimeType.startsWith('video/') &&
+        !m.mimeType.startsWith('audio/')
+    );
+
+    const folders: FileNode[] = [];
+
+    // 根据 filterType 只添加对应类型的文件夹
+    if (
+      (filterType === 'all' ||
+        filterType === 'image' ||
+        filterType === 'file') &&
+      images.length > 0
+    ) {
+      folders.push({
+        name: `图片 (${images.length})`,
+        type: 'folder',
+        id: 'folder-images',
+        children: images.map(createFileNode),
+      });
+    }
+
+    if (
+      (filterType === 'all' ||
+        filterType === 'video' ||
+        filterType === 'file') &&
+      videos.length > 0
+    ) {
+      folders.push({
+        name: `视频 (${videos.length})`,
+        type: 'folder',
+        id: 'folder-videos',
+        children: videos.map(createFileNode),
+      });
+    }
+
+    if (
+      (filterType === 'all' ||
+        filterType === 'audio' ||
+        filterType === 'file') &&
+      audios.length > 0
+    ) {
+      folders.push({
+        name: `音频 (${audios.length})`,
+        type: 'folder',
+        id: 'folder-audios',
+        children: audios.map(createFileNode),
+      });
+    }
+
+    if (
+      (filterType === 'all' || filterType === 'file') &&
+      documents.length > 0
+    ) {
+      folders.push({
+        name: `文档 (${documents.length})`,
+        type: 'folder',
+        id: 'folder-documents',
+        children: documents.map(createFileNode),
+      });
+    }
+
+    return folders;
+  }, [media, filterType]);
+
+  // 处理文件树节点选择
+  const handleFileSelect = (node: FileNode) => {
+    if (node.type === 'file' && node.data) {
+      const mediaItem = node.data as Media;
+      if (isMediaTypeAllowed(mediaItem)) {
+        setSelectedMedia(mediaItem);
+      }
+    }
   };
 
   if (!isOpen) return null;
@@ -222,7 +337,9 @@ const MediaPickerDialog: React.FC<MediaPickerDialogProps> = ({
                       ? 'video/*'
                       : filterType === 'audio'
                         ? 'audio/*'
-                        : 'image/*,video/*,audio/*,.pdf,.doc,.docx'
+                        : filterType === 'file'
+                          ? undefined // 允许所有文件类型
+                          : 'image/*,video/*,audio/*,.pdf,.doc,.docx'
                 }
                 onChange={handleUpload}
                 className="hidden"
@@ -241,100 +358,115 @@ const MediaPickerDialog: React.FC<MediaPickerDialogProps> = ({
           </div>
         </div>
 
-        {/* Media Grid */}
-        <div className="flex-1 overflow-auto p-4 bg-muted/20">
-          {loading ? (
-            <div className="flex items-center justify-center h-64">
-              <RefreshCw className="h-8 w-8 text-muted-foreground animate-spin" />
-            </div>
-          ) : media.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
-              <Image className="h-16 w-16 mb-4 opacity-50" />
-              <p className="text-lg">暂无媒体文件</p>
-              <p className="text-sm mt-1">上传文件开始使用</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
-              {media.map(item => {
-                const isAllowed = isMediaTypeAllowed(item);
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => handleMediaClick(item)}
-                    className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all group ${
-                      !isAllowed
-                        ? 'opacity-40 cursor-not-allowed'
-                        : selectedMedia?.id === item.id
-                          ? 'border-primary ring-2 ring-primary/30 scale-[1.02] cursor-pointer'
-                          : 'border-transparent hover:border-border hover:shadow-md cursor-pointer'
-                    }`}
-                  >
-                    <div className="w-full h-full bg-muted flex items-center justify-center">
-                      {item.mimeType.startsWith('image/') ? (
-                        <img
-                          src={getMediaUrl(item.thumbnail || item.url)}
-                          alt={item.originalName}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex flex-col items-center">
-                          {getTypeIcon(item.mimeType)}
-                          <span className="text-xs text-muted-foreground mt-2 px-2 truncate max-w-full">
-                            {item.mimeType.split('/')[1]?.toUpperCase()}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+        {/* Content - 左侧文件树 + 右侧预览 */}
+        <div className="flex-1 flex min-h-0 overflow-hidden">
+          {/* 左侧文件树 */}
+          <div className="flex-1 overflow-auto p-4 bg-muted/20">
+            {loading ? (
+              <div className="flex items-center justify-center h-64">
+                <RefreshCw className="h-8 w-8 text-muted-foreground animate-spin" />
+              </div>
+            ) : media.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 text-muted-foreground">
+                <Image className="h-16 w-16 mb-4 opacity-50" />
+                <p className="text-lg">暂无媒体文件</p>
+                <p className="text-sm mt-1">上传文件开始使用</p>
+              </div>
+            ) : (
+              <FileTree
+                data={fileTreeData}
+                selectedId={selectedMedia?.id}
+                onSelect={handleFileSelect}
+                header="媒体库"
+                className="border-0 rounded-none bg-transparent"
+              />
+            )}
+          </div>
 
-                    {/* Selection indicator */}
-                    {selectedMedia?.id === item.id && (
-                      <div className="absolute top-2 right-2 bg-primary rounded-full p-1 shadow-lg">
-                        <Check className="h-3 w-3 text-primary-foreground" />
+          {/* 右侧预览面板 */}
+          <div className="w-72 border-l border-border flex flex-col bg-background">
+            {selectedMedia ? (
+              <>
+                {/* 预览区域 */}
+                <div className="p-4 border-b border-border">
+                  <div className="aspect-video bg-muted rounded-lg flex items-center justify-center overflow-hidden">
+                    {selectedMedia.mimeType.startsWith('image/') ? (
+                      <img
+                        src={getMediaUrl(selectedMedia.url)}
+                        alt={selectedMedia.originalName}
+                        className="w-full h-full object-contain"
+                      />
+                    ) : selectedMedia.mimeType.startsWith('video/') ? (
+                      <div className="flex flex-col items-center text-muted-foreground">
+                        <Video className="h-12 w-12" />
+                        <span className="text-xs mt-2">视频文件</span>
+                      </div>
+                    ) : selectedMedia.mimeType.startsWith('audio/') ? (
+                      <div className="flex flex-col items-center text-muted-foreground">
+                        <Music className="h-12 w-12" />
+                        <span className="text-xs mt-2">音频文件</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center text-muted-foreground">
+                        {getTypeIcon(selectedMedia.mimeType)}
+                        <span className="text-xs mt-2">
+                          {selectedMedia.mimeType.split('/')[1]?.toUpperCase()}
+                        </span>
                       </div>
                     )}
+                  </div>
+                </div>
 
-                    {/* Hover overlay with filename */}
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <p className="text-xs text-white truncate">
-                        {item.originalName}
+                {/* 文件信息 */}
+                <div className="flex-1 overflow-auto p-4 space-y-3">
+                  <div>
+                    <h3 className="text-xs font-medium text-muted-foreground mb-1">
+                      文件名
+                    </h3>
+                    <p className="text-sm text-foreground break-all">
+                      {selectedMedia.originalName}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <h3 className="text-xs font-medium text-muted-foreground mb-1">
+                        类型
+                      </h3>
+                      <p className="text-sm text-foreground">
+                        {selectedMedia.mimeType}
+                      </p>
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-medium text-muted-foreground mb-1">
+                        大小
+                      </h3>
+                      <p className="text-sm text-foreground">
+                        {formatFileSize(selectedMedia.size)}
                       </p>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
 
-        {/* Selected File Info */}
-        {selectedMedia && (
-          <div className="p-4 border-t border-border bg-muted/30">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-muted rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
-                {selectedMedia.mimeType.startsWith('image/') ? (
-                  <img
-                    src={getMediaUrl(
-                      selectedMedia.thumbnail || selectedMedia.url
-                    )}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  getTypeIcon(selectedMedia.mimeType)
-                )}
+                  <div>
+                    <h3 className="text-xs font-medium text-muted-foreground mb-1">
+                      上传时间
+                    </h3>
+                    <p className="text-sm text-foreground">
+                      {new Date(selectedMedia.createdAt).toLocaleDateString(
+                        'zh-CN'
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground p-4">
+                <FileText className="h-12 w-12 mb-4 opacity-50" />
+                <p className="text-sm text-center">选择一个文件查看详情</p>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-foreground truncate">
-                  {selectedMedia.originalName}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {formatFileSize(selectedMedia.size)} ·{' '}
-                  {selectedMedia.mimeType}
-                </p>
-              </div>
-            </div>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Footer */}
         <div className="flex items-center justify-between p-4 border-t border-border bg-background">

@@ -26,10 +26,12 @@ import {
   ImageIcon,
   VideoIcon,
   AudioIcon,
+  FileIcon,
   MindMapIcon,
   MathIcon,
   QuoteIcon,
 } from './assets/icons';
+import { type MediaSelectResult } from './MediaPicker';
 
 // 修复表格 markdown 输出：移除空表头行
 const fixTableMarkdown = (markdown: string): string => {
@@ -104,9 +106,177 @@ const extractMindMapBlocks = (blocks: any[]): Array<{ markdown: string }> => {
   return mindMapBlocks;
 };
 
+// 媒体块信息类型
+interface MediaBlockInfo {
+  type: 'customImage' | 'customVideo' | 'customAudio' | 'customFile';
+  url: string;
+  /** 原始文件名（仅 customFile 使用） */
+  fileName?: string;
+  /** 媒体标题/名称（音视频使用） */
+  title?: string;
+  caption: string;
+  width?: number;
+  align?: string;
+  fileSize?: number;
+}
+
+// 从 blocks 中提取媒体块内容
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const extractMediaBlocks = (blocks: any[]): MediaBlockInfo[] => {
+  const mediaBlocks: MediaBlockInfo[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const traverse = (block: any) => {
+    if (
+      (block.type === 'customImage' ||
+        block.type === 'customVideo' ||
+        block.type === 'customAudio' ||
+        block.type === 'customFile') &&
+      block.props?.url
+    ) {
+      mediaBlocks.push({
+        type: block.type,
+        url: block.props.url || '',
+        fileName: block.props.fileName || '',
+        title: block.props.title || '',
+        caption: block.props.caption || '',
+        width: block.props.width,
+        align: block.props.align,
+        fileSize: block.props.fileSize,
+      });
+    }
+    if (block.children) {
+      block.children.forEach(traverse);
+    }
+  };
+
+  blocks.forEach(traverse);
+  return mediaBlocks;
+};
+
+// 修复 markdown 中缺失的媒体块
+const fixMediaBlocksInMarkdown = (
+  markdown: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  blocks: any[]
+): string => {
+  const mediaBlocks = extractMediaBlocks(blocks);
+
+  if (mediaBlocks.length === 0) return markdown;
+
+  let result = markdown;
+
+  // 清理文件块中被错误解析的链接格式
+  // 只清理已存在于 mediaBlocks 中的文件 URL 对应的链接
+  for (const media of mediaBlocks) {
+    if (media.type === 'customFile') {
+      const urlEscaped = media.url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // 匹配 [任意文本](文件URL) 格式的链接
+      const linkRegex = new RegExp(`\\[([^\\]]*)\\]\\(${urlEscaped}\\)`, 'gi');
+      result = result.replace(linkRegex, '');
+    }
+  }
+
+  // 清理音视频块的 title 和 caption 被错误输出为纯文本的情况
+  // BlockNote 可能会将自定义块的属性作为独立的段落输出
+  for (const media of mediaBlocks) {
+    if (media.type === 'customVideo' || media.type === 'customAudio') {
+      // 清理 title 文本（如果作为独立行存在）
+      if (media.title && media.title.trim()) {
+        const titleEscaped = media.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // 匹配独立的 title 行（前后都是换行或文档边界）
+        const titleRegex = new RegExp(`(^|\\n)${titleEscaped}\\s*(\\n|$)`, 'g');
+        result = result.replace(titleRegex, '$1');
+      }
+      // 清理 caption 文本（如果作为独立行存在）
+      if (media.caption && media.caption.trim()) {
+        const captionEscaped = media.caption.replace(
+          /[.*+?^${}()|[\]\\]/g,
+          '\\$&'
+        );
+        // 匹配独立的 caption 行（前后都是换行或文档边界）
+        const captionRegex = new RegExp(
+          `(^|\\n)${captionEscaped}\\s*(\\n|$)`,
+          'g'
+        );
+        result = result.replace(captionRegex, '$1');
+      }
+      // 清理 title|caption 组合格式（如果作为独立行存在）
+      if (media.title && media.caption) {
+        const combinedText = `${media.title}|${media.caption}`;
+        const combinedEscaped = combinedText.replace(
+          /[.*+?^${}()|[\]\\]/g,
+          '\\$&'
+        );
+        const combinedRegex = new RegExp(
+          `(^|\\n)${combinedEscaped}\\s*(\\n|$)`,
+          'g'
+        );
+        result = result.replace(combinedRegex, '$1');
+      }
+    }
+  }
+
+  // 清理多余的空行
+  result = result.replace(/\n{3,}/g, '\n\n').trim();
+
+  for (const media of mediaBlocks) {
+    const urlEscaped = media.url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    const urlExists =
+      new RegExp(`!\\[.*?\\]\\(${urlEscaped}\\)`).test(result) ||
+      new RegExp(`<img[^>]*src=["']${urlEscaped}["']`).test(result) ||
+      new RegExp(`<video[^>]*src=["']${urlEscaped}["']`).test(result) ||
+      new RegExp(`<audio[^>]*src=["']${urlEscaped}["']`).test(result) ||
+      new RegExp(
+        `<figure[^>]*data-file-block[^>]*>[\\s\\S]*?href=["']${urlEscaped}["']`
+      ).test(result) ||
+      new RegExp(`<a[^>]*href=["']${urlEscaped}["']`).test(result);
+
+    if (!urlExists) {
+      if (media.type === 'customImage') {
+        result += `\n\n![${media.caption || '图片'}](${media.url})`;
+      } else if (media.type === 'customVideo') {
+        // 视频输出 title|caption 格式
+        const videoDisplayText = media.caption
+          ? `${media.title || ''}|${media.caption}`
+          : media.title || '';
+        result += `\n\n<video src="${media.url}" controls>${videoDisplayText}</video>`;
+      } else if (media.type === 'customAudio') {
+        // 音频输出 title|caption 格式
+        const audioDisplayText = media.caption
+          ? `${media.title || ''}|${media.caption}`
+          : media.title || '';
+        result += `\n\n<audio src="${media.url}" controls>${audioDisplayText}</audio>`;
+      } else if (media.type === 'customFile') {
+        // 文件块输出为 figure 包裹的格式，与 toExternalHTML 一致，确保能被正确解析
+        const fileSize = media.fileSize || 0;
+        // 优先使用 fileName 属性，其次从 URL 提取
+        let displayFileName = media.fileName || '';
+        if (!displayFileName) {
+          try {
+            const pathname = media.url.split('?')[0];
+            const segments = pathname.split('/');
+            displayFileName =
+              decodeURIComponent(segments[segments.length - 1]) || '文件';
+          } catch {
+            displayFileName = '文件';
+          }
+        }
+        // 格式：文件名|说明（如果有说明）
+        const displayText = media.caption
+          ? `${displayFileName}|${media.caption}`
+          : displayFileName;
+        result += `\n\n<figure data-file-block="true" data-file-size="${fileSize}"><a href="${media.url}">${displayText}</a></figure>`;
+      }
+    }
+  }
+
+  return result;
+};
+
 // 修复 markdown 中缺失的思维导图块
 // BlockNote 的 blocksToMarkdownLossy 可能不会正确输出自定义块
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 const fixMindMapBlocksInMarkdown = (
   markdown: string,
   blocks: any[]
@@ -184,6 +354,24 @@ const ALLOWED_SLASH_ITEMS = [
   '待办列表',
 ];
 
+// 获取 API 基础 URL
+const API_BASE_URL = (() => {
+  if (typeof window !== 'undefined') {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const env = (import.meta as any)?.env || {};
+      if (env.VITE_API_URL) {
+        return env.VITE_API_URL;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return 'http://localhost:7777';
+})();
+
+const DEFAULT_UPLOAD_ENDPOINT = `${API_BASE_URL}/api/v1/media/upload`;
+
 export interface CommentEditorProps {
   content?: string;
   onChange?: (markdown: string) => void;
@@ -192,14 +380,18 @@ export interface CommentEditorProps {
   className?: string;
   disabled?: boolean;
   minHeight?: number;
+  /** 认证令牌，用于上传文件 */
+  authToken?: string | null;
+  /** 上传端点 URL */
+  uploadEndpoint?: string;
   /**
    * 当需要打开媒体选择器时触发
-   * @param type - 媒体类型 (image, video, audio)
-   * @param onSelect - 选择完成后的回调,传入选中的媒体URL
+   * @param type - 媒体类型 (image, video, audio, file)
+   * @param onSelect - 选择完成后的回调,传入选中的媒体信息
    */
   onOpenMediaPicker?: (
-    type: 'image' | 'video' | 'audio',
-    onSelect: (url: string) => void
+    type: 'image' | 'video' | 'audio' | 'file',
+    onSelect: (result: MediaSelectResult) => void
   ) => void;
 }
 
@@ -217,6 +409,8 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
       className = '',
       disabled = false,
       minHeight = 120,
+      authToken,
+      uploadEndpoint = DEFAULT_UPLOAD_ENDPOINT,
       onOpenMediaPicker,
     },
     ref
@@ -229,6 +423,20 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
     const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     // 用于防止初始化时触发 onChange
     const isUpdatingFromPropRef = useRef(false);
+    // 用于追踪组件挂载状态
+    const isMountedRef = useRef(true);
+    // 保存最新的 authToken 和 uploadEndpoint
+    const authTokenRef = useRef(authToken);
+    const uploadEndpointRef = useRef(uploadEndpoint);
+
+    // 更新 refs
+    useEffect(() => {
+      authTokenRef.current = authToken;
+    }, [authToken]);
+
+    useEffect(() => {
+      uploadEndpointRef.current = uploadEndpoint;
+    }, [uploadEndpoint]);
 
     // 使用 useCreateBlockNote hook 创建编辑器实例
     // 这个 hook 内部会处理 memoization，确保编辑器实例只创建一次
@@ -246,6 +454,32 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
           checkListItem: '待办事项',
         },
       },
+      uploadFile: async (file: File): Promise<string> => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const headers: Record<string, string> = {};
+        if (authTokenRef.current) {
+          headers['Authorization'] = `Bearer ${authTokenRef.current}`;
+        }
+
+        const response = await fetch(uploadEndpointRef.current, {
+          method: 'POST',
+          headers,
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error('Upload failed');
+        }
+
+        const result = await response.json();
+        if (result.success && result.data?.url) {
+          return result.data.url;
+        }
+
+        throw new Error('Invalid response');
+      },
     });
 
     // 过滤斜杠菜单项并添加自定义媒体块
@@ -258,9 +492,11 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
           'image',
           'video',
           'audio',
+          'file',
           '图片',
           '视频',
           '音频',
+          '文件',
           'toggle',
           'collapsible',
           '折叠',
@@ -330,7 +566,7 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
                 [
                   {
                     type: 'customVideo' as const,
-                    props: { url: '', title: '' },
+                    props: { url: '', caption: '' },
                   },
                 ],
                 currentBlock,
@@ -350,7 +586,7 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
                 [
                   {
                     type: 'customAudio' as const,
-                    props: { url: '', title: '', artist: '' },
+                    props: { url: '', caption: '' },
                   },
                 ],
                 currentBlock,
@@ -360,6 +596,26 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
             aliases: ['audio', 'music', 'sound', 'yinpin'],
             group: '媒体',
             icon: <AudioIcon size={18} />,
+          },
+          {
+            title: '文件',
+            subtext: '插入文件附件',
+            onItemClick: () => {
+              const currentBlock = editor.getTextCursorPosition().block;
+              editor.insertBlocks(
+                [
+                  {
+                    type: 'customFile' as const,
+                    props: { url: '', caption: '', fileSize: 0 },
+                  },
+                ],
+                currentBlock,
+                'after'
+              );
+            },
+            aliases: ['file', 'attachment', 'wenjian', 'fujian'],
+            group: '媒体',
+            icon: <FileIcon size={18} />,
           },
           {
             title: '思维导图',
@@ -490,6 +746,8 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
             markdown = fixCodeBlocksInMarkdown(markdown, blocks);
             // 修复思维导图块问题
             markdown = fixMindMapBlocksInMarkdown(markdown, blocks);
+            // 修复媒体块问题
+            markdown = fixMediaBlocksInMarkdown(markdown, blocks);
             // 修复表格问题
             return fixTableMarkdown(markdown);
           } catch (error) {
@@ -502,9 +760,11 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
       [editor, onChange]
     );
 
-    // 清理定时器
+    // 清理定时器和挂载状态
     useEffect(() => {
+      isMountedRef.current = true;
       return () => {
+        isMountedRef.current = false;
         if (debounceTimerRef.current) {
           clearTimeout(debounceTimerRef.current);
         }
@@ -564,6 +824,9 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
       }
 
       debounceTimerRef.current = setTimeout(() => {
+        // 组件已卸载，跳过处理
+        if (!isMountedRef.current) return;
+
         try {
           const blocks = editor.document;
           // eslint-disable-next-line no-console
@@ -578,6 +841,8 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
           markdown = fixCodeBlocksInMarkdown(markdown, blocks);
           // 修复思维导图块问题
           markdown = fixMindMapBlocksInMarkdown(markdown, blocks);
+          // 修复媒体块问题（customImage, customVideo, customAudio）
+          markdown = fixMediaBlocksInMarkdown(markdown, blocks);
           // 修复表格问题
           markdown = fixTableMarkdown(markdown);
           // eslint-disable-next-line no-console
@@ -589,6 +854,63 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
         }
       }, 200);
     }, [editor, onChange]);
+
+    // 粘贴图片上传功能
+    useEffect(() => {
+      if (disabled || !editor.uploadFile) return;
+
+      const uploadFn = editor.uploadFile;
+
+      const handlePaste = async (e: ClipboardEvent) => {
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        // 查找图片文件
+        for (const item of Array.from(items)) {
+          if (item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (!file) continue;
+
+            e.preventDefault();
+
+            try {
+              // 使用编辑器的 uploadFile 函数上传
+              const result = await uploadFn(file);
+              const url = typeof result === 'string' ? result : null;
+              if (url) {
+                // 在当前光标位置插入 customImage 块
+                const currentBlock = editor.getTextCursorPosition().block;
+                editor.insertBlocks(
+                  [
+                    {
+                      type: 'customImage' as const,
+                      props: { url, caption: '' },
+                    },
+                  ],
+                  currentBlock,
+                  'after'
+                );
+                handleChange(); // 触发内容变化
+                // eslint-disable-next-line no-console
+                console.log('[CommentEditor] Image pasted and uploaded:', url);
+              }
+            } catch (error) {
+              // eslint-disable-next-line no-console
+              console.error(
+                '[CommentEditor] Failed to upload pasted image:',
+                error
+              );
+            }
+            break;
+          }
+        }
+      };
+
+      document.addEventListener('paste', handlePaste);
+      return () => {
+        document.removeEventListener('paste', handlePaste);
+      };
+    }, [editor, disabled, handleChange]);
 
     // 点击外部关闭表情选择器
     useEffect(() => {
@@ -803,10 +1125,13 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
 
       const handleMediaPickerEvent = (event: Event) => {
         const customEvent = event as CustomEvent<{
-          type: 'image' | 'video' | 'audio';
+          type: 'image' | 'video' | 'audio' | 'file';
           blockId: string;
         }>;
         const { type, blockId } = customEvent.detail;
+
+        // 标记事件已被处理
+        customEvent.preventDefault();
 
         // eslint-disable-next-line no-console
         console.log('[CommentEditor] MediaPicker event received:', {
@@ -815,10 +1140,10 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
         });
 
         // 调用父组件的 onOpenMediaPicker,传入选择完成的回调
-        onOpenMediaPicker(type, (url: string) => {
+        onOpenMediaPicker(type, (result: MediaSelectResult) => {
           // eslint-disable-next-line no-console
           console.log('[CommentEditor] MediaPicker selected:', {
-            url,
+            result,
             blockId,
           });
 
@@ -826,9 +1151,23 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const block = editor.document.find((b: any) => b.id === blockId);
           if (block) {
-            editor.updateBlock(block, {
-              props: { ...block.props, url },
-            });
+            // 根据块类型更新不同的属性
+            const newProps: Record<string, unknown> = {
+              ...block.props,
+              url: result.url,
+            };
+            // 文件块需要额外设置 fileName 和 fileSize
+            if (type === 'file' && result.fileName) {
+              newProps.fileName = result.fileName;
+            }
+            if (type === 'file' && result.fileSize) {
+              newProps.fileSize = result.fileSize;
+            }
+            // 音视频块设置 title（使用原始文件名）
+            if ((type === 'audio' || type === 'video') && result.fileName) {
+              newProps.title = result.fileName;
+            }
+            editor.updateBlock(block, { props: newProps });
             // eslint-disable-next-line no-console
             console.log('[CommentEditor] Block updated:', blockId);
             handleChange(); // 触发内容变化

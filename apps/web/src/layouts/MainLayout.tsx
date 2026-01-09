@@ -21,6 +21,7 @@ import { useAuthStore } from '../stores/useAuthStore';
 import { useTheme, useHitokoto } from '../stores/useGlobalStore';
 import { DEFAULT_AVATAR } from '../constants/images';
 import SearchDialog from '../components/SearchDialog';
+import FeedbackDialog from '../components/FeedbackDialog';
 import { api, getMediaUrl } from '@whispers/utils';
 import logoImg from '../assets/logo.png';
 
@@ -71,6 +72,7 @@ const MainLayout: React.FC = () => {
   const navigate = useNavigate();
   const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null);
   const [showSearchDialog, setShowSearchDialog] = useState(false);
+  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -519,7 +521,8 @@ const MainLayout: React.FC = () => {
         <div className="container mx-auto px-4">
           <div className="text-center">
             <p className="text-muted-foreground text-sm mb-2 italic">
-              "{hitokoto?.hitokoto || '生活不止眼前的代码，还有诗和远方。'}"
+              &quot;{hitokoto?.hitokoto || '生活不止眼前的代码，还有诗和远方。'}
+              &quot;
             </p>
             <p className="text-muted-foreground text-xs mb-4">
               —— {hitokoto?.from || '佚名'}
@@ -531,6 +534,13 @@ const MainLayout: React.FC = () => {
                 : ''}{' '}
               {siteConfig?.siteName || 'Whispers of the Heart'}. All rights
               reserved.
+              <span className="mx-2">|</span>
+              <button
+                onClick={() => setShowFeedbackDialog(true)}
+                className="hover:text-foreground transition-colors"
+              >
+                Feedback
+              </button>
             </p>
           </div>
         </div>
@@ -540,6 +550,12 @@ const MainLayout: React.FC = () => {
       <SearchDialog
         isOpen={showSearchDialog}
         onClose={() => setShowSearchDialog(false)}
+      />
+
+      {/* 反馈对话框 */}
+      <FeedbackDialog
+        isOpen={showFeedbackDialog}
+        onClose={() => setShowFeedbackDialog(false)}
       />
     </div>
   );

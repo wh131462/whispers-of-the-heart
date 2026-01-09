@@ -50,16 +50,20 @@
 
 ## UI组件库核心依赖 (@whispers/ui)
 
-| 技术         | 用途         |
-| ------------ | ------------ |
-| BlockNote    | 富文本编辑器 |
-| CodeMirror   | 代码编辑器   |
-| Radix UI     | 无样式组件   |
-| Mantine      | UI组件       |
-| Video.js     | 视频播放器   |
-| React Howler | 音频播放器   |
-| Emoji Mart   | 表情选择器   |
-| highlight.js | 代码高亮     |
+| 技术                             | 用途             |
+| -------------------------------- | ---------------- |
+| BlockNote                        | 富文本编辑器     |
+| @blocknote/xl-ai                 | BlockNote AI扩展 |
+| CodeMirror                       | 代码编辑器       |
+| Radix UI                         | 无样式组件       |
+| Mantine                          | UI组件           |
+| Video.js                         | 视频播放器       |
+| React Howler                     | 音频播放器       |
+| Emoji Mart                       | 表情选择器       |
+| Shiki                            | 代码高亮         |
+| Markmap                          | 思维导图渲染     |
+| KaTeX                            | 数学公式渲染     |
+| @eternalheart/react-file-preview | 文件/图片预览    |
 
 ## 开发工具
 
@@ -181,4 +185,4 @@ pnpm deploy                     # 完整部署流程
 
 ---
 
-**最后更新**: 2025-12-25
+**最后更新**: 2026-01-09

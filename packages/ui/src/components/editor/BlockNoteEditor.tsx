@@ -13,8 +13,20 @@ import {
   FormattingToolbarController,
   FormattingToolbar,
   blockTypeSelectItems,
+  useSelectedBlocks,
+  useBlockNoteEditor,
+  useComponentsContext,
+  useEditorState,
+  BlockTypeSelect,
+  BasicTextStyleButton,
+  TextAlignButton,
+  ColorStyleButton,
+  NestBlockButton,
+  UnnestBlockButton,
+  CreateLinkButton,
 } from '@blocknote/react';
 import { filterSuggestionItems } from '@blocknote/core/extensions';
+import { RefreshCw, Trash2 } from 'lucide-react';
 import { zh } from '@blocknote/core/locales';
 import '@blocknote/mantine/style.css';
 
@@ -34,13 +46,15 @@ import {
   ImageIcon,
   VideoIcon,
   AudioIcon,
+  FileIcon,
   MindMapIcon,
   MathIcon,
 } from './assets/icons';
 import { AIConfig, createLanguageModel, validateAIConfig } from './ai';
+import { type MediaSelectResult } from './MediaPicker';
 
 interface MediaPickerRequest {
-  type: 'image' | 'video' | 'audio';
+  type: 'image' | 'video' | 'audio' | 'file';
   blockId: string;
 }
 
@@ -140,6 +154,218 @@ const extractMindMapBlocks = (blocks: any[]): Array<{ markdown: string }> => {
   return mindMapBlocks;
 };
 
+// 媒体块信息类型
+interface MediaBlockInfo {
+  type: 'customImage' | 'customVideo' | 'customAudio' | 'customFile';
+  url: string;
+  /** 原始文件名（仅 customFile 使用） */
+  fileName?: string;
+  /** 媒体标题/名称（音视频使用） */
+  title?: string;
+  caption: string;
+  width?: number;
+  align?: string;
+  fileSize?: number;
+}
+
+// 从 blocks 中提取媒体块内容
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const extractMediaBlocks = (blocks: any[]): MediaBlockInfo[] => {
+  const mediaBlocks: MediaBlockInfo[] = [];
+  // 类型映射：将可能的别名映射到标准类型
+  const typeMap: Record<string, MediaBlockInfo['type']> = {
+    customImage: 'customImage',
+    customVideo: 'customVideo',
+    customAudio: 'customAudio',
+    customFile: 'customFile',
+    image: 'customImage',
+    video: 'customVideo',
+    audio: 'customAudio',
+    file: 'customFile',
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const traverse = (block: any) => {
+    const mappedType = typeMap[block.type];
+    if (mappedType && block.props?.url) {
+      mediaBlocks.push({
+        type: mappedType,
+        url: block.props.url || '',
+        fileName: block.props.fileName || '',
+        title: block.props.title || '',
+        caption: block.props.caption || '',
+        width: block.props.width,
+        align: block.props.align,
+        fileSize: block.props.fileSize,
+      });
+    }
+    if (block.children) {
+      block.children.forEach(traverse);
+    }
+  };
+
+  blocks.forEach(traverse);
+  return mediaBlocks;
+};
+
+// 修复 markdown 中缺失的媒体块
+// BlockNote 的 blocksToMarkdownLossy 可能不会正确输出自定义媒体块
+const fixMediaBlocksInMarkdown = (
+  markdown: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  blocks: any[]
+): string => {
+  const mediaBlocks = extractMediaBlocks(blocks);
+
+  if (mediaBlocks.length === 0) return markdown;
+
+  let result = markdown;
+
+  // 视频和音频扩展名
+  const videoExtensions = ['.mp4', '.webm', '.mov', '.avi', '.mkv', '.m3u8'];
+  const audioExtensions = ['.mp3', '.wav', '.ogg', '.aac', '.flac', '.m4a'];
+
+  // 清理错误的链接格式：[text](video.mp4) 或 [text](audio.mp3)
+  // 以及错误的图片格式：![](video.mp4) 或 ![](audio.mp3)
+  // 这些应该是媒体块，而不是链接或图片
+  for (const ext of [...videoExtensions, ...audioExtensions]) {
+    const escapedExt = ext.replace('.', '\\.');
+    // 匹配 [任意文本](xxx.ext) 格式的链接
+    const linkRegex = new RegExp(
+      `\\[([^\\]]*)\\]\\(([^)]*${escapedExt})\\)`,
+      'gi'
+    );
+    result = result.replace(linkRegex, '');
+    // 匹配 ![任意文本](xxx.ext) 格式的图片 markdown（视频/音频不应该用图片格式）
+    const imgRegex = new RegExp(
+      `!\\[([^\\]]*)\\]\\(([^)]*${escapedExt})\\)`,
+      'gi'
+    );
+    result = result.replace(imgRegex, '');
+    // 匹配 !(xxx.ext) 格式（BlockNote 可能输出的不完整格式）
+    const bangParenRegex = new RegExp(`!\\(([^)]*${escapedExt})\\)`, 'gi');
+    result = result.replace(bangParenRegex, '');
+  }
+
+  // 清理文件块中被错误解析的链接格式
+  // 只清理已存在于 mediaBlocks 中的文件 URL 对应的链接
+  for (const media of mediaBlocks) {
+    if (media.type === 'customFile') {
+      const urlEscaped = media.url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // 匹配 [任意文本](文件URL) 格式的链接
+      const linkRegex = new RegExp(`\\[([^\\]]*)\\]\\(${urlEscaped}\\)`, 'gi');
+      result = result.replace(linkRegex, '');
+    }
+  }
+
+  // 清理 BlockNote 可能输出的不完整媒体语法
+  // 行首单独的 ! 后面紧跟换行（可能是自定义块的占位符）
+  result = result.replace(/^!\s*$/gm, '');
+  // 清理 !() 空括号格式
+  result = result.replace(/!\(\)/g, '');
+  // 清理 ![] 空方括号格式
+  result = result.replace(/!\[\](?!\()/g, '');
+
+  // 清理音视频块的 title 和 caption 被错误输出为纯文本的情况
+  // BlockNote 可能会将自定义块的属性作为独立的段落输出
+  for (const media of mediaBlocks) {
+    if (media.type === 'customVideo' || media.type === 'customAudio') {
+      // 清理 title 文本（如果作为独立行存在）
+      if (media.title && media.title.trim()) {
+        const titleEscaped = media.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        // 匹配独立的 title 行（前后都是换行或文档边界）
+        const titleRegex = new RegExp(`(^|\\n)${titleEscaped}\\s*(\\n|$)`, 'g');
+        result = result.replace(titleRegex, '$1');
+      }
+      // 清理 caption 文本（如果作为独立行存在）
+      if (media.caption && media.caption.trim()) {
+        const captionEscaped = media.caption.replace(
+          /[.*+?^${}()|[\]\\]/g,
+          '\\$&'
+        );
+        // 匹配独立的 caption 行（前后都是换行或文档边界）
+        const captionRegex = new RegExp(
+          `(^|\\n)${captionEscaped}\\s*(\\n|$)`,
+          'g'
+        );
+        result = result.replace(captionRegex, '$1');
+      }
+      // 清理 title|caption 组合格式（如果作为独立行存在）
+      if (media.title && media.caption) {
+        const combinedText = `${media.title}|${media.caption}`;
+        const combinedEscaped = combinedText.replace(
+          /[.*+?^${}()|[\]\\]/g,
+          '\\$&'
+        );
+        const combinedRegex = new RegExp(
+          `(^|\\n)${combinedEscaped}\\s*(\\n|$)`,
+          'g'
+        );
+        result = result.replace(combinedRegex, '$1');
+      }
+    }
+  }
+
+  // 清理多余的空行
+  result = result.replace(/\n{3,}/g, '\n\n').trim();
+
+  // 检查每个媒体块是否在 markdown 中存在
+  for (const media of mediaBlocks) {
+    const urlEscaped = media.url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    // 检查 URL 是否已经在 markdown 中（作为图片、视频、音频或文件）
+    const urlExists =
+      new RegExp(`!\\[.*?\\]\\(${urlEscaped}\\)`).test(result) || // 图片 markdown
+      new RegExp(`<img[^>]*src=["']${urlEscaped}["']`).test(result) || // img 标签
+      new RegExp(`<video[^>]*src=["']${urlEscaped}["']`).test(result) || // video 标签
+      new RegExp(`<audio[^>]*src=["']${urlEscaped}["']`).test(result) || // audio 标签
+      new RegExp(
+        `<figure[^>]*data-file-block[^>]*>[\\s\\S]*?href=["']${urlEscaped}["']`
+      ).test(result) || // figure 文件块
+      new RegExp(`<a[^>]*href=["']${urlEscaped}["']`).test(result); // a 标签中的 URL
+
+    if (!urlExists) {
+      // 根据类型生成对应的 markdown/HTML
+      if (media.type === 'customImage') {
+        result += `\n\n![${media.caption || '图片'}](${media.url})`;
+      } else if (media.type === 'customVideo') {
+        // 视频输出 title|caption 格式
+        const videoDisplayText = media.caption
+          ? `${media.title || ''}|${media.caption}`
+          : media.title || '';
+        result += `\n\n<video src="${media.url}" controls>${videoDisplayText}</video>`;
+      } else if (media.type === 'customAudio') {
+        // 音频输出 title|caption 格式
+        const audioDisplayText = media.caption
+          ? `${media.title || ''}|${media.caption}`
+          : media.title || '';
+        result += `\n\n<audio src="${media.url}" controls>${audioDisplayText}</audio>`;
+      } else if (media.type === 'customFile') {
+        // 文件块输出为 figure 包裹的格式，与 toExternalHTML 一致，确保能被正确解析
+        const fileSize = media.fileSize || 0;
+        // 优先使用 fileName 属性，其次从 URL 提取
+        let displayFileName = media.fileName || '';
+        if (!displayFileName) {
+          try {
+            const pathname = media.url.split('?')[0];
+            const segments = pathname.split('/');
+            displayFileName =
+              decodeURIComponent(segments[segments.length - 1]) || '文件';
+          } catch {
+            displayFileName = '文件';
+          }
+        }
+        // 格式：文件名|说明（如果有说明）
+        const displayText = media.caption
+          ? `${displayFileName}|${media.caption}`
+          : displayFileName;
+        result += `\n\n<figure data-file-block="true" data-file-size="${fileSize}"><a href="${media.url}">${displayText}</a></figure>`;
+      }
+    }
+  }
+
+  return result;
+};
+
 // 修复 markdown 中缺失的思维导图块
 // BlockNote 的 blocksToMarkdownLossy 可能不会正确输出自定义块
 const fixMindMapBlocksInMarkdown = (
@@ -206,6 +432,169 @@ const API_BASE_URL = (() => {
 
 const DEFAULT_UPLOAD_ENDPOINT = `${API_BASE_URL}/api/v1/media/upload`;
 
+// 媒体块类型列表
+const MEDIA_BLOCK_TYPES = [
+  'customImage',
+  'customVideo',
+  'customAudio',
+  'customFile',
+];
+
+// 媒体块类型到中文名称的映射
+const MEDIA_TYPE_NAMES: Record<string, string> = {
+  customImage: '图片',
+  customVideo: '视频',
+  customAudio: '音频',
+  customFile: '文件',
+};
+
+// 媒体替换按钮
+const MediaReplaceButton: React.FC = () => {
+  const Components = useComponentsContext();
+  const editor = useBlockNoteEditor();
+
+  const block = useEditorState({
+    editor,
+    selector: ({ editor }) => {
+      if (!editor.isEditable) return undefined;
+      const selectedBlocks = editor.getSelection()?.blocks || [
+        editor.getTextCursorPosition().block,
+      ];
+      if (selectedBlocks.length !== 1) return undefined;
+      const block = selectedBlocks[0];
+      if (!MEDIA_BLOCK_TYPES.includes(block.type)) return undefined;
+      return block;
+    },
+  });
+
+  if (!block || !Components) return null;
+
+  const typeName = MEDIA_TYPE_NAMES[block.type] || '媒体';
+
+  return (
+    <Components.FormattingToolbar.Button
+      className="bn-button"
+      mainTooltip={`替换${typeName}`}
+      onClick={() => {
+        // 触发媒体选择器事件
+        const mediaTypeMap: Record<
+          string,
+          'image' | 'video' | 'audio' | 'file'
+        > = {
+          customImage: 'image',
+          customVideo: 'video',
+          customAudio: 'audio',
+          customFile: 'file',
+        };
+        const mediaType = mediaTypeMap[block.type] || 'file';
+        const event = new CustomEvent('blocknote:openMediaPicker', {
+          cancelable: true,
+          detail: { type: mediaType, blockId: block.id },
+        });
+        window.dispatchEvent(event);
+      }}
+    >
+      <RefreshCw size={16} />
+    </Components.FormattingToolbar.Button>
+  );
+};
+
+// 媒体删除按钮
+const MediaDeleteButton: React.FC = () => {
+  const Components = useComponentsContext();
+  const editor = useBlockNoteEditor();
+
+  const block = useEditorState({
+    editor,
+    selector: ({ editor }) => {
+      if (!editor.isEditable) return undefined;
+      const selectedBlocks = editor.getSelection()?.blocks || [
+        editor.getTextCursorPosition().block,
+      ];
+      if (selectedBlocks.length !== 1) return undefined;
+      const block = selectedBlocks[0];
+      if (!MEDIA_BLOCK_TYPES.includes(block.type)) return undefined;
+      return block;
+    },
+  });
+
+  const onClick = useCallback(() => {
+    if (block) {
+      editor.focus();
+      editor.removeBlocks([block.id]);
+    }
+  }, [block, editor]);
+
+  if (!block || !Components) return null;
+
+  const typeName = MEDIA_TYPE_NAMES[block.type] || '媒体';
+
+  return (
+    <Components.FormattingToolbar.Button
+      className="bn-button"
+      mainTooltip={`删除${typeName}`}
+      onClick={onClick}
+    >
+      <Trash2 size={16} />
+    </Components.FormattingToolbar.Button>
+  );
+};
+
+// 自定义 FormattingToolbar，在媒体块选中时隐藏 AI 按钮，显示媒体操作按钮
+const CustomFormattingToolbar: React.FC<{
+  blockTypeSelectItems: ReturnType<typeof blockTypeSelectItems>;
+  showAIButton: boolean;
+}> = ({ blockTypeSelectItems: items, showAIButton }) => {
+  const selectedBlocks = useSelectedBlocks();
+
+  // 检查是否选中了媒体块
+  const isMediaBlockSelected = selectedBlocks.some(block =>
+    MEDIA_BLOCK_TYPES.includes(block.type)
+  );
+
+  // 媒体块选中时不显示 AI 按钮，显示媒体操作按钮
+  const shouldShowAIButton = showAIButton && !isMediaBlockSelected;
+
+  return (
+    <FormattingToolbar>
+      {/* AI 编辑按钮放在最前面 */}
+      {shouldShowAIButton && <AIToolbarButton />}
+
+      {/* 段落类型选择 */}
+      <BlockTypeSelect items={items} />
+
+      {/* 基本文本样式 */}
+      <BasicTextStyleButton basicTextStyle="bold" />
+      <BasicTextStyleButton basicTextStyle="italic" />
+      <BasicTextStyleButton basicTextStyle="underline" />
+      <BasicTextStyleButton basicTextStyle="strike" />
+
+      {/* 文本对齐 */}
+      <TextAlignButton textAlignment="left" />
+      <TextAlignButton textAlignment="center" />
+      <TextAlignButton textAlignment="right" />
+
+      {/* 颜色 */}
+      <ColorStyleButton />
+
+      {/* 缩进 */}
+      <NestBlockButton />
+      <UnnestBlockButton />
+
+      {/* 链接 */}
+      <CreateLinkButton />
+
+      {/* 媒体块选中时显示替换和删除按钮 */}
+      {isMediaBlockSelected && (
+        <>
+          <MediaReplaceButton />
+          <MediaDeleteButton />
+        </>
+      )}
+    </FormattingToolbar>
+  );
+};
+
 export interface BlockNoteEditorProps {
   content?: string;
   onChange?: (markdown: string) => void;
@@ -217,12 +606,12 @@ export interface BlockNoteEditorProps {
   onInsertImage?: (url: string) => void;
   /**
    * 当需要打开媒体选择器时触发
-   * @param type - 媒体类型 (image, video, audio)
-   * @param onSelect - 选择完成后的回调,传入选中的媒体URL
+   * @param type - 媒体类型 (image, video, audio, file)
+   * @param onSelect - 选择完成后的回调,传入选中的媒体信息
    */
   onOpenMediaPicker?: (
-    type: 'image' | 'video' | 'audio',
-    onSelect: (url: string) => void
+    type: 'image' | 'video' | 'audio' | 'file',
+    onSelect: (result: MediaSelectResult) => void
   ) => void;
   /**
    * AI 配置
@@ -344,9 +733,11 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
         'image',
         'video',
         'audio',
+        'file',
         '图片',
         '视频',
         '音频',
+        '文件',
         'toggle',
         'collapsible',
         '折叠',
@@ -408,7 +799,12 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
           onItemClick: () => {
             const currentBlock = editor.getTextCursorPosition().block;
             editor.insertBlocks(
-              [{ type: 'customVideo' as const, props: { url: '', title: '' } }],
+              [
+                {
+                  type: 'customVideo' as const,
+                  props: { url: '', caption: '' },
+                },
+              ],
               currentBlock,
               'after'
             );
@@ -426,7 +822,7 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
               [
                 {
                   type: 'customAudio' as const,
-                  props: { url: '', title: '', artist: '' },
+                  props: { url: '', caption: '' },
                 },
               ],
               currentBlock,
@@ -436,6 +832,26 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
           aliases: ['audio', 'music', 'sound', 'yinpin'],
           group: '媒体',
           icon: <AudioIcon size={18} />,
+        },
+        {
+          title: '文件',
+          subtext: '插入文件附件',
+          onItemClick: () => {
+            const currentBlock = editor.getTextCursorPosition().block;
+            editor.insertBlocks(
+              [
+                {
+                  type: 'customFile' as const,
+                  props: { url: '', caption: '', fileSize: 0 },
+                },
+              ],
+              currentBlock,
+              'after'
+            );
+          },
+          aliases: ['file', 'attachment', 'wenjian', 'fujian'],
+          group: '媒体',
+          icon: <FileIcon size={18} />,
         },
         {
           title: '思维导图',
@@ -528,6 +944,62 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
     };
   }, []);
 
+  // 粘贴图片上传功能
+  useEffect(() => {
+    if (!editable || !editor.uploadFile) return;
+
+    const uploadFn = editor.uploadFile;
+
+    const handlePaste = async (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      // 查找图片文件
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (!file) continue;
+
+          e.preventDefault();
+
+          try {
+            // 使用编辑器的 uploadFile 函数上传
+            const result = await uploadFn(file);
+            const url = typeof result === 'string' ? result : null;
+            if (url) {
+              // 在当前光标位置插入 customImage 块
+              const currentBlock = editor.getTextCursorPosition().block;
+              editor.insertBlocks(
+                [
+                  {
+                    type: 'customImage' as const,
+                    props: { url, caption: '' },
+                  },
+                ],
+                currentBlock,
+                'after'
+              );
+              // eslint-disable-next-line no-console
+              console.log('[BlockNoteEditor] Image pasted and uploaded:', url);
+            }
+          } catch (error) {
+            // eslint-disable-next-line no-console
+            console.error(
+              '[BlockNoteEditor] Failed to upload pasted image:',
+              error
+            );
+          }
+          break;
+        }
+      }
+    };
+
+    document.addEventListener('paste', handlePaste);
+    return () => {
+      document.removeEventListener('paste', handlePaste);
+    };
+  }, [editor, editable]);
+
   // 修复 AI 输入框中文输入法 composing 状态下回车直接发送的问题
   useEffect(() => {
     if (!isAIEnabled) return;
@@ -587,12 +1059,19 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
           // eslint-disable-next-line no-console
           console.log('[BlockNoteEditor] Input markdown:', content);
 
-          // 检查是否包含 markmap 代码块
+          // 检查是否包含需要特殊处理的内容
           const hasMarkmap = /```markmap\n([\s\S]*?)```/.test(content);
+          const hasMediaTags =
+            /<video[^>]*src=/i.test(content) ||
+            /<audio[^>]*src=/i.test(content) ||
+            /<figure[^>]*data-file-block/i.test(content);
 
-          if (hasMarkmap) {
+          if (hasMarkmap || hasMediaTags) {
             // 预处理 markdown，将 ```markmap 转换为可识别的 HTML 格式
-            const processedContent = preprocessMarkdownForMindMap(content);
+            let processedContent = content;
+            if (hasMarkmap) {
+              processedContent = preprocessMarkdownForMindMap(processedContent);
+            }
             // eslint-disable-next-line no-console
             console.log(
               '[BlockNoteEditor] Processed content (HTML):',
@@ -677,6 +1156,8 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
         markdown = fixCodeBlocksInMarkdown(markdown, blocks);
         // 修复思维导图块问题
         markdown = fixMindMapBlocksInMarkdown(markdown, blocks);
+        // 修复媒体块问题（customImage, customVideo, customAudio）
+        markdown = fixMediaBlocksInMarkdown(markdown, blocks);
         // 修复表格问题
         markdown = fixTableMarkdown(markdown);
 
@@ -698,6 +1179,9 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
       const customEvent = event as CustomEvent<MediaPickerRequest>;
       const { type, blockId } = customEvent.detail;
 
+      // 标记事件已被处理
+      customEvent.preventDefault();
+
       // eslint-disable-next-line no-console
       console.log('[BlockNoteEditor] MediaPicker event received:', {
         type,
@@ -708,10 +1192,10 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
       setMediaPickerRequest({ type, blockId });
 
       // 调用父组件的 onOpenMediaPicker,传入选择完成的回调
-      onOpenMediaPicker(type, (url: string) => {
+      onOpenMediaPicker(type, (result: MediaSelectResult) => {
         // eslint-disable-next-line no-console
         console.log('[BlockNoteEditor] MediaPicker selected:', {
-          url,
+          result,
           blockId,
         });
 
@@ -719,9 +1203,23 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const block = editor.document.find((b: any) => b.id === blockId);
         if (block) {
-          editor.updateBlock(block, {
-            props: { ...block.props, url },
-          });
+          // 根据块类型更新不同的属性
+          const newProps: Record<string, unknown> = {
+            ...block.props,
+            url: result.url,
+          };
+          // 文件块需要额外设置 fileName 和 fileSize
+          if (type === 'file' && result.fileName) {
+            newProps.fileName = result.fileName;
+          }
+          if (type === 'file' && result.fileSize) {
+            newProps.fileSize = result.fileSize;
+          }
+          // 音视频块设置 title（使用原始文件名）
+          if ((type === 'audio' || type === 'video') && result.fileName) {
+            newProps.title = result.fileName;
+          }
+          editor.updateBlock(block, { props: newProps });
           // eslint-disable-next-line no-console
           console.log('[BlockNoteEditor] Block updated:', blockId);
         } else {
@@ -785,14 +1283,13 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
           getItems={getCustomSlashMenuItems}
         />
 
-        {/* 自定义 FormattingToolbar，启用 AI 时添加 AI 按钮 */}
+        {/* 自定义 FormattingToolbar，启用 AI 时添加 AI 按钮（媒体块除外） */}
         <FormattingToolbarController
           formattingToolbar={() => (
-            <FormattingToolbar
+            <CustomFormattingToolbar
               blockTypeSelectItems={getFilteredBlockTypeSelectItems()}
-            >
-              {isAIEnabled && <AIToolbarButton />}
-            </FormattingToolbar>
+              showAIButton={isAIEnabled}
+            />
           )}
         />
       </BlockNoteView>
@@ -807,7 +1304,7 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
 
         .blocknote-wrapper .bn-container {
           border-radius: 0.5rem;
-          overflow: hidden;
+          overflow: visible;
         }
 
         .blocknote-wrapper .bn-editor {

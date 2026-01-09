@@ -20,6 +20,7 @@ import { LoggerModule } from './common/logger/logger.module';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { MailModule } from './mail/mail.module';
 import { NotificationModule } from './notification/notification.module';
+import { FeedbackModule } from './feedback/feedback.module';
 
 // 查找项目根目录的 configs 文件夹
 function findConfigsDir(): string {
@@ -51,7 +52,9 @@ const configsDir = findConfigsDir();
     }),
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'fallback-secret',
-      signOptions: { expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as StringValue },
+      signOptions: {
+        expiresIn: (process.env.JWT_EXPIRES_IN || '7d') as StringValue,
+      },
     }),
     PassportModule,
     PrismaModule,
@@ -65,6 +68,7 @@ const configsDir = findConfigsDir();
     MediaModule,
     AdminModule,
     NotificationModule,
+    FeedbackModule,
   ],
   controllers: [AppController, HitokotoController],
   providers: [AppService],

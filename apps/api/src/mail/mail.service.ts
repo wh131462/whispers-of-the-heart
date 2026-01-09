@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
 import { ConfigService } from '@nestjs/config';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { join } from 'path';
 import { readFileSync, readdirSync, existsSync } from 'fs';
@@ -10,6 +11,7 @@ export interface SendMailOptions {
   to: string;
   subject: string;
   template?: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   context?: Record<string, any>;
   html?: string;
   text?: string;
@@ -67,6 +69,7 @@ export class MailService implements OnModuleInit {
 
     try {
       // 获取 nodemailer transporter 并验证连接
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const transporter = (this.mailerService as any).transporter;
       if (transporter && typeof transporter.verify === 'function') {
         await transporter.verify();
@@ -77,6 +80,7 @@ export class MailService implements OnModuleInit {
         this.logger.warn('无法获取 transporter，跳过连接验证');
         return false;
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       this.isConnected = false;
       this.logger.error('❌ SMTP 连接验证失败');
@@ -176,6 +180,7 @@ export class MailService implements OnModuleInit {
       });
 
       return true;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       // 详细的错误日志
       this.logger.error(`邮件发送失败: ${to} - ${subject}`);
@@ -347,6 +352,25 @@ export class MailService implements OnModuleInit {
   }
 
   /**
+   * 发送反馈回复邮件
+   */
+  async sendFeedbackReply(
+    to: string,
+    originalContent: string,
+    replyContent: string,
+  ): Promise<boolean> {
+    return this.sendMail({
+      to,
+      subject: `您的反馈已处理 - ${this.appName}`,
+      template: 'feedback-reply',
+      context: {
+        originalContent: this.truncateText(originalContent, 500),
+        replyContent,
+      },
+    });
+  }
+
+  /**
    * 截断文本
    */
   private truncateText(text: string, maxLength: number): string {
@@ -365,7 +389,7 @@ export class MailService implements OnModuleInit {
   ) {
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: Prisma.MailLogWhereInput = {};
     if (status && status !== 'all') {
       where.status = status;
     }
@@ -533,6 +557,28 @@ export class MailService implements OnModuleInit {
           expiresIn: '10分钟',
         },
       },
+      'feedback-notification': {
+        name: '反馈通知',
+        description: '收到新用户反馈时通知管理员',
+        subject: `[功能建议] 收到新的用户反馈`,
+        mockData: {
+          typeLabel: '功能建议',
+          content: '希望能增加深色模式的支持，这样晚上看文章更舒适。',
+          contact: 'user@example.com',
+          createdAt: new Date().toLocaleString('zh-CN'),
+          feedbackId: 'clx1234567890',
+        },
+      },
+      'feedback-reply': {
+        name: '反馈回复',
+        description: '管理员回复用户反馈时发送',
+        subject: `您的反馈已处理 - ${this.appName}`,
+        mockData: {
+          originalContent: '希望能增加深色模式的支持，这样晚上看文章更舒适。',
+          replyContent:
+            '感谢您的建议！我们已经在计划中添加深色模式功能，预计将在下个版本中上线，届时会通知您。',
+        },
+      },
     };
 
     const templateDir = this.getTemplateDir();
@@ -576,6 +622,7 @@ export class MailService implements OnModuleInit {
    */
   renderTemplatePreview(
     templateName: string,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     context: Record<string, any>,
   ): string {
     const templateDir = this.getTemplateDir();

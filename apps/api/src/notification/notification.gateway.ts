@@ -57,6 +57,7 @@ export class NotificationGateway
   }
 
   // 推送新评论通知给管理员
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   notifyNewComment(comment: any) {
     this.server.to('admin').emit('newComment', {
       type: 'NEW_COMMENT',
@@ -67,6 +68,7 @@ export class NotificationGateway
   }
 
   // 推送评论状态更新
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   notifyCommentStatusChange(comment: any, action: string) {
     this.server.to('admin').emit('commentStatusChange', {
       type: 'COMMENT_STATUS_CHANGE',
@@ -77,9 +79,31 @@ export class NotificationGateway
   }
 
   // 推送评论统计更新
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   notifyStatsUpdate(stats: any) {
     this.server.to('admin').emit('statsUpdate', {
       type: 'STATS_UPDATE',
+      data: stats,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  // 推送新反馈通知给管理员
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  notifyNewFeedback(feedback: any) {
+    this.server.to('admin').emit('newFeedback', {
+      type: 'NEW_FEEDBACK',
+      data: feedback,
+      timestamp: new Date().toISOString(),
+    });
+    this.logger.log(`New feedback notification sent: ${feedback.id}`);
+  }
+
+  // 推送反馈统计更新
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  notifyFeedbackStatsUpdate(stats: any) {
+    this.server.to('admin').emit('feedbackStatsUpdate', {
+      type: 'FEEDBACK_STATS_UPDATE',
       data: stats,
       timestamp: new Date().toISOString(),
     });

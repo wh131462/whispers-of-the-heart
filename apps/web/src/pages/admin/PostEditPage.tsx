@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Button, BlockNoteEditor } from '@whispers/ui';
+import { Button, BlockNoteEditor, type MediaSelectResult } from '@whispers/ui';
 import {
   Save,
   ArrowLeft,
@@ -76,9 +76,11 @@ const PostEditPage: React.FC = () => {
   const [showEditorMediaPicker, setShowEditorMediaPicker] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editorMediaType, setEditorMediaType] = useState<
-    'image' | 'video' | 'audio'
+    'image' | 'video' | 'audio' | 'file'
   >('image');
-  const editorMediaCallbackRef = useRef<((url: string) => void) | null>(null);
+  const editorMediaCallbackRef = useRef<
+    ((result: MediaSelectResult) => void) | null
+  >(null);
 
   useEffect(() => {
     if (accessToken) {
@@ -113,6 +115,7 @@ const PostEditPage: React.FC = () => {
         setTags(response.data);
       }
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error('Failed to fetch tags:', err);
     }
   };
@@ -123,6 +126,7 @@ const PostEditPage: React.FC = () => {
       const response = await blogApi.getPostForEdit(id!);
 
       if (response.success && response.data) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const apiPost = response.data as any;
         contentRef.current = apiPost.content;
         // 从 postTags 数组中提取标签名称
@@ -148,6 +152,7 @@ const PostEditPage: React.FC = () => {
         navigate('/admin/posts');
       }
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error('Failed to fetch post:', err);
       showError('获取文章失败');
       navigate('/admin/posts');
@@ -192,7 +197,9 @@ const PostEditPage: React.FC = () => {
       } else {
         showError(response.message || '保存失败');
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
+      // eslint-disable-next-line no-console
       console.error('Failed to save post:', err);
       if (err.statusCode === 409) {
         showError('文章标题已存在');
@@ -210,6 +217,7 @@ const PostEditPage: React.FC = () => {
       success('文章删除成功！');
       navigate('/admin/posts');
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error('Failed to delete post:', err);
       showError('删除文章失败');
     }
@@ -248,7 +256,9 @@ const PostEditPage: React.FC = () => {
       } else {
         showError(response.message || '创建标签失败');
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
+      // eslint-disable-next-line no-console
       console.error('Failed to create tag:', err);
       if (err.response?.status === 409) {
         showError('标签已存在');
@@ -420,10 +430,6 @@ const PostEditPage: React.FC = () => {
               authToken={accessToken}
               aiConfig={getAIConfig()}
               onOpenMediaPicker={(type, onSelect) => {
-                console.log(
-                  '[PostEditPage] Opening media picker for editor:',
-                  type
-                );
                 setEditorMediaType(type);
                 editorMediaCallbackRef.current = onSelect;
                 setShowEditorMediaPicker(true);
@@ -452,10 +458,13 @@ const PostEditPage: React.FC = () => {
           setShowEditorMediaPicker(false);
           editorMediaCallbackRef.current = null;
         }}
-        onSelect={url => {
-          console.log('[PostEditPage] Media selected for editor:', url);
+        onSelect={(url, media) => {
           if (editorMediaCallbackRef.current) {
-            editorMediaCallbackRef.current(url);
+            editorMediaCallbackRef.current({
+              url,
+              fileName: media?.originalName,
+              fileSize: media?.size,
+            });
           }
           setShowEditorMediaPicker(false);
           editorMediaCallbackRef.current = null;
@@ -466,7 +475,9 @@ const PostEditPage: React.FC = () => {
             ? '选择图片'
             : editorMediaType === 'video'
               ? '选择视频'
-              : '选择音频'
+              : editorMediaType === 'audio'
+                ? '选择音频'
+                : '选择文件'
         }
       />
 

@@ -7,7 +7,6 @@ import type { AudioPlayerProps } from '../../AudioPlayer';
 export interface AudioRendererProps {
   src: string;
   title: string;
-  artist?: string;
   className?: string;
 }
 
@@ -18,12 +17,11 @@ export interface AudioRendererProps {
 export const AudioRenderer: React.FC<AudioRendererProps> = ({
   src,
   title,
-  artist,
   className,
 }) => {
   return (
     <div className={className}>
-      <AudioPlayer src={src} title={title} artist={artist} />
+      <AudioPlayer src={src} title={title} />
     </div>
   );
 };

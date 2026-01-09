@@ -42,6 +42,7 @@ export {
   PopoverTrigger,
   PopoverContent,
 } from './components/ui/popover';
+export { FileTree } from './components/ui/file-tree';
 export { default as MarkdownRenderer } from './components/markdown-renderer';
 export { default as DefaultAvatar } from './components/DefaultAvatar';
 export { Avatar, AvatarImage, AvatarFallback } from './components/Avatar';
@@ -52,6 +53,13 @@ export type {
   CommentEditorProps,
   CommentEditorRef,
 } from './components/editor/CommentEditor';
+export { MediaPicker } from './components/editor/MediaPicker';
+export type {
+  MediaPickerProps,
+  MediaItem,
+  MediaType,
+  MediaSelectResult,
+} from './components/editor/MediaPicker';
 
 // 媒体播放器组件
 export { default as AudioPlayer } from './components/AudioPlayer';
@@ -69,8 +77,12 @@ export {
   CustomImageBlock,
   CustomVideoBlock,
   CustomAudioBlock,
+  CustomFileBlock,
   MindMapBlock,
 } from './components/editor/blocks';
+
+// 文件类型图标
+export { FileTypeIcon } from './components/editor/blocks/shared/FileTypeIcon';
 
 // AI 配置
 export type { AIConfig, AIProvider } from './components/editor/ai';
@@ -93,6 +105,7 @@ export type {
   SkeletonTableProps,
 } from './components/ui/skeleton';
 export type { TreeNode } from './components/ui/tree-select';
+export type { FileNode, FileTreeProps } from './components/ui/file-tree';
 export type { AudioPlayerProps } from './components/AudioPlayer';
 export type { VideoPlayerProps } from './components/VideoPlayer';
 export type { MindMapRendererProps } from './components/MindMapRenderer';
