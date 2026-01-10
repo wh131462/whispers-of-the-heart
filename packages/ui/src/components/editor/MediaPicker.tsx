@@ -104,9 +104,8 @@ export const MediaPicker: React.FC<MediaPickerProps> = ({
     try {
       const items = await fetchMedia(type);
       setMediaList(items);
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('[MediaPicker] Failed to fetch media:', error);
+    } catch {
+      // 静默处理错误
     } finally {
       setLoading(false);
     }
@@ -139,22 +138,8 @@ export const MediaPicker: React.FC<MediaPickerProps> = ({
     return items;
   }, [mediaList, type, searchTerm]);
 
-  // 转换为树形结构
+  // 转换为树形结构（始终按类型分组）
   const fileTreeData: FileNode[] = useMemo(() => {
-    if (type !== 'all') {
-      // 如果指定了类型，直接展示文件列表（不分组）
-      return filteredMedia.map((item): FileNode => {
-        const ext = item.originalName.split('.').pop()?.toLowerCase() || '';
-        return {
-          name: item.originalName,
-          type: 'file',
-          extension: ext,
-          id: item.id,
-          data: item,
-        };
-      });
-    }
-
     // 按类型分组
     const images = filteredMedia.filter(
       m => getMediaType(m.mimeType) === 'image'

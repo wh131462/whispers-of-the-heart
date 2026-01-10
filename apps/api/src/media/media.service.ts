@@ -128,6 +128,14 @@ export class MediaService {
     return media;
   }
 
+  // 从文件路径提取相对于 uploads 目录的路径
+  private getRelativePathFromUploads(filePath: string): string {
+    const uploadsDir = path.join(process.cwd(), 'uploads');
+    const relativePath = path.relative(uploadsDir, filePath);
+    // 确保使用正斜杠（URL 格式）
+    return relativePath.replace(/\\/g, '/');
+  }
+
   async create(
     file: Express.Multer.File,
     uploaderId: string,
@@ -151,22 +159,23 @@ export class MediaService {
     // 计算文件哈希值
     const fileHash = await this.calculateFileHash(filePath);
 
+    // 从文件路径提取相对路径（包含用户目录和类型子目录）
+    const relativePath = this.getRelativePathFromUploads(filePath);
+
     // 检查是否已存在相同内容的文件
     const existingMedia = await this.findByHash(fileHash);
     if (existingMedia) {
-      // 如果旧文件物理上不存在，使用新上传的文件更新记录
-      const oldFilePath = path.join(
-        process.cwd(),
-        'uploads',
-        existingMedia.filename,
-      );
+      // 解析旧文件的路径（可能是旧格式或新格式）
+      const oldRelativePath = existingMedia.url.replace(/^\/uploads\//, '');
+      const oldFilePath = path.join(process.cwd(), 'uploads', oldRelativePath);
+
       if (!fs.existsSync(oldFilePath)) {
         // 旧文件不存在，更新记录使用新文件
-        const url = `/uploads/${file.filename}`;
+        const url = `/uploads/${relativePath}`;
         return this.prisma.media.update({
           where: { id: existingMedia.id },
           data: {
-            filename: file.filename,
+            filename: relativePath, // 存储相对路径
             url,
             thumbnail: file.mimetype.startsWith('image/')
               ? url
@@ -192,7 +201,7 @@ export class MediaService {
     }
 
     // 使用相对路径，让前端/nginx 自动拼接域名
-    const url = `/uploads/${file.filename}`;
+    const url = `/uploads/${relativePath}`;
 
     // 修复中文文件名编码问题：Multer 使用 Latin1 编码，需要转换为 UTF-8
     let originalName = file.originalname;
@@ -212,7 +221,7 @@ export class MediaService {
 
     return this.prisma.media.create({
       data: {
-        filename: file.filename,
+        filename: relativePath, // 存储相对路径（包含用户目录和类型子目录）
         originalName,
         mimeType: file.mimetype,
         size: file.size,

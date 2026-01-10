@@ -23,6 +23,7 @@ import { extname, join } from 'path';
 import { randomBytes } from 'crypto';
 import { existsSync, mkdirSync } from 'fs';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { MediaService } from './media.service';
 import { Request as ExpressRequest } from 'express';
 
@@ -44,17 +45,36 @@ const generateFilename = () => {
   return `${timestamp}-${random}`;
 };
 
+// 根据 MIME 类型获取子目录名称
+const getSubdirByMimeType = (mimeType: string): string => {
+  if (mimeType.startsWith('image/')) return 'images';
+  if (mimeType.startsWith('video/')) return 'videos';
+  if (mimeType.startsWith('audio/')) return 'audios';
+  return 'files';
+};
+
 // 使用绝对路径确保上传目录一致
 const uploadsDir = join(process.cwd(), 'uploads');
 
-// 确保上传目录存在
+// 确保基础上传目录存在
 if (!existsSync(uploadsDir)) {
   mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Multer storage configuration
+// Multer storage configuration - 动态生成目录
 const storage = diskStorage({
-  destination: uploadsDir,
+  destination: (req: AuthenticatedRequest, file, callback) => {
+    const userId = req.user?.id || 'anonymous';
+    const subdir = getSubdirByMimeType(file.mimetype);
+    const destDir = join(uploadsDir, userId, subdir);
+
+    // 确保用户目录存在
+    if (!existsSync(destDir)) {
+      mkdirSync(destDir, { recursive: true });
+    }
+
+    callback(null, destDir);
+  },
   filename: (req, file, callback) => {
     const uniqueSuffix = generateFilename();
     const ext = extname(file.originalname);
@@ -97,6 +117,7 @@ export class MediaController {
   constructor(private readonly mediaService: MediaService) {}
 
   @Get()
+  @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation({ summary: '获取媒体列表' })
   async findAll(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
@@ -104,26 +125,55 @@ export class MediaController {
     @Query('type') type?: string,
     @Query('search') search?: string,
     @Query('uploaderId') uploaderId?: string,
+    @Query('all') all?: string, // 管理员专用：查询所有文件
     @Request() req?: AuthenticatedRequest,
   ) {
+    const userId = req?.user?.id;
+    const isAdmin = req?.user?.isAdmin || false;
+
+    // 权限控制：
+    // - 未登录用户：无法查询
+    // - 普通用户：只能查询自己的文件
+    // - 管理员：可以查询所有文件（需传 all=true），否则默认查询自己的
+    let effectiveUploaderId = uploaderId;
+
+    if (!userId) {
+      // 未登录用户返回空列表
+      return {
+        success: true,
+        data: {
+          items: [],
+          total: 0,
+          page: 1,
+          totalPages: 0,
+          canDelete: false,
+          canForceDelete: false,
+        },
+      };
+    }
+
+    if (!isAdmin) {
+      // 普通用户强制只能查询自己的文件
+      effectiveUploaderId = userId;
+    } else if (all !== 'true' && !uploaderId) {
+      // 管理员未指定 all=true 且未指定 uploaderId，默认查询自己的
+      effectiveUploaderId = userId;
+    }
+
     const skip = (page - 1) * limit;
     const result = await this.mediaService.findAll({
       skip,
       take: limit,
       mimeType: type,
       search,
-      uploaderId,
+      uploaderId: effectiveUploaderId,
     });
-
-    // 添加权限标识
-    const userId = req?.user?.id;
-    const isAdmin = req?.user?.isAdmin || false;
 
     return {
       success: true,
       data: {
         ...result,
-        canDelete: !!userId, // 登录用户可以删除自己的文件
+        canDelete: true, // 登录用户可以删除自己的文件
         canForceDelete: isAdmin, // 只有管理员可以强制删除
       },
     };

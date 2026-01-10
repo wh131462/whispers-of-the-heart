@@ -25,7 +25,8 @@
     "prisma:studio": "prisma studio",
     "prisma:seed": "ts-node prisma/seed.ts",
     "db:push": "prisma db push",
-    "db:reset": "prisma migrate reset"
+    "db:reset": "prisma migrate reset",
+    "migrate:media": "ts-node scripts/migrate-media-structure.ts"
   },
   "dependencies": {
     "@nestjs-modules/mailer": "^2.0.2",

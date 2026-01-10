@@ -1,125 +1,162 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
-import { Button } from '../components/ui/button'
-import { Input } from '../components/ui/input'
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '../components/ui/input-otp'
-import { Label } from '../components/ui/label'
-import { Textarea } from '../components/ui/textarea'
-import { useAuthStore } from '../stores/useAuthStore'
-import { User, Mail, Calendar, Edit, Save, X, Upload, Loader2, CheckCircle, AlertCircle } from 'lucide-react'
-import { DEFAULT_AVATAR } from '../constants/images'
-import { api, getMediaUrl } from '@whispers/utils'
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import {
+  InputOTP,
+  InputOTPGroup,
+  InputOTPSlot,
+} from '../components/ui/input-otp';
+import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
+import { useAuthStore } from '../stores/useAuthStore';
+import {
+  User,
+  Mail,
+  Calendar,
+  Edit,
+  Save,
+  X,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+  Image,
+} from 'lucide-react';
+import { DEFAULT_AVATAR } from '../constants/images';
+import { api, getMediaUrl, setAuthToken } from '@whispers/utils';
+import {
+  MediaPicker,
+  type MediaType,
+  type MediaItem,
+  type MediaSelectResult,
+} from '@whispers/ui';
 
 // 更换邮箱步骤
-type EmailChangeStep = 'idle' | 'input' | 'verify' | 'success'
+type EmailChangeStep = 'idle' | 'input' | 'verify' | 'success';
 
 const ProfilePage: React.FC = () => {
-  const { user, updateUser } = useAuthStore()
-  const [isEditing, setIsEditing] = useState(false)
-  const [avatarError, setAvatarError] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [uploadError, setUploadError] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const { user, updateUser, accessToken } = useAuthStore();
+  const isAdmin = user?.isAdmin || false;
+  const [isEditing, setIsEditing] = useState(false);
+  const [avatarError, setAvatarError] = useState(false);
   const [formData, setFormData] = useState({
     username: user?.username || '',
     bio: user?.bio || '',
-    avatar: user?.avatar || ''
-  })
+    avatar: user?.avatar || '',
+  });
+
+  // 媒体选择器状态
+  const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
 
   // 更换邮箱相关状态
-  const [emailChangeStep, setEmailChangeStep] = useState<EmailChangeStep>('idle')
-  const [newEmail, setNewEmail] = useState('')
-  const [verifyCode, setVerifyCode] = useState('')
-  const [emailError, setEmailError] = useState<string | null>(null)
-  const [emailLoading, setEmailLoading] = useState(false)
-  const [countdown, setCountdown] = useState(0)
+  const [emailChangeStep, setEmailChangeStep] =
+    useState<EmailChangeStep>('idle');
+  const [newEmail, setNewEmail] = useState('');
+  const [verifyCode, setVerifyCode] = useState('');
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [countdown, setCountdown] = useState(0);
 
   // 用户名校验状态
-  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'unavailable'>('idle')
-  const [usernameError, setUsernameError] = useState<string | null>(null)
-  const usernameCheckTimer = useRef<NodeJS.Timeout | null>(null)
+  const [usernameStatus, setUsernameStatus] = useState<
+    'idle' | 'checking' | 'available' | 'unavailable'
+  >('idle');
+  const [usernameError, setUsernameError] = useState<string | null>(null);
+  const usernameCheckTimer = useRef<NodeJS.Timeout | null>(null);
 
   // 检查用户名是否可用（防抖）
-  const checkUsername = useCallback((username: string) => {
-    // 清除之前的定时器
-    if (usernameCheckTimer.current) {
-      clearTimeout(usernameCheckTimer.current)
-    }
-
-    // 如果用户名没变，不需要检查
-    if (username === user?.username) {
-      setUsernameStatus('idle')
-      setUsernameError(null)
-      return
-    }
-
-    // 基本验证
-    if (!username || username.trim().length === 0) {
-      setUsernameStatus('unavailable')
-      setUsernameError('用户名不能为空')
-      return
-    }
-
-    if (username.length < 2) {
-      setUsernameStatus('unavailable')
-      setUsernameError('用户名至少需要2个字符')
-      return
-    }
-
-    if (username.length > 20) {
-      setUsernameStatus('unavailable')
-      setUsernameError('用户名不能超过20个字符')
-      return
-    }
-
-    setUsernameStatus('checking')
-    setUsernameError(null)
-
-    // 防抖：500ms 后发起请求
-    usernameCheckTimer.current = setTimeout(async () => {
-      try {
-        const response = await api.get('/auth/check-username', { params: { username } })
-        if (response.data?.data?.available) {
-          setUsernameStatus('available')
-          setUsernameError(null)
-        } else {
-          setUsernameStatus('unavailable')
-          setUsernameError(response.data?.data?.message || '该用户名已被使用')
-        }
-      } catch (err) {
-        console.error('Check username failed:', err)
-        setUsernameStatus('unavailable')
-        setUsernameError('检查用户名失败')
+  const checkUsername = useCallback(
+    (username: string) => {
+      // 清除之前的定时器
+      if (usernameCheckTimer.current) {
+        clearTimeout(usernameCheckTimer.current);
       }
-    }, 500)
-  }, [user?.username])
+
+      // 如果用户名没变，不需要检查
+      if (username === user?.username) {
+        setUsernameStatus('idle');
+        setUsernameError(null);
+        return;
+      }
+
+      // 基本验证
+      if (!username || username.trim().length === 0) {
+        setUsernameStatus('unavailable');
+        setUsernameError('用户名不能为空');
+        return;
+      }
+
+      if (username.length < 2) {
+        setUsernameStatus('unavailable');
+        setUsernameError('用户名至少需要2个字符');
+        return;
+      }
+
+      if (username.length > 20) {
+        setUsernameStatus('unavailable');
+        setUsernameError('用户名不能超过20个字符');
+        return;
+      }
+
+      setUsernameStatus('checking');
+      setUsernameError(null);
+
+      // 防抖：500ms 后发起请求
+      usernameCheckTimer.current = setTimeout(async () => {
+        try {
+          const response = await api.get('/auth/check-username', {
+            params: { username },
+          });
+          if (response.data?.data?.available) {
+            setUsernameStatus('available');
+            setUsernameError(null);
+          } else {
+            setUsernameStatus('unavailable');
+            setUsernameError(
+              response.data?.data?.message || '该用户名已被使用'
+            );
+          }
+        } catch (err) {
+          console.error('Check username failed:', err);
+          setUsernameStatus('unavailable');
+          setUsernameError('检查用户名失败');
+        }
+      }, 500);
+    },
+    [user?.username]
+  );
 
   // 清理定时器
   useEffect(() => {
     return () => {
       if (usernameCheckTimer.current) {
-        clearTimeout(usernameCheckTimer.current)
+        clearTimeout(usernameCheckTimer.current);
       }
-    }
-  }, [])
+    };
+  }, []);
 
   // 处理用户名输入变化
   const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newUsername = e.target.value
-    setFormData({ ...formData, username: newUsername })
-    checkUsername(newUsername)
-  }
+    const newUsername = e.target.value;
+    setFormData({ ...formData, username: newUsername });
+    checkUsername(newUsername);
+  };
 
   const handleSave = async () => {
-    if (!user) return
+    if (!user) return;
 
     // 如果用户名正在检查或不可用，不允许保存
     if (usernameStatus === 'checking') {
-      return
+      return;
     }
 
     if (usernameStatus === 'unavailable') {
-      return
+      return;
     }
 
     try {
@@ -127,209 +164,234 @@ const ProfilePage: React.FC = () => {
         username: formData.username,
         bio: formData.bio,
         avatar: formData.avatar,
-      })
+      });
 
       if (response.data?.success) {
-        updateUser({ ...user, ...response.data.data })
-        setIsEditing(false)
-        setUsernameStatus('idle')
-        setUsernameError(null)
+        updateUser({ ...user, ...response.data.data });
+        setIsEditing(false);
+        setUsernameStatus('idle');
+        setUsernameError(null);
       }
     } catch (error: unknown) {
-      console.error('Failed to update profile:', error)
-      const err = error as { response?: { data?: { message?: string } } }
+      console.error('Failed to update profile:', error);
+      const err = error as { response?: { data?: { message?: string } } };
       if (err.response?.data?.message) {
-        setUsernameError(err.response.data.message)
-        setUsernameStatus('unavailable')
+        setUsernameError(err.response.data.message);
+        setUsernameStatus('unavailable');
       }
     }
-  }
+  };
 
   const handleCancel = () => {
     setFormData({
       username: user?.username || '',
       bio: user?.bio || '',
-      avatar: user?.avatar || ''
-    })
-    setIsEditing(false)
-    setAvatarError(false)
-    setUsernameStatus('idle')
-    setUsernameError(null)
-  }
+      avatar: user?.avatar || '',
+    });
+    setIsEditing(false);
+    setAvatarError(false);
+    setUsernameStatus('idle');
+    setUsernameError(null);
+  };
 
   const handleAvatarError = () => {
-    setAvatarError(true)
-  }
-
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    // 验证文件类型
-    if (!file.type.startsWith('image/')) {
-      setUploadError('请选择图片文件')
-      return
-    }
-
-    // 验证文件大小 (最大 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setUploadError('图片大小不能超过 5MB')
-      return
-    }
-
-    try {
-      setUploading(true)
-      setUploadError(null)
-
-      const formDataUpload = new FormData()
-      formDataUpload.append('file', file)
-
-      const response = await api.post('/media/upload', formDataUpload, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      })
-
-      if (response.data?.success && response.data?.data?.url) {
-        setFormData((prev) => ({ ...prev, avatar: response.data.data.url }))
-        setAvatarError(false)
-      } else {
-        setUploadError('上传失败')
-      }
-    } catch (err) {
-      console.error('Failed to upload avatar:', err)
-      setUploadError('上传头像失败')
-    } finally {
-      setUploading(false)
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
-    }
-  }
+    setAvatarError(true);
+  };
 
   const getAvatarSrc = () => {
     if (avatarError || !formData.avatar) {
-      return DEFAULT_AVATAR
+      return DEFAULT_AVATAR;
     }
-    return getMediaUrl(formData.avatar)
-  }
+    return getMediaUrl(formData.avatar);
+  };
+
+  // 获取媒体列表（仅图片）
+  const fetchMedia = useCallback(
+    async (_type: MediaType): Promise<MediaItem[]> => {
+      try {
+        const token = accessToken || localStorage.getItem('auth_token');
+        if (token) {
+          setAuthToken(token);
+        }
+
+        const params: Record<string, string> = {};
+        // 头像只需要图片类型
+        params.type = 'image/';
+        // 管理员可以查看所有用户的文件
+        if (isAdmin) {
+          params.all = 'true';
+        }
+
+        const response = await api.get('/media', { params });
+        if (response.data?.success) {
+          return response.data.data.items || [];
+        }
+        return [];
+      } catch {
+        return [];
+      }
+    },
+    [accessToken, isAdmin]
+  );
+
+  // 上传文件
+  const uploadAvatarFile = useCallback(
+    async (file: File): Promise<string> => {
+      const token = accessToken || localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('未登录');
+      }
+      setAuthToken(token);
+
+      const formDataUpload = new FormData();
+      formDataUpload.append('file', file);
+
+      const response = await api.post('/media/upload', formDataUpload, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      if (response.data?.success && response.data.data?.url) {
+        return response.data.data.url;
+      }
+      throw new Error('上传失败');
+    },
+    [accessToken]
+  );
+
+  // 处理媒体选择
+  const handleMediaSelect = useCallback((result: MediaSelectResult) => {
+    setFormData(prev => ({ ...prev, avatar: result.url }));
+    setAvatarError(false);
+    setMediaPickerOpen(false);
+  }, []);
+
+  // 打开媒体选择器
+  const handleOpenMediaPicker = useCallback(() => {
+    setMediaPickerOpen(true);
+  }, []);
 
   // 开始更换邮箱流程
   const handleStartEmailChange = () => {
-    setEmailChangeStep('input')
-    setNewEmail('')
-    setVerifyCode('')
-    setEmailError(null)
-  }
+    setEmailChangeStep('input');
+    setNewEmail('');
+    setVerifyCode('');
+    setEmailError(null);
+  };
 
   // 取消更换邮箱
   const handleCancelEmailChange = () => {
-    setEmailChangeStep('idle')
-    setNewEmail('')
-    setVerifyCode('')
-    setEmailError(null)
-  }
+    setEmailChangeStep('idle');
+    setNewEmail('');
+    setVerifyCode('');
+    setEmailError(null);
+  };
 
   // 验证邮箱格式
   const isValidEmail = (email: string) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-  }
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
 
   // 发送验证码
   const handleSendVerifyCode = async () => {
     if (!newEmail) {
-      setEmailError('请输入新邮箱地址')
-      return
+      setEmailError('请输入新邮箱地址');
+      return;
     }
 
     if (!isValidEmail(newEmail)) {
-      setEmailError('请输入有效的邮箱地址')
-      return
+      setEmailError('请输入有效的邮箱地址');
+      return;
     }
 
     if (newEmail === user?.email) {
-      setEmailError('新邮箱不能与当前邮箱相同')
-      return
+      setEmailError('新邮箱不能与当前邮箱相同');
+      return;
     }
 
     try {
-      setEmailLoading(true)
-      setEmailError(null)
+      setEmailLoading(true);
+      setEmailError(null);
 
-      const response = await api.post('/auth/send-email-change-code', { newEmail })
+      const response = await api.post('/auth/send-email-change-code', {
+        newEmail,
+      });
 
       if (response.data?.success) {
-        setEmailChangeStep('verify')
+        setEmailChangeStep('verify');
         // 开始倒计时 60 秒
-        setCountdown(60)
+        setCountdown(60);
         const timer = setInterval(() => {
-          setCountdown((prev) => {
+          setCountdown(prev => {
             if (prev <= 1) {
-              clearInterval(timer)
-              return 0
+              clearInterval(timer);
+              return 0;
             }
-            return prev - 1
-          })
-        }, 1000)
+            return prev - 1;
+          });
+        }, 1000);
       } else {
-        setEmailError(response.data?.message || '发送验证码失败')
+        setEmailError(response.data?.message || '发送验证码失败');
       }
     } catch (err: unknown) {
-      console.error('Failed to send verify code:', err)
-      const error = err as { response?: { data?: { message?: string } } }
-      setEmailError(error.response?.data?.message || '发送验证码失败，请稍后重试')
+      console.error('Failed to send verify code:', err);
+      const error = err as { response?: { data?: { message?: string } } };
+      setEmailError(
+        error.response?.data?.message || '发送验证码失败，请稍后重试'
+      );
     } finally {
-      setEmailLoading(false)
+      setEmailLoading(false);
     }
-  }
+  };
 
   // 确认更换邮箱
   const handleConfirmEmailChange = async () => {
     if (!verifyCode) {
-      setEmailError('请输入验证码')
-      return
+      setEmailError('请输入验证码');
+      return;
     }
 
     if (verifyCode.length !== 6) {
-      setEmailError('验证码应为6位数字')
-      return
+      setEmailError('验证码应为6位数字');
+      return;
     }
 
     try {
-      setEmailLoading(true)
-      setEmailError(null)
+      setEmailLoading(true);
+      setEmailError(null);
 
       const response = await api.post('/auth/change-email', {
         newEmail,
-        code: verifyCode
-      })
+        code: verifyCode,
+      });
 
       if (response.data?.success && user) {
         // 更新本地用户信息
-        updateUser({ ...user, email: newEmail } as typeof user)
-        setEmailChangeStep('success')
+        updateUser({ ...user, email: newEmail } as typeof user);
+        setEmailChangeStep('success');
         // 3秒后关闭
         setTimeout(() => {
-          setEmailChangeStep('idle')
-        }, 3000)
+          setEmailChangeStep('idle');
+        }, 3000);
       } else {
-        setEmailError(response.data?.message || '更换邮箱失败')
+        setEmailError(response.data?.message || '更换邮箱失败');
       }
     } catch (err: unknown) {
-      console.error('Failed to change email:', err)
-      const error = err as { response?: { data?: { message?: string } } }
-      setEmailError(error.response?.data?.message || '更换邮箱失败，请稍后重试')
+      console.error('Failed to change email:', err);
+      const error = err as { response?: { data?: { message?: string } } };
+      setEmailError(
+        error.response?.data?.message || '更换邮箱失败，请稍后重试'
+      );
     } finally {
-      setEmailLoading(false)
+      setEmailLoading(false);
     }
-  }
+  };
 
   if (!user) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-lg text-muted-foreground">请先登录</div>
       </div>
-    )
+    );
   }
 
   return (
@@ -337,7 +399,9 @@ const ProfilePage: React.FC = () => {
       {/* 页面头部 */}
       <div className="text-center">
         <h1 className="text-4xl font-bold text-foreground mb-4">个人资料</h1>
-        <p className="text-lg text-muted-foreground">管理您的个人信息和账户设置</p>
+        <p className="text-lg text-muted-foreground">
+          管理您的个人信息和账户设置
+        </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -360,35 +424,17 @@ const ProfilePage: React.FC = () => {
                     className="h-32 w-32 rounded-full object-cover border-4 border-border"
                     onError={handleAvatarError}
                   />
-                  {uploading && (
-                    <div className="absolute inset-0 bg-background/80 rounded-full flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                    </div>
-                  )}
                   {isEditing && (
-                    <>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleAvatarUpload}
-                        className="hidden"
-                        id="profile-avatar-upload"
-                      />
-                      <Button
-                        size="icon"
-                        className="absolute bottom-0 right-0 h-8 w-8 rounded-full"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploading}
-                      >
-                        <Upload className="h-4 w-4" />
-                      </Button>
-                    </>
+                    <Button
+                      size="icon"
+                      className="absolute bottom-0 right-0 h-8 w-8 rounded-full"
+                      onClick={handleOpenMediaPicker}
+                      title="选择头像"
+                    >
+                      <Image className="h-4 w-4" />
+                    </Button>
                   )}
                 </div>
-                {uploadError && (
-                  <p className="text-sm text-destructive mt-2">{uploadError}</p>
-                )}
               </div>
 
               {/* 用户信息 */}
@@ -399,7 +445,9 @@ const ProfilePage: React.FC = () => {
                 </div>
                 <div className="flex items-center space-x-2 text-sm text-muted-foreground">
                   <Calendar className="h-4 w-4" />
-                  <span>注册时间: {new Date().toLocaleDateString('zh-CN')}</span>
+                  <span>
+                    注册时间: {new Date().toLocaleDateString('zh-CN')}
+                  </span>
                 </div>
               </div>
             </CardContent>
@@ -455,8 +503,11 @@ const ProfilePage: React.FC = () => {
                         onChange={handleUsernameChange}
                         placeholder="请输入用户名"
                         className={
-                          usernameStatus === 'unavailable' ? 'border-destructive pr-10' :
-                          usernameStatus === 'available' ? 'border-green-500 pr-10' : ''
+                          usernameStatus === 'unavailable'
+                            ? 'border-destructive pr-10'
+                            : usernameStatus === 'available'
+                              ? 'border-green-500 pr-10'
+                              : ''
                         }
                       />
                       {/* 校验状态图标 */}
@@ -478,7 +529,9 @@ const ProfilePage: React.FC = () => {
                     </div>
                     {/* 错误提示 */}
                     {usernameError && (
-                      <p className="text-xs text-destructive">{usernameError}</p>
+                      <p className="text-xs text-destructive">
+                        {usernameError}
+                      </p>
                     )}
                     {usernameStatus === 'available' && (
                       <p className="text-xs text-green-500">用户名可用</p>
@@ -513,7 +566,8 @@ const ProfilePage: React.FC = () => {
                 {emailChangeStep === 'input' && (
                   <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
                     <p className="text-sm text-muted-foreground">
-                      当前邮箱：<span className="text-foreground">{user.email}</span>
+                      当前邮箱：
+                      <span className="text-foreground">{user.email}</span>
                     </p>
                     <div className="space-y-2">
                       <Label htmlFor="newEmail">新邮箱地址</Label>
@@ -521,7 +575,7 @@ const ProfilePage: React.FC = () => {
                         id="newEmail"
                         type="email"
                         value={newEmail}
-                        onChange={(e) => setNewEmail(e.target.value)}
+                        onChange={e => setNewEmail(e.target.value)}
                         placeholder="请输入新邮箱地址"
                       />
                     </div>
@@ -542,10 +596,7 @@ const ProfilePage: React.FC = () => {
                           '发送验证码'
                         )}
                       </Button>
-                      <Button
-                        variant="ghost"
-                        onClick={handleCancelEmailChange}
-                      >
+                      <Button variant="ghost" onClick={handleCancelEmailChange}>
                         取消
                       </Button>
                     </div>
@@ -555,14 +606,15 @@ const ProfilePage: React.FC = () => {
                 {emailChangeStep === 'verify' && (
                   <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
                     <p className="text-sm text-muted-foreground">
-                      验证码已发送至：<span className="text-foreground">{newEmail}</span>
+                      验证码已发送至：
+                      <span className="text-foreground">{newEmail}</span>
                     </p>
                     <div className="space-y-2">
                       <Label htmlFor="verifyCode">验证码</Label>
                       <InputOTP
                         maxLength={6}
                         value={verifyCode}
-                        onChange={(value) => setVerifyCode(value)}
+                        onChange={value => setVerifyCode(value)}
                       >
                         <InputOTPGroup>
                           <InputOTPSlot index={0} />
@@ -596,12 +648,11 @@ const ProfilePage: React.FC = () => {
                         onClick={handleSendVerifyCode}
                         disabled={countdown > 0 || emailLoading}
                       >
-                        {countdown > 0 ? `重新发送 (${countdown}s)` : '重新发送'}
+                        {countdown > 0
+                          ? `重新发送 (${countdown}s)`
+                          : '重新发送'}
                       </Button>
-                      <Button
-                        variant="ghost"
-                        onClick={handleCancelEmailChange}
-                      >
+                      <Button variant="ghost" onClick={handleCancelEmailChange}>
                         取消
                       </Button>
                     </div>
@@ -623,7 +674,9 @@ const ProfilePage: React.FC = () => {
                   <Textarea
                     id="bio"
                     value={formData.bio}
-                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                    onChange={e =>
+                      setFormData({ ...formData, bio: e.target.value })
+                    }
                     placeholder="介绍一下自己..."
                     rows={4}
                   />
@@ -633,13 +686,23 @@ const ProfilePage: React.FC = () => {
                   </div>
                 )}
               </div>
-
             </CardContent>
           </Card>
         </div>
       </div>
-    </div>
-  )
-}
 
-export default ProfilePage
+      {/* 媒体选择器 */}
+      <MediaPicker
+        isOpen={mediaPickerOpen}
+        onClose={() => setMediaPickerOpen(false)}
+        onSelect={handleMediaSelect}
+        type="image"
+        fetchMedia={fetchMedia}
+        uploadFile={uploadAvatarFile}
+        title="选择头像"
+      />
+    </div>
+  );
+};
+
+export default ProfilePage;
