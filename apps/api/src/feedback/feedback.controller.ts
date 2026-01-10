@@ -16,7 +16,7 @@ import { FeedbackService } from './feedback.service';
 import { CreateFeedbackDto } from './dto/create-feedback.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/roles.guard';
-import { Request } from 'express';
+import type { Request } from 'express';
 
 @Controller('feedback')
 export class FeedbackController {

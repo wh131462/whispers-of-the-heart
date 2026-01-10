@@ -239,9 +239,15 @@ export class MediaController {
     @Request() req: AuthenticatedRequest,
     @Body('tags') tagsString?: string,
   ) {
+    if (!req.user?.id) {
+      throw new HttpException(
+        { success: false, message: '用户未认证' },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
     const tags = tagsString ? tagsString.split(',').map((t) => t.trim()) : [];
     const results = await Promise.all(
-      files.map((file) => this.mediaService.create(file, req.user.id, tags)),
+      files.map((file) => this.mediaService.create(file, req.user!.id, tags)),
     );
 
     return {
@@ -276,6 +282,12 @@ export class MediaController {
     @Request() req: AuthenticatedRequest,
     @Query('force') force?: string,
   ) {
+    if (!req.user?.id) {
+      throw new HttpException(
+        { success: false, message: '用户未认证' },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
     try {
       await this.mediaService.delete(
         id,
@@ -315,6 +327,12 @@ export class MediaController {
     @Body() body: { ids: string[]; force?: boolean },
     @Request() req: AuthenticatedRequest,
   ) {
+    if (!req.user?.id) {
+      throw new HttpException(
+        { success: false, message: '用户未认证' },
+        HttpStatus.UNAUTHORIZED,
+      );
+    }
     const ids = body.ids || [];
     if (ids.length === 0) {
       return {

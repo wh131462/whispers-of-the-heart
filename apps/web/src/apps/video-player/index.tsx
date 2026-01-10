@@ -128,7 +128,7 @@ export default function VideoPlayerApp() {
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const controlsTimeoutRef = useRef<number>();
+  const controlsTimeoutRef = useRef<number | undefined>(undefined);
 
   const handleFile = useCallback((file: File) => {
     if (!file.type.startsWith('video/')) {

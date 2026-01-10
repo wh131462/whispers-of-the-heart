@@ -566,11 +566,11 @@ const FeedbackPage: React.FC = () => {
       <ConfirmDialog
         isOpen={!!deleteTarget}
         title="删除反馈"
-        message="确定要删除这条反馈吗？此操作无法撤销。"
+        description="确定要删除这条反馈吗？此操作无法撤销。"
         confirmText="删除"
         cancelText="取消"
         onConfirm={handleDelete}
-        onCancel={() => setDeleteTarget(null)}
+        onClose={() => setDeleteTarget(null)}
         variant="danger"
       />
     </div>
