@@ -22,355 +22,15 @@ import '@blocknote/mantine/style.css';
 import data from '@emoji-mart/data';
 import Picker from '@emoji-mart/react';
 import { customSchema } from './customSchema';
-import {
-  ImageIcon,
-  VideoIcon,
-  AudioIcon,
-  FileIcon,
-  MindMapIcon,
-  MathIcon,
-  QuoteIcon,
-} from './assets/icons';
+import { ImageIcon, MathIcon, QuoteIcon } from './assets/icons';
 import { type MediaSelectResult } from './MediaPicker';
 
-// 修复表格 markdown 输出：移除空表头行
-const fixTableMarkdown = (markdown: string): string => {
-  const tableRegex = /(\|[^\n]*\|)\n(\|[\s\-:]+\|)\n((?:\|[^\n]*\|\n?)+)/g;
-
-  return markdown.replace(
-    tableRegex,
-    (match, headerRow, separatorRow, dataRows) => {
-      const headerCells = headerRow.split('|').slice(1, -1);
-      const isEmptyHeader = headerCells.every(
-        (cell: string) => cell.trim() === ''
-      );
-
-      if (isEmptyHeader) {
-        const dataLines = dataRows.trim().split('\n');
-        if (dataLines.length > 0) {
-          const newHeader = dataLines[0];
-          const remainingData = dataLines.slice(1).join('\n');
-          if (remainingData) {
-            return `${newHeader}\n${separatorRow}\n${remainingData}\n`;
-          } else {
-            return `${newHeader}\n${separatorRow}\n`;
-          }
-        }
-      }
-
-      return match;
-    }
-  );
-};
-
-// 从 blocks 中提取代码块内容，用于修复 markdown 中的空代码块
-const extractCodeBlocks = (
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  blocks: any[]
-): Array<{ language: string; code: string }> => {
-  const codeBlocks: Array<{ language: string; code: string }> = [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const traverse = (block: any) => {
-    if (block.type === 'codeBlock' && block.props) {
-      codeBlocks.push({
-        language: block.props.language || 'javascript',
-        code: block.props.code || '',
-      });
-    }
-    if (block.children) {
-      block.children.forEach(traverse);
-    }
-  };
-
-  blocks.forEach(traverse);
-  return codeBlocks;
-};
-
-// 从 blocks 中提取思维导图内容
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const extractMindMapBlocks = (blocks: any[]): Array<{ markdown: string }> => {
-  const mindMapBlocks: Array<{ markdown: string }> = [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const traverse = (block: any) => {
-    if (block.type === 'mindMap' && block.props) {
-      mindMapBlocks.push({
-        markdown: block.props.markdown || '',
-      });
-    }
-    if (block.children) {
-      block.children.forEach(traverse);
-    }
-  };
-
-  blocks.forEach(traverse);
-  return mindMapBlocks;
-};
-
-// 媒体块信息类型
-interface MediaBlockInfo {
-  type: 'customImage' | 'customVideo' | 'customAudio' | 'customFile';
-  url: string;
-  /** 原始文件名（仅 customFile 使用） */
-  fileName?: string;
-  /** 媒体标题/名称（音视频使用） */
-  title?: string;
-  caption: string;
-  width?: number;
-  align?: string;
-  fileSize?: number;
-}
-
-// 从 blocks 中提取媒体块内容
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const extractMediaBlocks = (blocks: any[]): MediaBlockInfo[] => {
-  const mediaBlocks: MediaBlockInfo[] = [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const traverse = (block: any) => {
-    if (
-      (block.type === 'customImage' ||
-        block.type === 'customVideo' ||
-        block.type === 'customAudio' ||
-        block.type === 'customFile') &&
-      block.props?.url
-    ) {
-      mediaBlocks.push({
-        type: block.type,
-        url: block.props.url || '',
-        fileName: block.props.fileName || '',
-        title: block.props.title || '',
-        caption: block.props.caption || '',
-        width: block.props.width,
-        align: block.props.align,
-        fileSize: block.props.fileSize,
-      });
-    }
-    if (block.children) {
-      block.children.forEach(traverse);
-    }
-  };
-
-  blocks.forEach(traverse);
-  return mediaBlocks;
-};
-
-// 修复 markdown 中缺失的媒体块
-const fixMediaBlocksInMarkdown = (
-  markdown: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  blocks: any[]
-): string => {
-  const mediaBlocks = extractMediaBlocks(blocks);
-
-  if (mediaBlocks.length === 0) return markdown;
-
-  let result = markdown;
-
-  // 清理文件块中被错误解析的链接格式
-  // 只清理已存在于 mediaBlocks 中的文件 URL 对应的链接
-  for (const media of mediaBlocks) {
-    if (media.type === 'customFile') {
-      const urlEscaped = media.url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      // 匹配 [任意文本](文件URL) 格式的链接
-      const linkRegex = new RegExp(`\\[([^\\]]*)\\]\\(${urlEscaped}\\)`, 'gi');
-      result = result.replace(linkRegex, '');
-    }
-  }
-
-  // 清理音视频块的 title 和 caption 被错误输出为纯文本的情况
-  // BlockNote 可能会将自定义块的属性作为独立的段落输出
-  for (const media of mediaBlocks) {
-    if (media.type === 'customVideo' || media.type === 'customAudio') {
-      // 清理 title 文本（如果作为独立行存在）
-      if (media.title && media.title.trim()) {
-        const titleEscaped = media.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        // 匹配独立的 title 行（前后都是换行或文档边界）
-        const titleRegex = new RegExp(`(^|\\n)${titleEscaped}\\s*(\\n|$)`, 'g');
-        result = result.replace(titleRegex, '$1');
-      }
-      // 清理 caption 文本（如果作为独立行存在）
-      if (media.caption && media.caption.trim()) {
-        const captionEscaped = media.caption.replace(
-          /[.*+?^${}()|[\]\\]/g,
-          '\\$&'
-        );
-        // 匹配独立的 caption 行（前后都是换行或文档边界）
-        const captionRegex = new RegExp(
-          `(^|\\n)${captionEscaped}\\s*(\\n|$)`,
-          'g'
-        );
-        result = result.replace(captionRegex, '$1');
-      }
-      // 清理 title|caption 组合格式（如果作为独立行存在）
-      if (media.title && media.caption) {
-        const combinedText = `${media.title}|${media.caption}`;
-        const combinedEscaped = combinedText.replace(
-          /[.*+?^${}()|[\]\\]/g,
-          '\\$&'
-        );
-        const combinedRegex = new RegExp(
-          `(^|\\n)${combinedEscaped}\\s*(\\n|$)`,
-          'g'
-        );
-        result = result.replace(combinedRegex, '$1');
-      }
-    }
-  }
-
-  // 清理多余的空行
-  result = result.replace(/\n{3,}/g, '\n\n').trim();
-
-  for (const media of mediaBlocks) {
-    const urlEscaped = media.url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-    const urlExists =
-      new RegExp(`!\\[.*?\\]\\(${urlEscaped}\\)`).test(result) ||
-      new RegExp(`<img[^>]*src=["']${urlEscaped}["']`).test(result) ||
-      new RegExp(`<video[^>]*src=["']${urlEscaped}["']`).test(result) ||
-      new RegExp(`<audio[^>]*src=["']${urlEscaped}["']`).test(result) ||
-      new RegExp(
-        `<figure[^>]*data-file-block[^>]*>[\\s\\S]*?href=["']${urlEscaped}["']`
-      ).test(result) ||
-      new RegExp(`<a[^>]*href=["']${urlEscaped}["']`).test(result);
-
-    if (!urlExists) {
-      if (media.type === 'customImage') {
-        result += `\n\n![${media.caption || '图片'}](${media.url})`;
-      } else if (media.type === 'customVideo') {
-        // 视频输出 title|caption 格式
-        const videoDisplayText = media.caption
-          ? `${media.title || ''}|${media.caption}`
-          : media.title || '';
-        result += `\n\n<video src="${media.url}" controls>${videoDisplayText}</video>`;
-      } else if (media.type === 'customAudio') {
-        // 音频输出 title|caption 格式
-        const audioDisplayText = media.caption
-          ? `${media.title || ''}|${media.caption}`
-          : media.title || '';
-        result += `\n\n<audio src="${media.url}" controls>${audioDisplayText}</audio>`;
-      } else if (media.type === 'customFile') {
-        // 文件块输出为 figure 包裹的格式，与 toExternalHTML 一致，确保能被正确解析
-        const fileSize = media.fileSize || 0;
-        // 优先使用 fileName 属性，其次从 URL 提取
-        let displayFileName = media.fileName || '';
-        if (!displayFileName) {
-          try {
-            const pathname = media.url.split('?')[0];
-            const segments = pathname.split('/');
-            displayFileName =
-              decodeURIComponent(segments[segments.length - 1]) || '文件';
-          } catch {
-            displayFileName = '文件';
-          }
-        }
-        // 格式：文件名|说明（如果有说明）
-        const displayText = media.caption
-          ? `${displayFileName}|${media.caption}`
-          : displayFileName;
-        result += `\n\n<figure data-file-block="true" data-file-size="${fileSize}"><a href="${media.url}">${displayText}</a></figure>`;
-      }
-    }
-  }
-
-  return result;
-};
-
-// 修复 markdown 中缺失的思维导图块
-// BlockNote 的 blocksToMarkdownLossy 可能不会正确输出自定义块
-
-const fixMindMapBlocksInMarkdown = (
-  markdown: string,
-  blocks: any[]
-): string => {
-  const mindMapBlocks = extractMindMapBlocks(blocks);
-
-  if (mindMapBlocks.length === 0) return markdown;
-
-  // 检查 markdown 中是否已有 markmap 代码块
-  const existingMarkmap = (markdown.match(/```markmap[\s\S]*?```/g) || [])
-    .length;
-
-  // 如果缺少思维导图块，添加它们
-  if (existingMarkmap < mindMapBlocks.length) {
-    let result = markdown;
-    // 添加缺失的思维导图块
-    for (let i = existingMarkmap; i < mindMapBlocks.length; i++) {
-      const mindmap = mindMapBlocks[i];
-      if (mindmap.markdown) {
-        result += `\n\n\`\`\`markmap\n${mindmap.markdown}\n\`\`\``;
-      }
-    }
-    return result;
-  }
-
-  return markdown;
-};
-
-// 修复 markdown 中的空代码块（BlockNote React 渲染时序问题）
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const fixCodeBlocksInMarkdown = (markdown: string, blocks: any[]): string => {
-  const codeBlocks = extractCodeBlocks(blocks);
-
-  if (codeBlocks.length === 0) return markdown;
-
-  // 匹配 markdown 中的代码块
-  const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
-  let index = 0;
-
-  return markdown.replace(codeBlockRegex, (match, _lang, content) => {
-    // 如果内容为空或只有空白，用实际的代码替换
-    if (!content.trim() && codeBlocks[index]) {
-      const actualCode = codeBlocks[index];
-      index++;
-      return `\`\`\`${actualCode.language}\n${actualCode.code}\n\`\`\``;
-    }
-    index++;
-    return match;
-  });
-};
-
-// 允许的斜杠菜单项类型 (排除默认的 image/video/audio,使用自定义块)
-const ALLOWED_SLASH_ITEMS = [
-  'Heading 1',
-  'Heading 2',
-  'Heading 3',
-  'Heading 4',
-  'Heading 5',
-  'Heading 6',
-  'Table',
-  'Code Block',
-  'Bullet List',
-  'Numbered List',
-  'Check List',
-  '一级标题',
-  '二级标题',
-  '三级标题',
-  '四级标题',
-  '五级标题',
-  '六级标题',
-  '表格',
-  '代码块',
-  '无序列表',
-  '有序列表',
-  '待办列表',
-];
-
-// 获取 API 基础 URL
-const API_BASE_URL = (() => {
-  if (typeof window !== 'undefined') {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const env = (import.meta as any)?.env || {};
-      if (env.VITE_API_URL) {
-        return env.VITE_API_URL;
-      }
-    } catch {
-      // ignore
-    }
-  }
-  return 'http://localhost:7777';
-})();
-
-const DEFAULT_UPLOAD_ENDPOINT = `${API_BASE_URL}/api/v1/media/upload`;
+// 共享工具导入
+import {
+  DEFAULT_UPLOAD_ENDPOINT,
+  applyAllMarkdownFixes,
+  getCommentSlashMenuItems,
+} from './utils';
 
 export interface CommentEditorProps {
   content?: string;
@@ -439,10 +99,8 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
     }, [uploadEndpoint]);
 
     // 使用 useCreateBlockNote hook 创建编辑器实例
-    // 这个 hook 内部会处理 memoization，确保编辑器实例只创建一次
     const editor = useCreateBlockNote({
       schema: customSchema,
-      // 中文本地化配置
       dictionary: {
         ...zh,
         placeholders: {
@@ -482,226 +140,14 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
       },
     });
 
-    // 过滤斜杠菜单项并添加自定义媒体块
+    // 获取 slash menu items（使用共享配置）
     const getFilteredSlashMenuItems = useCallback(
       async (query: string) => {
-        const items = getDefaultReactSlashMenuItems(editor);
+        const defaultItems = getDefaultReactSlashMenuItems(editor);
+        const allItems = getCommentSlashMenuItems(editor, defaultItems);
 
-        // 需要排除的项目：默认媒体块和可折叠列表
-        const excludedItems = [
-          'image',
-          'video',
-          'audio',
-          'file',
-          '图片',
-          '视频',
-          '音频',
-          '文件',
-          'toggle',
-          'collapsible',
-          '折叠',
-          '可折叠',
-          '折叠列表',
-        ];
-
-        // 过滤默认项:保留允许的,排除toggle和默认媒体块
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const filtered = items.filter((item: any) => {
-          const title = item.title.toLowerCase();
-          if (excludedItems.some(excluded => title.includes(excluded)))
-            return false;
-          return ALLOWED_SLASH_ITEMS.some(
-            allowed => title === allowed.toLowerCase()
-          );
-        });
-
-        // 定义分组顺序
-        const groupOrder = ['基础块', '标题', '列表', '媒体', '高级'];
-
-        // 重新映射默认项目的分组名称为中文
-        const groupMapping: Record<string, string> = {
-          'basic blocks': '基础块',
-          headings: '标题',
-          lists: '列表',
-          media: '媒体',
-          advanced: '高级',
-          other: '其他',
-        };
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const remappedItems = filtered.map((item: any) => ({
-          ...item,
-          group:
-            groupMapping[item.group?.toLowerCase()] || item.group || '其他',
-        }));
-
-        // 添加自定义媒体块和思维导图
-        const customMediaItems = [
-          {
-            title: '图片',
-            subtext: '插入图片',
-            onItemClick: () => {
-              const currentBlock = editor.getTextCursorPosition().block;
-              editor.insertBlocks(
-                [
-                  {
-                    type: 'customImage' as const,
-                    props: { url: '', caption: '' },
-                  },
-                ],
-                currentBlock,
-                'after'
-              );
-            },
-            aliases: ['image', 'img', 'picture', 'photo', 'tupian'],
-            group: '媒体',
-            icon: <ImageIcon size={18} />,
-          },
-          {
-            title: '视频',
-            subtext: '插入视频',
-            onItemClick: () => {
-              const currentBlock = editor.getTextCursorPosition().block;
-              editor.insertBlocks(
-                [
-                  {
-                    type: 'customVideo' as const,
-                    props: { url: '', caption: '' },
-                  },
-                ],
-                currentBlock,
-                'after'
-              );
-            },
-            aliases: ['video', 'movie', 'shipin'],
-            group: '媒体',
-            icon: <VideoIcon size={18} />,
-          },
-          {
-            title: '音频',
-            subtext: '插入音频',
-            onItemClick: () => {
-              const currentBlock = editor.getTextCursorPosition().block;
-              editor.insertBlocks(
-                [
-                  {
-                    type: 'customAudio' as const,
-                    props: { url: '', caption: '' },
-                  },
-                ],
-                currentBlock,
-                'after'
-              );
-            },
-            aliases: ['audio', 'music', 'sound', 'yinpin'],
-            group: '媒体',
-            icon: <AudioIcon size={18} />,
-          },
-          {
-            title: '文件',
-            subtext: '插入文件附件',
-            onItemClick: () => {
-              const currentBlock = editor.getTextCursorPosition().block;
-              editor.insertBlocks(
-                [
-                  {
-                    type: 'customFile' as const,
-                    props: { url: '', caption: '', fileSize: 0 },
-                  },
-                ],
-                currentBlock,
-                'after'
-              );
-            },
-            aliases: ['file', 'attachment', 'wenjian', 'fujian'],
-            group: '媒体',
-            icon: <FileIcon size={18} />,
-          },
-          {
-            title: '思维导图',
-            subtext: '插入思维导图',
-            onItemClick: () => {
-              const currentBlock = editor.getTextCursorPosition().block;
-              editor.insertBlocks(
-                [
-                  {
-                    type: 'mindMap' as const,
-                    props: {
-                      markdown: '# 新建思维导图\n\n## 主题 1\n\n## 主题 2',
-                    },
-                  },
-                ],
-                currentBlock,
-                'after'
-              );
-            },
-            aliases: ['mindmap', 'mind map', 'siwei', 'siweidaotu'],
-            group: '高级',
-            icon: <MindMapIcon size={18} />,
-          },
-          {
-            title: '数学公式',
-            subtext: '插入 LaTeX 数学公式',
-            onItemClick: () => {
-              const currentBlock = editor.getTextCursorPosition().block;
-              editor.insertBlocks(
-                [
-                  {
-                    type: 'mathBlock' as const,
-                    props: { formula: '' },
-                  },
-                ],
-                currentBlock,
-                'after'
-              );
-            },
-            aliases: [
-              'math',
-              'formula',
-              'equation',
-              'latex',
-              'shuxue',
-              'gongshi',
-            ],
-            group: '高级',
-            icon: <MathIcon size={18} />,
-          },
-          {
-            title: '引用',
-            subtext: '插入引用块',
-            onItemClick: () => {
-              const currentBlock = editor.getTextCursorPosition().block;
-              editor.insertBlocks(
-                [
-                  {
-                    type: 'quote' as const,
-                  },
-                ],
-                currentBlock,
-                'after'
-              );
-            },
-            aliases: ['quote', 'blockquote', 'yinyong', 'cite'],
-            group: '基础块',
-            icon: <QuoteIcon size={18} />,
-          },
-        ];
-
-        const allItems = [...remappedItems, ...customMediaItems];
-
-        // 按分组顺序排序
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const sortedItems = allItems.sort((a: any, b: any) => {
-          const aIndex = groupOrder.indexOf(a.group);
-          const bIndex = groupOrder.indexOf(b.group);
-          const aOrder = aIndex === -1 ? groupOrder.length : aIndex;
-          const bOrder = bIndex === -1 ? groupOrder.length : bIndex;
-          return aOrder - bOrder;
-        });
-
-        // 根据查询过滤
-        if (!query) return sortedItems;
-        return filterSuggestionItems(sortedItems, query);
+        if (!query) return allItems;
+        return filterSuggestionItems(allItems, query);
       },
       [editor]
     );
@@ -709,7 +155,6 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
     // 获取过滤后的 blockTypeSelectItems（移除 toggle 相关项目）
     const getFilteredBlockTypeSelectItems = useCallback(() => {
       const defaultItems = blockTypeSelectItems(editor.dictionary);
-      // 过滤掉 toggle/collapsible 相关的项目
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return defaultItems.filter((item: any) => {
         const name = (item.name || '').toLowerCase();
@@ -742,14 +187,9 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
           try {
             const blocks = editor.document;
             let markdown = editor.blocksToMarkdownLossy(blocks);
-            // 修复空代码块问题
-            markdown = fixCodeBlocksInMarkdown(markdown, blocks);
-            // 修复思维导图块问题
-            markdown = fixMindMapBlocksInMarkdown(markdown, blocks);
-            // 修复媒体块问题
-            markdown = fixMediaBlocksInMarkdown(markdown, blocks);
-            // 修复表格问题
-            return fixTableMarkdown(markdown);
+            // 应用所有 markdown 修复（CommentEditor 不需要清理无效链接）
+            markdown = applyAllMarkdownFixes(markdown, blocks, false);
+            return markdown;
           } catch (error) {
             // eslint-disable-next-line no-console
             console.error('Failed to get content:', error);
@@ -776,7 +216,6 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
       if (!editor || isInitializedRef.current) return;
 
       const initContent = () => {
-        // 设置标志，防止 replaceBlocks 触发的 onChange 被处理
         isUpdatingFromPropRef.current = true;
 
         try {
@@ -798,7 +237,6 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
           console.error('Failed to initialize comment content:', error);
         } finally {
           isInitializedRef.current = true;
-          // 使用 Promise.resolve 确保在下一个微任务中重置标志
           Promise.resolve().then(() => {
             isUpdatingFromPropRef.current = false;
           });
@@ -810,7 +248,6 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
 
     // 处理内容变化
     const handleChange = useCallback(() => {
-      // 如果正在从 prop 更新内容，跳过 onChange
       if (isUpdatingFromPropRef.current) {
         // eslint-disable-next-line no-console
         console.log('[CommentEditor] Skipping onChange during initialization');
@@ -824,7 +261,6 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
       }
 
       debounceTimerRef.current = setTimeout(() => {
-        // 组件已卸载，跳过处理
         if (!isMountedRef.current) return;
 
         try {
@@ -837,14 +273,8 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
           let markdown = editor.blocksToMarkdownLossy(blocks);
           // eslint-disable-next-line no-console
           console.log('[CommentEditor] Raw markdown:', markdown);
-          // 修复空代码块问题（BlockNote React 渲染时序问题）
-          markdown = fixCodeBlocksInMarkdown(markdown, blocks);
-          // 修复思维导图块问题
-          markdown = fixMindMapBlocksInMarkdown(markdown, blocks);
-          // 修复媒体块问题（customImage, customVideo, customAudio）
-          markdown = fixMediaBlocksInMarkdown(markdown, blocks);
-          // 修复表格问题
-          markdown = fixTableMarkdown(markdown);
+          // 应用所有 markdown 修复（CommentEditor 不需要清理无效链接）
+          markdown = applyAllMarkdownFixes(markdown, blocks, false);
           // eslint-disable-next-line no-console
           console.log('[CommentEditor] Fixed markdown:', markdown);
           onChange(markdown);
@@ -865,7 +295,6 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
         const items = e.clipboardData?.items;
         if (!items) return;
 
-        // 查找图片文件
         for (const item of Array.from(items)) {
           if (item.type.startsWith('image/')) {
             const file = item.getAsFile();
@@ -874,11 +303,9 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
             e.preventDefault();
 
             try {
-              // 使用编辑器的 uploadFile 函数上传
               const result = await uploadFn(file);
               const url = typeof result === 'string' ? result : null;
               if (url) {
-                // 在当前光标位置插入 customImage 块
                 const currentBlock = editor.getTextCursorPosition().block;
                 editor.insertBlocks(
                   [
@@ -890,7 +317,7 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
                   currentBlock,
                   'after'
                 );
-                handleChange(); // 触发内容变化
+                handleChange();
                 // eslint-disable-next-line no-console
                 console.log('[CommentEditor] Image pasted and uploaded:', url);
               }
@@ -1013,11 +440,9 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
       if (!editor) return;
       try {
         const currentBlock = editor.getTextCursorPosition().block;
-        // 直接将当前块转换为引用块（无论是否有内容）
         editor.updateBlock(currentBlock, {
           type: 'quote' as const,
         });
-        // 聚焦到块
         editor.setTextCursorPosition(currentBlock, 'end');
         editor.focus();
         handleChange();
@@ -1130,7 +555,6 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
         }>;
         const { type, blockId } = customEvent.detail;
 
-        // 标记事件已被处理
         customEvent.preventDefault();
 
         // eslint-disable-next-line no-console
@@ -1139,7 +563,6 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
           blockId,
         });
 
-        // 调用父组件的 onOpenMediaPicker,传入选择完成的回调
         onOpenMediaPicker(type, (result: MediaSelectResult) => {
           // eslint-disable-next-line no-console
           console.log('[CommentEditor] MediaPicker selected:', {
@@ -1147,30 +570,26 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
             blockId,
           });
 
-          // 查找并更新对应的 block
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const block = editor.document.find((b: any) => b.id === blockId);
           if (block) {
-            // 根据块类型更新不同的属性
             const newProps: Record<string, unknown> = {
               ...block.props,
               url: result.url,
             };
-            // 文件块需要额外设置 fileName 和 fileSize
             if (type === 'file' && result.fileName) {
               newProps.fileName = result.fileName;
             }
             if (type === 'file' && result.fileSize) {
               newProps.fileSize = result.fileSize;
             }
-            // 音视频块设置 title（使用原始文件名）
             if ((type === 'audio' || type === 'video') && result.fileName) {
               newProps.title = result.fileName;
             }
             editor.updateBlock(block, { props: newProps });
             // eslint-disable-next-line no-console
             console.log('[CommentEditor] Block updated:', blockId);
-            handleChange(); // 触发内容变化
+            handleChange();
           } else {
             // eslint-disable-next-line no-console
             console.warn('[CommentEditor] Block not found:', blockId);
@@ -1489,7 +908,7 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
             document.body
           )}
 
-        {/* 编辑器 - 不包裹 ErrorBoundary，让错误向上冒泡 */}
+        {/* 编辑器 */}
         <div className="comment-editor-content">
           <BlockNoteView
             editor={editor}
@@ -1505,7 +924,6 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
               triggerCharacter="/"
               getItems={getFilteredSlashMenuItems}
             />
-            {/* 自定义 FormattingToolbar，过滤 toggle 相关项目 */}
             <FormattingToolbarController
               formattingToolbar={() => (
                 <FormattingToolbar
