@@ -230,82 +230,185 @@ const PostDetailPage: React.FC = () => {
   }
 
   return (
-    <article className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-0">
-      {/* 返回链接 */}
-      <Link
-        to="/posts"
-        className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6 md:mb-8"
-      >
-        <ArrowLeft className="h-4 w-4 mr-1" />
-        返回文章列表
-      </Link>
-
-      {/* 文章头部 */}
-      <header className="mb-8 md:mb-12">
-        <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-serif font-bold leading-tight mb-4 md:mb-6">
-          {post.title}
-        </h1>
-
-        {/* 元信息 */}
-        <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
-              {post.author.avatar ? (
-                <img
-                  src={getMediaUrl(post.author.avatar)}
-                  alt={post.author.username}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span className="text-xs sm:text-sm font-medium text-primary">
-                  {post.author.username.charAt(0).toUpperCase()}
-                </span>
-              )}
-            </div>
-            <span>{post.author.username}</span>
+    <article>
+      {/* Hero 封面区域 - 全宽贴顶 */}
+      {post.coverImage ? (
+        <div className="relative w-screen -ml-[50vw] left-1/2 -mt-6 md:-mt-8 mb-8 md:mb-12">
+          {/* 封面图 */}
+          <div className="relative h-[280px] sm:h-[360px] md:h-[450px] lg:h-[520px] overflow-hidden">
+            <img
+              src={getMediaUrl(post.coverImage)}
+              alt={post.title}
+              className="w-full h-full object-cover"
+            />
+            {/* 底部渐变遮罩 - 保持通透 */}
+            <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/20 via-40% to-transparent" />
           </div>
 
-          <span className="text-muted-foreground/50 hidden sm:inline">·</span>
+          {/* 返回按钮 - 左上角 */}
+          <Link
+            to="/posts"
+            className="absolute top-4 left-4 sm:top-6 sm:left-6 inline-flex items-center text-sm text-white/80 hover:text-white bg-black/20 hover:bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            返回
+          </Link>
 
-          <div className="relative flex items-center gap-1 group/time">
-            <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
-            <span>
-              {new Date(post.createdAt).toLocaleDateString('zh-CN', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
+          {/* 封面标识 - 右上角 */}
+          <div className="absolute top-4 right-4 sm:top-6 sm:right-6">
+            <span className="px-2 py-1 text-xs font-medium bg-black/20 backdrop-blur-sm rounded text-white/80">
+              封面
             </span>
-            {/* 更新时间气泡提示 */}
-            {post.updatedAt !== post.createdAt && (
-              <>
-                <span className="absolute -top-1 -right-2 size-[6px] bg-primary rounded-full" />
-                <div className="absolute left-0 top-full mt-2 px-3 py-2 bg-popover border rounded-md shadow-md text-xs whitespace-nowrap opacity-0 invisible group-hover/time:opacity-100 group-hover/time:visible transition-all z-10">
-                  更新于{' '}
-                  {new Date(post.updatedAt).toLocaleString('zh-CN', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    hour12: false,
-                  })}
-                </div>
-              </>
-            )}
           </div>
 
-          <span className="text-muted-foreground/50 hidden sm:inline">·</span>
+          {/* 标题和元信息叠加在底部 */}
+          <div className="absolute bottom-0 left-0 right-0 px-4 sm:px-6 pb-6 sm:pb-8">
+            <div className="max-w-3xl mx-auto">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-serif font-bold leading-tight mb-3 md:mb-4 text-foreground drop-shadow-sm">
+                {post.title}
+              </h1>
 
-          <div className="flex items-center gap-1">
-            <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
-            <span>{post.views} 阅读</span>
+              {/* 元信息 */}
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center overflow-hidden ring-2 ring-background/50">
+                    {post.author.avatar ? (
+                      <img
+                        src={getMediaUrl(post.author.avatar)}
+                        alt={post.author.username}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-xs sm:text-sm font-medium text-primary">
+                        {post.author.username.charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <span>{post.author.username}</span>
+                </div>
+
+                <span className="text-muted-foreground/50 hidden sm:inline">
+                  ·
+                </span>
+
+                <div className="relative flex items-center gap-1 group/time">
+                  <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span>
+                    {new Date(post.createdAt).toLocaleDateString('zh-CN', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </span>
+                  {/* 更新时间气泡提示 */}
+                  {post.updatedAt !== post.createdAt && (
+                    <>
+                      <span className="absolute -top-1 -right-2 size-[6px] bg-primary rounded-full" />
+                      <div className="absolute left-0 top-full mt-2 px-3 py-2 bg-popover border rounded-md shadow-md text-xs whitespace-nowrap opacity-0 invisible group-hover/time:opacity-100 group-hover/time:visible transition-all z-10">
+                        更新于{' '}
+                        {new Date(post.updatedAt).toLocaleString('zh-CN', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          hour12: false,
+                        })}
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <span className="text-muted-foreground/50 hidden sm:inline">
+                  ·
+                </span>
+
+                <div className="flex items-center gap-1">
+                  <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span>{post.views} 阅读</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
+      ) : (
+        /* 无封面时的普通头部 */
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-0 mb-8 md:mb-12">
+          <Link
+            to="/posts"
+            className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6 md:mb-8"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            返回文章列表
+          </Link>
 
+          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-serif font-bold leading-tight mb-4 md:mb-6">
+            {post.title}
+          </h1>
+
+          {/* 元信息 */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                {post.author.avatar ? (
+                  <img
+                    src={getMediaUrl(post.author.avatar)}
+                    alt={post.author.username}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-xs sm:text-sm font-medium text-primary">
+                    {post.author.username.charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <span>{post.author.username}</span>
+            </div>
+
+            <span className="text-muted-foreground/50 hidden sm:inline">·</span>
+
+            <div className="relative flex items-center gap-1 group/time">
+              <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span>
+                {new Date(post.createdAt).toLocaleDateString('zh-CN', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+              </span>
+              {post.updatedAt !== post.createdAt && (
+                <>
+                  <span className="absolute -top-1 -right-2 size-[6px] bg-primary rounded-full" />
+                  <div className="absolute left-0 top-full mt-2 px-3 py-2 bg-popover border rounded-md shadow-md text-xs whitespace-nowrap opacity-0 invisible group-hover/time:opacity-100 group-hover/time:visible transition-all z-10">
+                    更新于{' '}
+                    {new Date(post.updatedAt).toLocaleString('zh-CN', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: false,
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <span className="text-muted-foreground/50 hidden sm:inline">·</span>
+
+            <div className="flex items-center gap-1">
+              <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span>{post.views} 阅读</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 正文区域 */}
+      <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-0">
         {/* 标签 */}
         {post.postTags && post.postTags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-4">
+          <div className="flex flex-wrap gap-2 mb-8 md:mb-12">
             {post.postTags.map(postTag => (
               <span
                 key={postTag.id}
@@ -317,92 +420,84 @@ const PostDetailPage: React.FC = () => {
             ))}
           </div>
         )}
-      </header>
 
-      {/* 封面图 */}
-      {post.coverImage && (
-        <figure className="mb-8 md:mb-12 -mx-4 sm:mx-0">
-          <img
-            src={post.coverImage}
-            alt={post.title}
-            className="w-full sm:rounded-lg object-cover max-h-[300px] sm:max-h-[400px] md:max-h-[500px]"
+        {/* 文章内容 */}
+        <div className="prose prose-sm sm:prose-base md:prose-lg dark:prose-invert max-w-none mb-8 md:mb-12 overflow-x-auto">
+          <MarkdownRenderer content={post.content} className="prose-article" />
+        </div>
+
+        {/* 操作栏 */}
+        <div className="flex items-center justify-between py-4 border-y mb-8 md:mb-12">
+          <div className="flex items-center gap-2">
+            <Button
+              variant={isLiked ? 'default' : 'ghost'}
+              size="sm"
+              onClick={handleLike}
+              disabled={isLikeLoading}
+            >
+              <Heart
+                className={`h-4 w-4 mr-1.5 ${isLiked ? 'fill-current' : ''}`}
+              />
+              {likesCount}
+            </Button>
+
+            <Button
+              variant={isBookmarked ? 'default' : 'ghost'}
+              size="sm"
+              onClick={handleBookmark}
+              disabled={isFavoriteLoading}
+            >
+              <Bookmark
+                className={`h-4 w-4 mr-1.5 ${isBookmarked ? 'fill-current' : ''}`}
+              />
+              收藏
+            </Button>
+
+            <Button variant="ghost" size="sm" onClick={handleShare}>
+              <Share2 className="h-4 w-4 mr-1.5" />
+              分享
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+            <MessageCircle className="h-4 w-4" />
+            <span>{commentCount} 评论</span>
+          </div>
+        </div>
+
+        {/* 评论区 */}
+        <section id="comments">
+          <CommentList
+            postId={post.id}
+            onCommentCountChange={setCommentCount}
           />
-        </figure>
-      )}
+        </section>
 
-      {/* 文章内容 */}
-      <div className="prose prose-sm sm:prose-base md:prose-lg dark:prose-invert max-w-none mb-8 md:mb-12 overflow-x-auto">
-        <MarkdownRenderer content={post.content} className="prose-article" />
+        {/* 登录弹窗 */}
+        <LoginDialog
+          isOpen={showLoginDialog}
+          onClose={() => {
+            setShowLoginDialog(false);
+            setPendingAction(null);
+          }}
+          title={
+            pendingAction === 'like'
+              ? '需要登录才能点赞'
+              : pendingAction === 'bookmark'
+                ? '需要登录才能收藏'
+                : '需要登录'
+          }
+          description="登录后即可进行此操作"
+        />
+
+        <ShareDialog
+          isOpen={showShareDialog}
+          onClose={() => setShowShareDialog(false)}
+          title={post.title}
+          url={window.location.href}
+          description={post.excerpt || undefined}
+        />
       </div>
-
-      {/* 操作栏 */}
-      <div className="flex items-center justify-between py-4 border-y mb-8 md:mb-12">
-        <div className="flex items-center gap-2">
-          <Button
-            variant={isLiked ? 'default' : 'ghost'}
-            size="sm"
-            onClick={handleLike}
-            disabled={isLikeLoading}
-          >
-            <Heart
-              className={`h-4 w-4 mr-1.5 ${isLiked ? 'fill-current' : ''}`}
-            />
-            {likesCount}
-          </Button>
-
-          <Button
-            variant={isBookmarked ? 'default' : 'ghost'}
-            size="sm"
-            onClick={handleBookmark}
-            disabled={isFavoriteLoading}
-          >
-            <Bookmark
-              className={`h-4 w-4 mr-1.5 ${isBookmarked ? 'fill-current' : ''}`}
-            />
-            收藏
-          </Button>
-
-          <Button variant="ghost" size="sm" onClick={handleShare}>
-            <Share2 className="h-4 w-4 mr-1.5" />
-            分享
-          </Button>
-        </div>
-
-        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-          <MessageCircle className="h-4 w-4" />
-          <span>{commentCount} 评论</span>
-        </div>
-      </div>
-
-      {/* 评论区 */}
-      <section id="comments">
-        <CommentList postId={post.id} onCommentCountChange={setCommentCount} />
-      </section>
-
-      {/* 登录弹窗 */}
-      <LoginDialog
-        isOpen={showLoginDialog}
-        onClose={() => {
-          setShowLoginDialog(false);
-          setPendingAction(null);
-        }}
-        title={
-          pendingAction === 'like'
-            ? '需要登录才能点赞'
-            : pendingAction === 'bookmark'
-              ? '需要登录才能收藏'
-              : '需要登录'
-        }
-        description="登录后即可进行此操作"
-      />
-
-      <ShareDialog
-        isOpen={showShareDialog}
-        onClose={() => setShowShareDialog(false)}
-        title={post.title}
-        url={window.location.href}
-        description={post.excerpt || undefined}
-      />
     </article>
   );
 };
