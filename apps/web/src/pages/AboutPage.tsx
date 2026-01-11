@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react'
-import { Card, CardContent } from '../components/ui/card'
-import { Button } from '../components/ui/button'
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent } from '../components/ui/card';
+import { Button } from '../components/ui/button';
 import {
   Mail,
   FileText,
@@ -10,36 +10,36 @@ import {
   Loader2,
   Globe,
   MessageCircle,
-  Code2
-} from 'lucide-react'
-import { api } from '@whispers/utils'
-import GithubIcon from "@/assets/github.svg"
+  Code2,
+} from 'lucide-react';
+import { api } from '@whispers/utils';
+import GithubIcon from '@/assets/github.svg';
 
 interface SiteConfig {
-  siteName: string
-  siteDescription: string
-  siteLogo: string
-  ownerName?: string | null
-  ownerAvatar?: string | null
-  contactEmail: string
+  siteName: string;
+  siteDescription: string;
+  siteLogo: string;
+  ownerName?: string | null;
+  ownerAvatar?: string | null;
+  contactEmail: string;
   socialLinks: {
-    github: string
-    twitter: string
-    linkedin: string
-  }
+    github: string;
+    twitter: string;
+    linkedin: string;
+  };
 }
 
 interface SiteStats {
-  totalPosts: number
-  totalComments: number
-  totalViews: number
-  totalLikes: number
+  totalPosts: number;
+  totalComments: number;
+  totalViews: number;
+  totalLikes: number;
 }
 
 // GitHub 用户名
-const GITHUB_USERNAME = 'wh131462'
+const GITHUB_USERNAME = 'wh131462';
 // GitHub 头像 URL
-const GITHUB_AVATAR_URL = `https://github.com/${GITHUB_USERNAME}.png`
+const GITHUB_AVATAR_URL = `https://github.com/${GITHUB_USERNAME}.png`;
 
 const defaultConfig: SiteConfig = {
   siteName: 'EternalHeart',
@@ -51,67 +51,75 @@ const defaultConfig: SiteConfig = {
   socialLinks: {
     github: `https://github.com/${GITHUB_USERNAME}`,
     twitter: '',
-    linkedin: ''
-  }
-}
+    linkedin: '',
+  },
+};
 
 // 精简的技术栈数据
 const techStacks = [
   {
     category: 'Frontend',
-    items: ['HTML', 'CSS', 'JavaScript', 'TypeScript', 'Angular', 'Vue', 'React']
+    items: [
+      'HTML',
+      'CSS',
+      'JavaScript',
+      'TypeScript',
+      'Angular',
+      'Vue',
+      'React',
+    ],
   },
   {
     category: 'Backend',
-    items: ['Node.js', 'NestJS', 'Java', 'Python', 'Rust']
+    items: ['Node.js', 'NestJS', 'Java', 'Python', 'Rust'],
   },
   {
     category: 'Mobile',
-    items: ['Flutter', 'Swift']
+    items: ['Flutter', 'Swift'],
   },
   {
     category: 'Tools',
-    items: ['Git', 'Docker', 'Vite', 'Webpack']
-  }
-]
+    items: ['Git', 'Docker', 'Vite', 'Webpack'],
+  },
+];
 
 const AboutPage: React.FC = () => {
-  const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null)
-  const [stats, setStats] = useState<SiteStats | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null);
+  const [stats, setStats] = useState<SiteStats | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setLoading(true)
+        setLoading(true);
         const [configResponse, statsResponse] = await Promise.all([
           api.get('/site-config'),
-          api.get('/blog/stats').catch(() => ({ data: null }))
-        ])
+          api.get('/blog/stats').catch(() => ({ data: null })),
+        ]);
 
         if (configResponse.data?.success && configResponse.data?.data) {
-          setSiteConfig(configResponse.data.data)
+          setSiteConfig(configResponse.data.data);
         } else if (configResponse.data && !configResponse.data.success) {
-          setSiteConfig(defaultConfig)
+          setSiteConfig(defaultConfig);
         } else {
-          setSiteConfig(configResponse.data || defaultConfig)
+          setSiteConfig(configResponse.data || defaultConfig);
         }
 
         if (statsResponse.data?.success && statsResponse.data?.data) {
-          setStats(statsResponse.data.data)
+          setStats(statsResponse.data.data);
         } else if (statsResponse.data?.data) {
-          setStats(statsResponse.data.data)
+          setStats(statsResponse.data.data);
         }
       } catch (error) {
-        console.error('Failed to fetch data:', error)
-        setSiteConfig(defaultConfig)
+        console.error('Failed to fetch data:', error);
+        setSiteConfig(defaultConfig);
       } finally {
-        setLoading(false)
+        setLoading(false);
       }
-    }
+    };
 
-    fetchData()
-  }, [])
+    fetchData();
+  }, []);
 
   if (loading) {
     return (
@@ -121,10 +129,10 @@ const AboutPage: React.FC = () => {
           <span>加载中...</span>
         </div>
       </div>
-    )
+    );
   }
 
-  const config = siteConfig || defaultConfig
+  const config = siteConfig || defaultConfig;
 
   return (
     <div className="space-y-12 max-w-4xl mx-auto">
@@ -149,8 +157,8 @@ const AboutPage: React.FC = () => {
                   alt="Avatar"
                   className="w-32 h-32 rounded-full object-cover border-4 border-primary/20 shadow-xl select-none"
                   draggable={false}
-                  onError={(e) => {
-                    e.currentTarget.src = GITHUB_AVATAR_URL
+                  onError={e => {
+                    e.currentTarget.src = GITHUB_AVATAR_URL;
                   }}
                 />
               </div>
@@ -161,7 +169,10 @@ const AboutPage: React.FC = () => {
                   EternalHeart
                 </h1>
                 <p className="text-lg text-muted-foreground mb-4 leading-relaxed">
-                  I am a frontend enthusiast, passionate about creating, and a frontend developer committed to transitioning into a full-stack role. I aspire to become a recognized expert in the field of technology.
+                  I am a frontend enthusiast, passionate about creating, and a
+                  frontend developer committed to transitioning into a
+                  full-stack role. I aspire to become a recognized expert in the
+                  field of technology.
                 </p>
                 <blockquote className="border-l-4 border-primary pl-4 italic text-muted-foreground text-sm">
                   "Keep learning, let the heart stay passionate eternally..."
@@ -213,28 +224,36 @@ const AboutPage: React.FC = () => {
           <Card className="text-center hover:shadow-lg transition-shadow">
             <CardContent className="pt-6 pb-4">
               <FileText className="h-8 w-8 text-blue-500 mx-auto mb-2" />
-              <p className="text-2xl font-bold text-foreground">{stats.totalPosts}</p>
+              <p className="text-2xl font-bold text-foreground">
+                {stats.totalPosts}
+              </p>
               <p className="text-xs text-muted-foreground">文章</p>
             </CardContent>
           </Card>
           <Card className="text-center hover:shadow-lg transition-shadow">
             <CardContent className="pt-6 pb-4">
               <MessageSquare className="h-8 w-8 text-green-500 mx-auto mb-2" />
-              <p className="text-2xl font-bold text-foreground">{stats.totalComments}</p>
+              <p className="text-2xl font-bold text-foreground">
+                {stats.totalComments}
+              </p>
               <p className="text-xs text-muted-foreground">评论</p>
             </CardContent>
           </Card>
           <Card className="text-center hover:shadow-lg transition-shadow">
             <CardContent className="pt-6 pb-4">
               <Eye className="h-8 w-8 text-purple-500 mx-auto mb-2" />
-              <p className="text-2xl font-bold text-foreground">{stats.totalViews}</p>
+              <p className="text-2xl font-bold text-foreground">
+                {stats.totalViews}
+              </p>
               <p className="text-xs text-muted-foreground">浏览</p>
             </CardContent>
           </Card>
           <Card className="text-center hover:shadow-lg transition-shadow">
             <CardContent className="pt-6 pb-4">
               <Heart className="h-8 w-8 text-red-500 mx-auto mb-2" />
-              <p className="text-2xl font-bold text-foreground">{stats.totalLikes}</p>
+              <p className="text-2xl font-bold text-foreground">
+                {stats.totalLikes}
+              </p>
               <p className="text-xs text-muted-foreground">点赞</p>
             </CardContent>
           </Card>
@@ -250,11 +269,13 @@ const AboutPage: React.FC = () => {
               技术栈
             </h2>
             <div className="space-y-4">
-              {techStacks.map((stack) => (
+              {techStacks.map(stack => (
                 <div key={stack.category}>
-                  <h3 className="text-sm font-medium text-muted-foreground mb-2">{stack.category}</h3>
+                  <h3 className="text-sm font-medium text-muted-foreground mb-2">
+                    {stack.category}
+                  </h3>
                   <div className="flex flex-wrap gap-2">
-                    {stack.items.map((item) => (
+                    {stack.items.map(item => (
                       <span
                         key={item}
                         className="px-3 py-1.5 text-sm rounded-full bg-muted hover:bg-primary/10 transition-colors"
@@ -278,23 +299,40 @@ const AboutPage: React.FC = () => {
             <p className="text-muted-foreground mb-6">
               如果您有任何问题、建议或合作意向，欢迎随时与我联系
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-4">
-              <Button asChild>
-                <a href="mailto:hao131462@qq.com">
-                  <Mail className="h-4 w-4 mr-2" />
-                  发送邮件
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3">
+              <Button asChild className="w-full sm:w-auto">
+                <a
+                  href="mailto:hao131462@qq.com"
+                  className="inline-flex items-center justify-center"
+                >
+                  <Mail className="h-4 w-4 mr-2 flex-shrink-0" />
+                  <span>发送邮件</span>
                 </a>
               </Button>
-              <Button variant="outline" asChild>
-                <a href="https://github.com/wh131462" target="_blank" rel="noopener noreferrer">
-                  <img src={GithubIcon} alt="Github" className="h-4 w-4 mr-2" />
-                  GitHub
+              <Button variant="outline" asChild className="w-full sm:w-auto">
+                <a
+                  href="https://github.com/wh131462"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center"
+                >
+                  <img
+                    src={GithubIcon}
+                    alt="Github"
+                    className="h-4 w-4 mr-2 flex-shrink-0"
+                  />
+                  <span>GitHub</span>
                 </a>
               </Button>
-              <Button variant="outline" asChild>
-                <a href="https://131462.wang" target="_blank" rel="noopener noreferrer">
-                  <Globe className="h-4 w-4 mr-2" />
-                  主页
+              <Button variant="outline" asChild className="w-full sm:w-auto">
+                <a
+                  href="https://131462.wang"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center"
+                >
+                  <Globe className="h-4 w-4 mr-2 flex-shrink-0" />
+                  <span>主页</span>
                 </a>
               </Button>
             </div>
@@ -302,7 +340,7 @@ const AboutPage: React.FC = () => {
         </Card>
       </section>
     </div>
-  )
-}
+  );
+};
 
-export default AboutPage
+export default AboutPage;

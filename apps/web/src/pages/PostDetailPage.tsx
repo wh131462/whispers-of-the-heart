@@ -233,7 +233,7 @@ const PostDetailPage: React.FC = () => {
     <article>
       {/* Hero 封面区域 - 全宽贴顶 */}
       {post.coverImage ? (
-        <div className="relative w-screen -ml-[50vw] left-1/2 -mt-6 md:-mt-8 mb-8 md:mb-12">
+        <div className="relative w-screen -ml-[50vw] left-1/2 -mt-8 mb-8 md:mb-12">
           {/* 封面图 */}
           <div className="relative h-[280px] sm:h-[360px] md:h-[450px] lg:h-[520px] overflow-hidden">
             <img

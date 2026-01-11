@@ -339,6 +339,20 @@
 }
 
 @layer utilities {
+  /* iOS 安全区域支持 */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .pl-safe {
+    padding-left: env(safe-area-inset-left);
+  }
+  .pr-safe {
+    padding-right: env(safe-area-inset-right);
+  }
+
   /* 文字渐变效果 */
   .text-gradient {
     background: linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--muted-foreground)));

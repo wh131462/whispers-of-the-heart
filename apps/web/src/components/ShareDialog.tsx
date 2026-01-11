@@ -157,17 +157,22 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(url)}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
       {/* 背景遮罩 */}
       <div
         className="absolute inset-0 bg-black/40 animate-in fade-in duration-200"
         onClick={onClose}
       />
 
-      {/* 弹窗内容 */}
-      <div className="relative z-10 w-full max-w-sm bg-background rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200">
+      {/* 弹窗内容 - 移动端底部弹出，桌面端居中 */}
+      <div className="relative z-10 w-full sm:max-w-sm bg-background rounded-t-2xl sm:rounded-2xl shadow-2xl animate-in slide-in-from-bottom sm:zoom-in-95 duration-200">
+        {/* 移动端拖动指示条 */}
+        <div className="flex justify-center pt-3 sm:hidden">
+          <div className="w-10 h-1 bg-muted-foreground/30 rounded-full" />
+        </div>
+
         {/* 头部 */}
-        <div className="flex items-center justify-between px-5 pt-4 pb-2">
+        <div className="flex items-center justify-between px-5 pt-2 sm:pt-4 pb-2">
           <h2 className="text-base font-semibold">分享</h2>
           <button
             onClick={onClose}
@@ -209,13 +214,13 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
         {/* 内容区域 */}
         <div className="px-5 pb-5">
           {activeTab === 'platforms' ? (
-            /* 社交平台网格 */
-            <div className="grid grid-cols-4 gap-3">
+            /* 社交平台 - 左对齐 flex 布局 */
+            <div className="flex flex-wrap gap-x-5 gap-y-4">
               {socialPlatforms.map(platform => (
                 <button
                   key={platform.id}
                   onClick={() => handleShare(platform.id)}
-                  className="flex flex-col items-center gap-1.5 group"
+                  className="flex flex-col items-center gap-1.5 group w-14"
                 >
                   <div
                     className="w-11 h-11 rounded-full flex items-center justify-center text-white transition-transform group-hover:scale-110 group-active:scale-95"
@@ -277,16 +282,16 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
           )}
         </div>
 
-        {/* 复制链接区域 */}
-        <div className="px-5 pb-5 pt-2 border-t">
+        {/* 复制链接区域 - 移动端安全区域 */}
+        <div className="px-5 pb-5 pt-2 border-t pb-safe">
           <div className="flex items-center gap-2 p-2.5 bg-muted/50 rounded-xl">
-            <Link2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
-            <span className="flex-1 text-sm text-muted-foreground truncate">
+            <Link2 className="w-4 h-4 text-muted-foreground flex-shrink-0 hidden sm:block" />
+            <span className="flex-1 text-sm text-muted-foreground truncate min-w-0">
               {url}
             </span>
             <button
               onClick={handleCopyLink}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex-shrink-0 ${
                 copied
                   ? 'bg-green-500/10 text-green-600'
                   : 'bg-primary text-primary-foreground hover:bg-primary/90'
@@ -295,12 +300,12 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
               {copied ? (
                 <>
                   <Check className="w-4 h-4" />
-                  已复制
+                  <span className="hidden sm:inline">已复制</span>
                 </>
               ) : (
                 <>
                   <Copy className="w-4 h-4" />
-                  复制
+                  <span className="hidden sm:inline">复制</span>
                 </>
               )}
             </button>

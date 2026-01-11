@@ -271,7 +271,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
               />
             </div>
 
-            <div className="flex items-center gap-1 pt-1 -ml-2">
+            <div className="comment-actions-bar flex items-center gap-1 pt-1 -ml-2 flex-wrap">
               <CommentActions
                 isLiked={replyLiked}
                 likesCount={replyLikesCount}
@@ -289,16 +289,18 @@ const CommentItem: React.FC<CommentItemProps> = ({
                 回复
               </Button>
 
-              {/* IP 属地 */}
-              <span className="flex items-center gap-1 text-xs text-muted-foreground px-2">
+              {/* IP 属地 - 移动端隐藏文字只显示图标 */}
+              <span className="comment-location flex items-center gap-1 text-xs text-muted-foreground px-2">
                 <MapPin className="h-3 w-3" />
-                {reply.location || '未知'}
+                <span className="location-text">
+                  {reply.location || '未知'}
+                </span>
               </span>
 
-              {/* 系统信息图标 */}
+              {/* 系统信息图标 - 移动端隐藏 */}
               {reply.deviceInfo && (
                 <Tooltip title={parseDeviceInfo(reply.deviceInfo).full}>
-                  <span className="text-muted-foreground cursor-default">
+                  <span className="comment-device-info text-muted-foreground cursor-default">
                     {parseDeviceInfo(reply.deviceInfo).icon}
                   </span>
                 </Tooltip>
@@ -394,7 +396,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
             </div>
 
             {/* 操作按钮 */}
-            <div className="flex items-center gap-1 pt-1 -ml-2">
+            <div className="comment-actions-bar flex items-center gap-1 pt-1 -ml-2 flex-wrap">
               {/* 点赞按钮 */}
               <CommentActions
                 isLiked={isLiked}
@@ -432,16 +434,18 @@ const CommentItem: React.FC<CommentItemProps> = ({
                 </Button>
               )}
 
-              {/* IP 属地 */}
-              <span className="flex items-center gap-1 text-xs text-muted-foreground px-2">
+              {/* IP 属地 - 移动端隐藏文字只显示图标 */}
+              <span className="comment-location flex items-center gap-1 text-xs text-muted-foreground px-2">
                 <MapPin className="h-3 w-3" />
-                {comment.location || '未知'}
+                <span className="location-text">
+                  {comment.location || '未知'}
+                </span>
               </span>
 
-              {/* 系统信息图标 */}
+              {/* 系统信息图标 - 移动端隐藏 */}
               {comment.deviceInfo && (
                 <Tooltip title={parseDeviceInfo(comment.deviceInfo).full}>
-                  <span className="text-muted-foreground cursor-default">
+                  <span className="comment-device-info text-muted-foreground cursor-default">
                     {parseDeviceInfo(comment.deviceInfo).icon}
                   </span>
                 </Tooltip>
@@ -570,6 +574,38 @@ const CommentItem: React.FC<CommentItemProps> = ({
           }
           to {
             opacity: 1;
+          }
+        }
+
+        /* 移动端自适应 */
+        @media (max-width: 640px) {
+          .comment-actions-bar {
+            gap: 0;
+          }
+
+          .comment-actions-bar button {
+            padding-left: 0.375rem;
+            padding-right: 0.375rem;
+          }
+
+          /* 移动端隐藏 IP 属地文字，只保留图标 */
+          .comment-location .location-text {
+            display: none;
+          }
+
+          /* 移动端隐藏系统信息 */
+          .comment-device-info {
+            display: none;
+          }
+
+          /* 回复容器移动端缩小缩进 */
+          .replies-container {
+            margin-left: 2rem;
+            padding-left: 0.5rem;
+          }
+
+          .reply-form-container {
+            margin-left: 2rem !important;
           }
         }
       `}</style>

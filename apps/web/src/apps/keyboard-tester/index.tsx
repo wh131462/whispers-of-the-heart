@@ -1,7 +1,23 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '../../components/ui/button';
+
+// 自定义 hook 用于响应式检测
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    setMatches(media.matches);
+
+    const listener = (e: MediaQueryListEvent) => setMatches(e.matches);
+    media.addEventListener('change', listener);
+    return () => media.removeEventListener('change', listener);
+  }, [query]);
+
+  return matches;
+}
 
 // 按键定义类型
 interface KeyDef {
@@ -298,6 +314,11 @@ export default function KeyboardTester() {
   const [testedKeys, setTestedKeys] = useState<Set<string>>(new Set());
   const [lastKeyInfo, setLastKeyInfo] = useState<KeyInfo | null>(null);
 
+  // 响应式断点检测
+  const isExtraSmallScreen = useMediaQuery('(max-width: 400px)');
+  const isSmallScreen = useMediaQuery('(max-width: 640px)');
+  const isMediumScreen = useMediaQuery('(max-width: 900px)');
+
   const allKeyCodes = getAllKeyCodes();
   const testedCount = [...testedKeys].filter(k =>
     allKeyCodes.includes(k)
@@ -343,8 +364,19 @@ export default function KeyboardTester() {
     };
   }, [handleKeyDown, handleKeyUp]);
 
-  const unit = 36;
-  const gap = 2;
+  // 响应式尺寸 - 根据屏幕宽度动态计算
+  const { unit, gap } = useMemo(() => {
+    if (isExtraSmallScreen) {
+      return { unit: 13, gap: 1 }; // 超小屏幕 (≤400px)：最紧凑按键
+    }
+    if (isSmallScreen) {
+      return { unit: 15, gap: 1 }; // 小屏幕 (≤640px)：紧凑按键
+    }
+    if (isMediumScreen) {
+      return { unit: 26, gap: 2 }; // 中等屏幕 (≤900px)：中等按键
+    }
+    return { unit: 36, gap: 2 }; // 大屏幕：正常按键
+  }, [isExtraSmallScreen, isSmallScreen, isMediumScreen]);
 
   const renderKey = (keyDef: KeyDef) => (
     <Key
@@ -408,7 +440,12 @@ export default function KeyboardTester() {
       </div>
 
       {/* 108键键盘 */}
-      <div className="rounded-xl border border-neutral-200 bg-neutral-100 p-3 shadow-lg dark:border-neutral-700 dark:bg-neutral-900">
+      <div
+        className={cn(
+          'rounded-xl border border-neutral-200 bg-neutral-100 shadow-lg dark:border-neutral-700 dark:bg-neutral-900',
+          isExtraSmallScreen ? 'p-1' : isSmallScreen ? 'p-1.5' : 'p-3'
+        )}
+      >
         <div className="flex" style={{ gap: unit * 0.5 }}>
           {/* 左侧：主键盘区域 */}
           <div className="flex flex-col" style={{ gap }}>

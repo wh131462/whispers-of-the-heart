@@ -965,17 +965,30 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
           padding: 0.5rem 0.75rem;
           border-bottom: 1px solid hsl(var(--border));
           background: hsl(var(--muted) / 0.3);
+          gap: 0.5rem;
         }
 
         .toolbar-left {
           display: flex;
           align-items: center;
           gap: 0.25rem;
+          overflow-x: auto;
+          overflow-y: hidden;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+          -ms-overflow-style: none;
+          flex: 1;
+          min-width: 0;
+        }
+
+        .toolbar-left::-webkit-scrollbar {
+          display: none;
         }
 
         .toolbar-right {
           display: flex;
           align-items: center;
+          flex-shrink: 0;
         }
 
         .toolbar-btn {
@@ -990,6 +1003,7 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
           color: hsl(var(--muted-foreground));
           cursor: pointer;
           transition: all 0.15s;
+          flex-shrink: 0;
         }
 
         .toolbar-btn:hover:not(:disabled) {
@@ -1005,6 +1019,14 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
         .toolbar-hint {
           font-size: 0.75rem;
           color: hsl(var(--muted-foreground));
+          white-space: nowrap;
+        }
+
+        /* 移动端隐藏快捷键提示 */
+        @media (max-width: 640px) {
+          .toolbar-hint {
+            display: none;
+          }
         }
 
         .toolbar-divider {
@@ -1012,6 +1034,30 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
           height: 20px;
           background: hsl(var(--border));
           margin: 0 0.25rem;
+          flex-shrink: 0;
+        }
+
+        /* 移动端隐藏分隔线 */
+        @media (max-width: 640px) {
+          .toolbar-divider {
+            display: none;
+          }
+        }
+
+        /* 移动端工具按钮更紧凑 */
+        @media (max-width: 640px) {
+          .toolbar-btn {
+            width: 28px;
+            height: 28px;
+          }
+
+          .toolbar-left {
+            gap: 0.125rem;
+          }
+
+          .comment-editor-toolbar {
+            padding: 0.375rem 0.5rem;
+          }
         }
 
         .comment-editor-content {

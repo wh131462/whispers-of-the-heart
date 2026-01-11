@@ -313,9 +313,9 @@ const MainLayout: React.FC = () => {
             </nav>
 
             {/* 右侧操作区 */}
-            <div className="flex items-center space-x-2">
-              {/* 应用中心入口 */}
-              <Link to="/apps">
+            <div className="flex items-center space-x-1 sm:space-x-2">
+              {/* 应用中心入口 - 移动端隐藏 */}
+              <Link to="/apps" className="hidden sm:block">
                 <Button
                   variant="ghost"
                   size="icon"
@@ -330,16 +330,16 @@ const MainLayout: React.FC = () => {
                 </Button>
               </Link>
 
-              {/* 主题切换按钮 */}
+              {/* 主题切换按钮 - 移动端隐藏 */}
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                className={
+                className={`hidden sm:flex ${
                   isHomePage && !isScrolled
                     ? 'text-foreground hover:bg-foreground/10'
                     : ''
-                }
+                }`}
                 title={theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'}
               >
                 {theme === 'dark' ? (
@@ -473,16 +473,10 @@ const MainLayout: React.FC = () => {
             </div>
           </div>
 
-          {/* 移动端菜单 - 仅在移动端显示 */}
+          {/* 移动端菜单 - 浮动下拉，不影响布局 */}
           {showMobileMenu && (
-            <div
-              className={`block md:!hidden py-4 ${
-                isHomePage && !isScrolled
-                  ? 'border-t border-foreground/20'
-                  : 'border-t'
-              }`}
-            >
-              <nav className="flex flex-col space-y-2">
+            <div className="absolute top-full left-0 right-0 md:!hidden bg-background/95 backdrop-blur border-b shadow-lg z-50">
+              <nav className="flex flex-col p-4 space-y-1">
                 {navigation.map(item => {
                   const Icon = item.icon;
                   const isActive = location.pathname === item.href;
@@ -494,9 +488,7 @@ const MainLayout: React.FC = () => {
                       className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                         isActive
                           ? 'bg-primary text-primary-foreground'
-                          : isHomePage && !isScrolled
-                            ? 'text-foreground/80 hover:text-foreground hover:bg-foreground/10'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-accent'
                       }`}
                       onClick={() => setShowMobileMenu(false)}
                     >
@@ -505,6 +497,39 @@ const MainLayout: React.FC = () => {
                     </Link>
                   );
                 })}
+
+                {/* 分隔线 */}
+                <div className="my-2 border-t" />
+
+                {/* 应用中心 */}
+                <Link
+                  to="/apps"
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    location.pathname === '/apps'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                  }`}
+                  onClick={() => setShowMobileMenu(false)}
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                  <span>应用中心</span>
+                </Link>
+
+                {/* 主题切换 */}
+                <button
+                  className="flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors w-full text-muted-foreground hover:text-foreground hover:bg-accent"
+                  onClick={() => {
+                    setTheme(theme === 'dark' ? 'light' : 'dark');
+                    setShowMobileMenu(false);
+                  }}
+                >
+                  {theme === 'dark' ? (
+                    <Moon className="h-4 w-4" />
+                  ) : (
+                    <Sun className="h-4 w-4" />
+                  )}
+                  <span>{theme === 'dark' ? '深色模式' : '浅色模式'}</span>
+                </button>
               </nav>
             </div>
           )}
