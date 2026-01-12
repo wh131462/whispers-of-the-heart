@@ -17,7 +17,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@eternalheart/react-file-preview": "^1.0.2",
+    "@eternalheart/react-file-preview": "^1.0.3",
     "@floating-ui/react": "^0.27.16",
     "@types/react-router-dom": "^5.3.3",
     "@whispers/ui": "workspace:*",
