@@ -31,4 +31,5 @@ export type {
   OnlineGameState,
   UseOnlineGameOptions,
   PendingSwapRequest,
+  SwapStatus,
 } from './useOnlineGame';

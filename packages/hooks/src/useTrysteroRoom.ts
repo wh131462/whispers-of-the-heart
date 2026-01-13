@@ -81,8 +81,9 @@ const getSignalingServerUrl = () => {
  * P2P 房间 Hook（使用自定义信令服务器）
  */
 export function useTrysteroRoom(config: RoomConfig) {
-  const { userName } = config;
+  const { appId, userName } = config;
   const [state, setState] = useState<TrysteroRoomState>(initialState);
+  const appIdRef = useRef(appId);
 
   const socketRef = useRef<Socket | null>(null);
   const peerConnectionsRef = useRef<Map<string, PeerConnection>>(new Map());
@@ -270,14 +271,17 @@ export function useTrysteroRoom(config: RoomConfig) {
    */
   const join = useCallback(
     (roomCode: string) => {
+      // 组合 appId 和 roomCode 形成唯一的房间标识
+      const fullRoomCode = `${appIdRef.current}:${roomCode}`;
+
       updateState({
         status: 'connecting',
-        roomCode,
+        roomCode, // 显示给用户的仍然是原始房间码
         peers: new Map(),
         error: null,
       });
 
-      roomCodeRef.current = roomCode;
+      roomCodeRef.current = fullRoomCode;
       const serverUrl = getSignalingServerUrl();
 
       // 连接信令服务器
@@ -285,7 +289,10 @@ export function useTrysteroRoom(config: RoomConfig) {
         path: '/signaling',
         transports: ['websocket'],
         reconnection: true,
-        reconnectionAttempts: 5,
+        reconnectionAttempts: Infinity, // 无限重连
+        reconnectionDelay: 1000, // 初始重连延迟 1 秒
+        reconnectionDelayMax: 10000, // 最大重连延迟 10 秒
+        timeout: 20000, // 连接超时 20 秒
       });
 
       socketRef.current = socket;
@@ -293,11 +300,11 @@ export function useTrysteroRoom(config: RoomConfig) {
       socket.on('connect', () => {
         console.log('[Signaling] Connected to server');
 
-        // 加入房间
+        // 加入房间（使用组合后的完整房间码）
         socket.emit(
           'join',
           {
-            roomCode,
+            roomCode: fullRoomCode,
             peerId: peerIdRef.current,
             name: userNameRef.current,
           },
@@ -338,7 +345,7 @@ export function useTrysteroRoom(config: RoomConfig) {
                 await conn.connection.setLocalDescription(offer);
 
                 socket.emit('signal', {
-                  roomCode,
+                  roomCode: fullRoomCode,
                   targetPeerId: member.peerId,
                   signal: { type: 'offer', sdp: offer.sdp },
                 });
@@ -350,15 +357,59 @@ export function useTrysteroRoom(config: RoomConfig) {
 
       socket.on('connect_error', error => {
         console.error('[Signaling] Connection error:', error);
+        // 不立即设为 disconnected，等待重连
+      });
+
+      socket.on('disconnect', reason => {
+        console.log('[Signaling] Disconnected from server:', reason);
+        // 如果是服务端主动断开或传输关闭，尝试重连
+        if (reason === 'io server disconnect') {
+          // 服务端主动断开，需要手动重连
+          socket.connect();
+        }
+        // 设置状态为 connecting 表示正在重连
+        updateState({ status: 'connecting', error: '连接断开，正在重连...' });
+      });
+
+      // 重连尝试
+      socket.io.on('reconnect_attempt', attempt => {
+        console.log(`[Signaling] Reconnection attempt ${attempt}`);
         updateState({
-          status: 'disconnected',
-          error: '无法连接到信令服务器',
+          status: 'connecting',
+          error: `正在重连... (${attempt})`,
         });
       });
 
-      socket.on('disconnect', () => {
-        console.log('[Signaling] Disconnected from server');
-        updateState({ status: 'disconnected' });
+      // 重连成功
+      socket.io.on('reconnect', () => {
+        console.log('[Signaling] Reconnected to server');
+        // 重新加入房间
+        socket.emit(
+          'join',
+          {
+            roomCode: roomCodeRef.current,
+            peerId: peerIdRef.current,
+            name: userNameRef.current,
+          },
+          (response: {
+            success: boolean;
+            members: Array<{ peerId: string; name: string }>;
+          }) => {
+            if (response.success) {
+              updateState({ status: 'connected', error: null });
+              console.log('[Signaling] Rejoined room after reconnect');
+            }
+          }
+        );
+      });
+
+      // 重连失败（达到最大次数）
+      socket.io.on('reconnect_failed', () => {
+        console.error('[Signaling] Reconnection failed');
+        updateState({
+          status: 'disconnected',
+          error: '重连失败，请刷新页面重试',
+        });
       });
 
       // 新 peer 加入

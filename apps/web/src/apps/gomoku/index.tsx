@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { RotateCcw, Undo2, Users, Bot, Globe } from 'lucide-react';
+import { RotateCcw, Undo2, Users, Bot, Globe, Clock } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -14,8 +14,15 @@ import { GameOverModal } from './components/GameOverModal';
 import { GameSidePanel, THEME_AMBER } from '@/components/game/GameSidePanel';
 import { useGomoku } from './hooks/useGomoku';
 import { useOnlineGomoku } from './hooks/useOnlineGomoku';
-import type { GameMode, Difficulty, Player } from './types';
+import type { GameMode, Difficulty, Player, TimeLimit } from './types';
 import { PLAYER_NAMES } from './types';
+
+// 时间限制选项
+const TIME_LIMIT_OPTIONS: { value: TimeLimit; label: string }[] = [
+  { value: 0, label: '不限时' },
+  { value: 30, label: '30秒' },
+  { value: 60, label: '60秒' },
+];
 
 const DIFFICULTY_NAMES: Record<Difficulty, string> = {
   easy: '简单',
@@ -201,6 +208,19 @@ function OnlineGame({
     requestPlayerRole,
     requestSwap,
     respondSwap,
+    // 新功能
+    timeLimit,
+    timeLeft,
+    canUndo,
+    undoRequest,
+    undoStatus,
+    lastChatMessage,
+    isGameStarted,
+    setTimeLimit,
+    startGame,
+    sendChat,
+    requestUndo,
+    respondUndo,
   } = useOnlineGomoku({ userName });
   const isMobile = useIsMobile();
 
@@ -224,6 +244,7 @@ function OnlineGame({
           spectators={onlineState.spectators}
           userName={userName}
           pendingSwapRequest={onlineState.pendingSwapRequest}
+          swapStatus={onlineState.swapStatus}
           gameReady={onlineState.gameReady}
           onUserNameChange={onUserNameChange}
           onJoinRoom={join}
@@ -251,9 +272,12 @@ function OnlineGame({
           spectators={onlineState.spectators}
           userName={userName}
           pendingSwapRequest={onlineState.pendingSwapRequest}
+          swapStatus={onlineState.swapStatus}
           gameReady={onlineState.gameReady}
           currentTurnLabel={currentTurnLabel}
           isMyTurn={onlineState.isMyTurn}
+          lastChatMessage={lastChatMessage}
+          onSendChat={sendChat}
           onUserNameChange={onUserNameChange}
           onJoinRoom={join}
           onLeaveRoom={leaveRoom}
@@ -262,6 +286,47 @@ function OnlineGame({
           onRespondSwap={respondSwap}
           onResetGame={reset}
           theme={THEME_AMBER}
+          actionButtons={
+            <>
+              {/* 倒计时显示 */}
+              {isGameStarted && timeLimit > 0 && (
+                <div className="p-3 bg-zinc-50 rounded-lg border border-zinc-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-zinc-500" />
+                      <span className="text-sm text-zinc-600">剩余时间</span>
+                    </div>
+                    <span
+                      className={cn(
+                        'text-lg font-bold',
+                        timeLeft <= 10 ? 'text-red-500' : 'text-zinc-700'
+                      )}
+                    >
+                      {timeLeft}s
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* 悔棋按钮 */}
+              {isGameStarted && gameState.status !== 'won' && (
+                <button
+                  onClick={requestUndo}
+                  disabled={!canUndo}
+                  className={cn(
+                    'w-full flex items-center justify-center gap-1.5 py-2 rounded-lg',
+                    'bg-zinc-100 text-zinc-700',
+                    'hover:bg-zinc-200 transition-colors',
+                    'text-sm font-medium',
+                    'disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-zinc-100'
+                  )}
+                >
+                  <Undo2 className="w-4 h-4" />
+                  悔棋
+                </button>
+              )}
+            </>
+          }
         />
       </div>
 
@@ -274,9 +339,89 @@ function OnlineGame({
             lastMove={gameState.lastMove}
             winningLine={gameState.winningLine}
             onCellClick={makeMove}
-            disabled={gameState.status === 'won' || !onlineState.isMyTurn}
+            disabled={
+              gameState.status === 'won' ||
+              !onlineState.isMyTurn ||
+              !isGameStarted
+            }
             cellSize={cellSize}
           />
+
+          {/* 开始游戏按钮（绝对定位在棋盘上） */}
+          {onlineState.gameReady && !isGameStarted && (
+            <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center gap-4 rounded-lg">
+              {/* 时间限制设置 */}
+              <div className="flex items-center gap-2 bg-white/95 px-4 py-2 rounded-lg shadow">
+                <Clock className="w-4 h-4 text-amber-600" />
+                <span className="text-sm text-zinc-700">每步时间:</span>
+                <Select
+                  value={String(timeLimit)}
+                  onValueChange={v => setTimeLimit(Number(v) as TimeLimit)}
+                >
+                  <SelectTrigger className="w-24 h-8 text-sm bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TIME_LIMIT_OPTIONS.map(opt => (
+                      <SelectItem key={opt.value} value={String(opt.value)}>
+                        {opt.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <button
+                onClick={startGame}
+                className="px-6 py-3 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors text-base font-medium shadow-lg"
+              >
+                开始游戏
+              </button>
+            </div>
+          )}
+
+          {/* 悔棋请求弹窗 */}
+          {undoRequest && (
+            <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-lg z-10">
+              <div className="bg-white p-4 rounded-lg shadow-lg max-w-[200px]">
+                <p className="text-sm text-zinc-800 mb-3 text-center">
+                  <span className="font-medium">{undoRequest.fromName}</span>{' '}
+                  请求悔棋
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => respondUndo(true)}
+                    className="flex-1 py-2 bg-green-500 text-white rounded-lg text-sm font-medium hover:bg-green-600"
+                  >
+                    同意
+                  </button>
+                  <button
+                    onClick={() => respondUndo(false)}
+                    className="flex-1 py-2 bg-zinc-200 text-zinc-700 rounded-lg text-sm font-medium hover:bg-zinc-300"
+                  >
+                    拒绝
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 悔棋状态提示 */}
+          {undoStatus && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
+              <div
+                className={cn(
+                  'px-4 py-2 rounded-lg shadow-lg text-sm font-medium',
+                  undoStatus === 'waiting' && 'bg-amber-500 text-white',
+                  undoStatus === 'accepted' && 'bg-green-500 text-white',
+                  undoStatus === 'rejected' && 'bg-red-500 text-white'
+                )}
+              >
+                {undoStatus === 'waiting' && '等待对方响应...'}
+                {undoStatus === 'accepted' && '悔棋请求已同意'}
+                {undoStatus === 'rejected' && '悔棋请求被拒绝'}
+              </div>
+            </div>
+          )}
 
           {/* 游戏结束弹窗 */}
           <GameOverModal

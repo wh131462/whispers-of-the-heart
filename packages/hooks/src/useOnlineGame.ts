@@ -85,6 +85,9 @@ export interface PendingSwapRequest {
   fromName: string;
 }
 
+// 交换状态提示（发起方看到）
+export type SwapStatus = 'waiting' | 'accepted' | 'rejected' | null;
+
 type MessagePayload =
   | RoomInfoPayload
   | RoleRequestPayload
@@ -104,6 +107,7 @@ export interface OnlineGameState {
   isMyTurn: boolean;
   gameReady: boolean; // 两个玩家都就位
   pendingSwapRequest: PendingSwapRequest | null; // 待处理的交换请求
+  swapStatus: SwapStatus; // 交换状态提示（发起方看到）
   error: string | null;
 }
 
@@ -137,6 +141,8 @@ export function useOnlineGame(options: UseOnlineGameOptions) {
   const [error, setError] = useState<string | null>(null);
   const [pendingSwapRequest, setPendingSwapRequest] =
     useState<PendingSwapRequest | null>(null);
+  const [swapStatus, setSwapStatus] = useState<SwapStatus>(null);
+  const swapStatusTimeoutRef = useRef<number | null>(null);
 
   const sendMessageRef = useRef<ActionSender<MessagePayload> | null>(null);
   const userNameRef = useRef(userName);
@@ -314,6 +320,15 @@ export function useOnlineGame(options: UseOnlineGameOptions) {
 
         case 'swap_response': {
           // 收到交换位置响应
+          // 显示状态提示
+          setSwapStatus(payload.approved ? 'accepted' : 'rejected');
+          if (swapStatusTimeoutRef.current) {
+            clearTimeout(swapStatusTimeoutRef.current);
+          }
+          swapStatusTimeoutRef.current = window.setTimeout(() => {
+            setSwapStatus(null);
+          }, 2000);
+
           if (payload.approved) {
             // 对方同意，执行交换
             // payload.fromRole = 响应方原来的角色（即发起方想要的角色）
@@ -507,6 +522,9 @@ export function useOnlineGame(options: UseOnlineGameOptions) {
       return false;
     }
 
+    // 设置等待状态
+    setSwapStatus('waiting');
+
     // 发送交换请求
     sendMessageRef.current?.(
       {
@@ -604,6 +622,7 @@ export function useOnlineGame(options: UseOnlineGameOptions) {
       isMyTurn,
       gameReady,
       pendingSwapRequest,
+      swapStatus,
       error,
       player1,
       player2,
