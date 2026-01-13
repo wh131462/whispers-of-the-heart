@@ -57,6 +57,18 @@ export class SignalingGateway
 
   handleConnection(client: Socket) {
     console.log(`[Signaling] Client connected: ${client.id}`);
+
+    // 监听断开原因
+    client.on('disconnect', (reason) => {
+      console.log(
+        `[Signaling] Client ${client.id} disconnect reason: ${reason}`,
+      );
+    });
+
+    // 监听错误
+    client.on('error', (error) => {
+      console.error(`[Signaling] Client ${client.id} error:`, error);
+    });
   }
 
   handleDisconnect(client: Socket) {

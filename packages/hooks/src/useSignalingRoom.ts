@@ -316,9 +316,9 @@ export function useSignalingRoom(config: SignalingRoomConfig) {
         });
       });
 
-      socket.on('disconnect', () => {
-        console.log('[Signaling] Disconnected from server');
-        updateState({ status: 'disconnected' });
+      socket.on('disconnect', reason => {
+        console.log('[Signaling] Disconnected from server, reason:', reason);
+        updateState({ status: 'disconnected', error: `连接断开: ${reason}` });
       });
 
       // 新 peer 加入
