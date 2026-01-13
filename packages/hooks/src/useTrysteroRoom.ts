@@ -58,12 +58,22 @@ const ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.cloudflare.com:3478' },
 ];
 
-// 信令服务器地址 - 统一使用当前域名（开发环境通过 Vite 代理）
+// 信令服务器地址
 const getSignalingServerUrl = () => {
+  // 优先使用环境变量中的 API 地址（生产环境）
+  const apiUrl =
+    typeof import.meta !== 'undefined' &&
+    (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL;
+
+  if (apiUrl) {
+    return apiUrl;
+  }
+
+  // 开发环境使用当前域名（通过 Vite 代理转发）
   if (typeof window !== 'undefined') {
-    // 使用当前域名，开发环境由 Vite 代理转发到后端
     return `${window.location.protocol}//${window.location.host}`;
   }
+
   return 'http://localhost:7777';
 };
 
