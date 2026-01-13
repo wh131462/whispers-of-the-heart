@@ -287,35 +287,34 @@ const MainLayout: React.FC = () => {
               </Link>
             </div>
 
-            {/* 桌面端导航 */}
-            <nav className="hidden md:flex items-center space-x-6">
-              {navigation.map(item => {
-                const Icon = item.icon;
-                const isActive = location.pathname === item.href;
-
-                return (
-                  <Link
-                    key={item.name}
-                    to={item.href}
-                    className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-primary text-primary-foreground'
-                        : isHomePage && !isScrolled
-                          ? 'text-foreground/80 hover:text-foreground hover:bg-foreground/10'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    <span>{item.name}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-
-            {/* 右侧操作区 */}
+            {/* 右侧区域：桌面端导航 + 操作区 */}
             <div className="flex items-center space-x-1 sm:space-x-2">
+              {/* 桌面端导航 */}
+              <nav className="hidden md:flex items-center space-x-1 mr-4">
+                {navigation.map(item => {
+                  const Icon = item.icon;
+                  const isActive = location.pathname === item.href;
+
+                  return (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                        isActive
+                          ? 'bg-primary text-primary-foreground'
+                          : isHomePage && !isScrolled
+                            ? 'text-foreground/80 hover:text-foreground hover:bg-foreground/10'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{item.name}</span>
+                    </Link>
+                  );
+                })}
+              </nav>
               {/* 应用中心入口 - 移动端隐藏 */}
-              <Link to="/apps" className="hidden sm:block">
+              <Link to="/apps" className="hidden sm:!flex">
                 <Button
                   variant="ghost"
                   size="icon"

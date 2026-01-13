@@ -56,6 +56,14 @@ export const appRegistry: AppMeta[] = [
     tags: ['实用'],
     component: lazy(() => import('./password-generator')),
   },
+  {
+    id: 'p2p-chat',
+    name: 'P2P 聊天',
+    description: '基于 WebRTC 的点对点聊天，无需服务器',
+    icon: 'MessageSquare',
+    tags: ['实用'],
+    component: lazy(() => import('./p2p-chat')),
+  },
   // 开发工具
   {
     id: 'json-formatter',
