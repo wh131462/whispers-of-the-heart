@@ -329,6 +329,7 @@ export default function Reversi() {
   const [activeTab, setActiveTab] = useState<'offline' | 'online'>('offline');
   const [userName, setUserName] = useState(generateDefaultName);
   const { state } = useReversi();
+  const isMobile = useIsMobile();
 
   return (
     <div className="w-full max-w-fit mx-auto p-4">
@@ -341,12 +342,12 @@ export default function Reversi() {
           'shadow-lg shadow-zinc-200/50'
         )}
       >
-        {/* 标题和分数 */}
+        {/* 标题和切换按钮 */}
         <div className="flex items-center justify-between w-full gap-4">
           <h1 className="text-3xl font-bold text-emerald-700">黑白棋</h1>
 
-          {/* 离线模式显示分数，在线模式显示切换按钮 */}
-          {activeTab === 'offline' ? (
+          {/* 桌面端：离线模式显示分数 */}
+          {activeTab === 'offline' && !isMobile ? (
             <ScoreBoard
               blackCount={state.blackCount}
               whiteCount={state.whiteCount}
@@ -381,6 +382,14 @@ export default function Reversi() {
             </button>
           </div>
         </div>
+
+        {/* 移动端：离线模式分数单独一行 */}
+        {activeTab === 'offline' && isMobile ? (
+          <ScoreBoard
+            blackCount={state.blackCount}
+            whiteCount={state.whiteCount}
+          />
+        ) : null}
 
         {/* 根据标签显示不同内容 */}
         {activeTab === 'offline' ? (
