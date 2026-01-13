@@ -61,8 +61,8 @@ jobs:
           push: true
           tags: ${{ steps.meta-api.outputs.tags }}
           labels: ${{ steps.meta-api.outputs.labels }}
-          cache-from: type=gha,scope=api
-          cache-to: type=gha,mode=max,scope=api
+          # cache-from: type=gha,scope=api
+          # cache-to: type=gha,mode=max,scope=api
 
   build-web:
     runs-on: ubuntu-latest
@@ -103,8 +103,8 @@ jobs:
           push: true
           tags: ${{ steps.meta-web.outputs.tags }}
           labels: ${{ steps.meta-web.outputs.labels }}
-          cache-from: type=gha,scope=web
-          cache-to: type=gha,mode=max,scope=web
+          # cache-from: type=gha,scope=web
+          # cache-to: type=gha,mode=max,scope=web
           build-args: |
             VITE_API_URL=${{ vars.VITE_API_URL || 'https://api.131462.wang' }}
 
