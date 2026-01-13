@@ -10,6 +10,7 @@ export interface MessagePayload {
   content: string;
   senderName: string;
   timestamp: number;
+  [key: string]: string | number; // 满足 trystero DataPayload 约束
 }
 
 // 消息类型
