@@ -21,6 +21,7 @@ import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { MailModule } from './mail/mail.module';
 import { NotificationModule } from './notification/notification.module';
 import { FeedbackModule } from './feedback/feedback.module';
+import { SignalingModule } from './signaling/signaling.module';
 
 // 查找项目根目录的 configs 文件夹
 function findConfigsDir(): string {
@@ -69,6 +70,7 @@ const configsDir = findConfigsDir();
     AdminModule,
     NotificationModule,
     FeedbackModule,
+    SignalingModule,
   ],
   controllers: [AppController, HitokotoController],
   providers: [AppService],

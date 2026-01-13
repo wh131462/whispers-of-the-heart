@@ -1,7 +1,7 @@
 export type Player = 'black' | 'white';
 export type CellValue = Player | null;
 export type GameStatus = 'idle' | 'playing' | 'ended';
-export type GameMode = 'pvp' | 'pve';
+export type GameMode = 'pvp' | 'pve' | 'online';
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
 export type Position = {

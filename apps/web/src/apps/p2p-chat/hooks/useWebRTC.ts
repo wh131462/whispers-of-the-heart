@@ -1,16 +1,8 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
-import { joinRoom, type Room } from 'trystero';
+import { useCallback, useEffect, useRef } from 'react';
+import { useTrysteroRoom, type ActionSender } from '@whispers/hooks';
 import type { RoomState, MessagePayload } from '../types';
 
 const APP_ID = 'whispers-p2p-chat';
-
-const initialState: RoomState = {
-  connectionState: 'idle',
-  roomCode: null,
-  peerCount: 0,
-  peers: new Map(),
-  error: null,
-};
 
 interface UseRoomOptions {
   userName: string;
@@ -18,146 +10,78 @@ interface UseRoomOptions {
 }
 
 export function useRoom({ userName, onMessage }: UseRoomOptions) {
-  const [state, setState] = useState<RoomState>(initialState);
+  const {
+    state: roomState,
+    join,
+    reset,
+    createAction,
+  } = useTrysteroRoom({
+    appId: APP_ID,
+    userName,
+  });
 
-  const roomRef = useRef<Room | null>(null);
-  const sendMsgRef = useRef<
-    ((msg: MessagePayload, peerId?: string) => void) | null
-  >(null);
-  const sendNameRef = useRef<((name: string, peerId?: string) => void) | null>(
-    null
-  );
-  const userNameRef = useRef(userName);
+  const sendMsgRef = useRef<ActionSender<MessagePayload> | null>(null);
+  const onMessageRef = useRef(onMessage);
 
-  // 保持 userName 最新
+  // 保持 onMessage 最新
   useEffect(() => {
-    userNameRef.current = userName;
-  }, [userName]);
+    onMessageRef.current = onMessage;
+  }, [onMessage]);
 
-  const updateState = useCallback((updates: Partial<RoomState>) => {
-    setState(prev => ({ ...prev, ...updates }));
-  }, []);
-
-  // 加入房间
-  const joinRoomByCode = useCallback(
-    (roomCode: string) => {
-      try {
-        updateState({
-          connectionState: 'connecting',
-          roomCode,
-          peers: new Map(),
-          error: null,
-        });
-
-        const room = joinRoom({ appId: APP_ID }, roomCode);
-        roomRef.current = room;
-
-        // 创建消息 action
-        const [sendMsg, onMsg] = room.makeAction<MessagePayload>('chat');
-        sendMsgRef.current = sendMsg;
-
-        // 创建用户名同步 action
-        const [sendName, onName] = room.makeAction<string>('name');
-        sendNameRef.current = sendName;
-
-        // 监听消息
-        onMsg(payload => {
-          onMessage?.(payload);
-        });
-
-        // 监听用户名同步
-        onName((name, peerId) => {
-          setState(prev => {
-            const newPeers = new Map(prev.peers);
-            newPeers.set(peerId, { id: peerId, name });
-            return { ...prev, peers: newPeers };
-          });
-        });
-
-        // 监听 peer 加入
-        room.onPeerJoin(peerId => {
-          // 发送自己的用户名给新加入的 peer
-          sendName(userNameRef.current, peerId);
-
-          setState(prev => {
-            const newCount = prev.peerCount + 1;
-            const newPeers = new Map(prev.peers);
-            newPeers.set(peerId, { id: peerId, name: '匿名用户' });
-            return {
-              ...prev,
-              peerCount: newCount,
-              peers: newPeers,
-              connectionState: 'connected',
-            };
-          });
-        });
-
-        // 监听 peer 离开
-        room.onPeerLeave(peerId => {
-          setState(prev => {
-            const newCount = Math.max(0, prev.peerCount - 1);
-            const newPeers = new Map(prev.peers);
-            newPeers.delete(peerId);
-            return {
-              ...prev,
-              peerCount: newCount,
-              peers: newPeers,
-              connectionState: newCount === 0 ? 'disconnected' : 'connected',
-            };
-          });
-        });
-      } catch (err) {
-        updateState({
-          connectionState: 'idle',
-          error: err instanceof Error ? err.message : '加入房间失败',
-        });
-      }
-    },
-    [onMessage, updateState]
-  );
+  // 连接成功后创建消息通道
+  useEffect(() => {
+    if (roomState.status === 'connected' && !sendMsgRef.current) {
+      const send = createAction<MessagePayload>('chat', payload => {
+        onMessageRef.current?.(payload);
+      });
+      sendMsgRef.current = send;
+    }
+  }, [roomState.status, createAction]);
 
   // 发送消息
-  const sendMessage = useCallback((content: string) => {
-    if (sendMsgRef.current) {
-      const payload: MessagePayload = {
-        content,
-        senderName: userNameRef.current,
-        timestamp: Date.now(),
-      };
-      sendMsgRef.current(payload);
-      return true;
-    }
-    return false;
-  }, []);
+  const sendMessage = useCallback(
+    (content: string) => {
+      if (sendMsgRef.current) {
+        const payload: MessagePayload = {
+          content,
+          senderName: userName,
+          timestamp: Date.now(),
+        };
+        sendMsgRef.current(payload);
+        return true;
+      }
+      return false;
+    },
+    [userName]
+  );
 
-  // 离开房间
-  const leaveRoom = useCallback(() => {
-    if (roomRef.current) {
-      roomRef.current.leave();
-      roomRef.current = null;
-      sendMsgRef.current = null;
-      sendNameRef.current = null;
-    }
-  }, []);
+  // 重置时清理消息发送引用
+  const handleReset = useCallback(() => {
+    sendMsgRef.current = null;
+    reset();
+  }, [reset]);
 
-  // 重置状态
-  const reset = useCallback(() => {
-    leaveRoom();
-    setState(initialState);
-  }, [leaveRoom]);
-
-  // 组件卸载时清理
-  useEffect(() => {
-    return () => {
-      leaveRoom();
-    };
-  }, [leaveRoom]);
+  // 转换状态格式以兼容现有组件
+  const state: RoomState = {
+    connectionState:
+      roomState.status === 'idle'
+        ? 'idle'
+        : roomState.status === 'connecting'
+          ? 'connecting'
+          : roomState.status === 'connected'
+            ? 'connected'
+            : 'disconnected',
+    roomCode: roomState.roomCode,
+    peerCount: roomState.peerCount,
+    peers: roomState.peers,
+    error: roomState.error,
+  };
 
   return {
     state,
-    joinRoom: joinRoomByCode,
+    joinRoom: join,
     sendMessage,
-    leaveRoom,
-    reset,
+    leaveRoom: handleReset,
+    reset: handleReset,
   };
 }

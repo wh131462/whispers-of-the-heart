@@ -32,6 +32,8 @@
     "tsup": "^8.0.0"
   },
   "dependencies": {
-    "zustand": "^4.4.0"
+    "zustand": "^4.4.0",
+    "trystero": "^0.21.0",
+    "socket.io-client": "^4.8.1"
   }
 }

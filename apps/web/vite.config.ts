@@ -32,6 +32,12 @@ export default defineConfig(({ mode }) => {
           target: env.VITE_API_URL || 'http://localhost:7777',
           changeOrigin: true,
         },
+        // 代理 WebSocket 信令服务
+        '/signaling': {
+          target: env.VITE_API_URL || 'http://localhost:7777',
+          changeOrigin: true,
+          ws: true,
+        },
       },
     },
     optimizeDeps: {},
@@ -45,6 +51,7 @@ export default defineConfig(({ mode }) => {
         '@whispers/utils': path.resolve(__dirname, '../../packages/utils/src'),
         '@whispers/ui': path.resolve(__dirname, '../../packages/ui/src'),
         '@whispers/ui/dist': path.resolve(__dirname, '../../packages/ui/dist'),
+        '@whispers/hooks': path.resolve(__dirname, '../../packages/hooks/src'),
       },
     },
     define: {
