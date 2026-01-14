@@ -2,7 +2,10 @@
   "name": "whispers-of-the-heart",
   "version": "1.0.0",
   "description": "Whispers of the Heart - A modern blog platform with React frontend and NestJS backend",
-  "author": "Your Name",
+  "author": {
+    "email": "hao131462@qq.com",
+    "name": "EternalHeart"
+  },
   "private": true,
   "license": "MIT",
   "packageManager": "pnpm@10.15.0",
