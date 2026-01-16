@@ -64,6 +64,14 @@ export const appRegistry: AppMeta[] = [
     tags: ['实用'],
     component: lazy(() => import('./p2p-chat')),
   },
+  {
+    id: 'p2p-file-transfer',
+    name: 'P2P 文件传输',
+    description: '基于 WebRTC 的点对点文件传输，安全快速',
+    icon: 'FileUp',
+    tags: ['实用'],
+    component: lazy(() => import('./p2p-file-transfer')),
+  },
   // 开发工具
   {
     id: 'json-formatter',

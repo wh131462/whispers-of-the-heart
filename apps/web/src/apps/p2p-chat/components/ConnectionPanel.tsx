@@ -1,8 +1,22 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
-import { Users, LogIn, Loader2, User } from 'lucide-react';
+import {
+  Users,
+  LogIn,
+  Loader2,
+  User,
+  Hash,
+  Copy,
+  Check,
+  Shuffle,
+} from 'lucide-react';
 import type { RoomState } from '../types';
+
+// 生成随机房间码
+function generateRoomCode(): string {
+  return Math.random().toString(36).slice(2, 8).toUpperCase();
+}
 
 interface ConnectionPanelProps {
   state: RoomState;
@@ -20,6 +34,35 @@ export function ConnectionPanel({
   onShowHelp,
 }: ConnectionPanelProps) {
   const [roomCode, setRoomCode] = useState('');
+  const [copied, setCopied] = useState(false);
+
+  const handleGenerateCode = () => {
+    setRoomCode(generateRoomCode());
+  };
+
+  const handleCopyCode = async () => {
+    if (!roomCode) return;
+    try {
+      // 优先使用 Clipboard API
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(roomCode);
+      } else {
+        // Fallback: 使用 execCommand（兼容非 HTTPS）
+        const textarea = document.createElement('textarea');
+        textarea.value = roomCode;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+      }
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // 复制失败，静默处理
+    }
+  };
 
   const handleJoin = () => {
     const code = roomCode.trim();
@@ -74,14 +117,55 @@ export function ConnectionPanel({
           />
         </div>
 
-        <Input
-          value={roomCode}
-          onChange={e => setRoomCode(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder="房间码"
-          className="text-center text-lg font-mono tracking-widest"
-          autoFocus
-        />
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
+              <Input
+                value={roomCode}
+                onChange={e => setRoomCode(e.target.value.toUpperCase())}
+                onKeyDown={handleKeyDown}
+                placeholder="输入房间码"
+                className="pl-9 pr-10 text-center text-lg font-mono tracking-[0.3em] uppercase"
+                maxLength={8}
+                autoFocus
+              />
+              {roomCode && (
+                <button
+                  type="button"
+                  onClick={handleCopyCode}
+                  className={cn(
+                    'absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md',
+                    'text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100',
+                    'transition-colors'
+                  )}
+                  title="复制房间码"
+                >
+                  {copied ? (
+                    <Check className="w-4 h-4 text-green-500" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={handleGenerateCode}
+              className={cn(
+                'p-2.5 rounded-xl',
+                'bg-zinc-100 hover:bg-zinc-200 text-zinc-600',
+                'transition-colors'
+              )}
+              title="随机生成房间码"
+            >
+              <Shuffle className="w-5 h-5" />
+            </button>
+          </div>
+          <p className="text-xs text-zinc-400 text-center">
+            输入相同房间码或点击骰子随机生成
+          </p>
+        </div>
 
         <button
           onClick={handleJoin}

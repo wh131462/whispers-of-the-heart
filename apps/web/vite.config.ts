@@ -27,6 +27,11 @@ export default defineConfig(({ mode }) => {
       port: parseInt(env.VITE_WEB_PORT || '8888'),
       host: true, // 允许外部访问
       proxy: {
+        // 代理 API 请求到后端
+        '/api': {
+          target: env.VITE_API_URL || 'http://localhost:7777',
+          changeOrigin: true,
+        },
         // 代理上传文件请求到后端
         '/uploads': {
           target: env.VITE_API_URL || 'http://localhost:7777',

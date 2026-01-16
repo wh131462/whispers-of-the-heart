@@ -85,21 +85,18 @@ function getEnv(): EnvConfig {
 function getApiBaseUrl(): string {
   const env = getEnv();
 
-  // 优先使用环境变量配置的API URL
-  if (env.VITE_API_URL) {
+  // 生产环境使用环境变量配置的 API URL
+  if (env.NODE_ENV === 'production' && env.VITE_API_URL) {
     return env.VITE_API_URL;
   }
 
-  // 如果没有配置，根据环境判断
-  const isDev =
-    env.NODE_ENV === 'development' ||
-    (typeof window !== 'undefined' && env.NODE_ENV !== 'production');
-
-  if (isDev) {
-    return 'http://localhost:7777';
+  // 开发环境使用当前 host（通过 Vite 代理），支持 IP 访问
+  if (typeof window !== 'undefined') {
+    return `${window.location.protocol}//${window.location.host}`;
   }
 
-  return 'https://api.whispers.local';
+  // Node.js 环境（SSR 或测试）
+  return env.VITE_API_URL || 'http://localhost:7777';
 }
 
 // 获取完整URL（支持相对路径和绝对路径）

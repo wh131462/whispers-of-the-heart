@@ -60,16 +60,18 @@ const ICE_SERVERS: RTCIceServer[] = [
 
 // 信令服务器地址
 const getSignalingServerUrl = () => {
-  // 优先使用环境变量中的 API 地址（生产环境）
-  const apiUrl =
-    typeof import.meta !== 'undefined' &&
-    (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL;
+  const env =
+    typeof import.meta !== 'undefined'
+      ? (import.meta as { env?: { VITE_API_URL?: string; NODE_ENV?: string } })
+          .env
+      : undefined;
 
-  if (apiUrl) {
-    return apiUrl;
+  // 生产环境使用环境变量中的 API 地址
+  if (env?.NODE_ENV === 'production' && env?.VITE_API_URL) {
+    return env.VITE_API_URL;
   }
 
-  // 开发环境使用当前域名（通过 Vite 代理转发）
+  // 开发环境使用当前域名（通过 Vite 代理转发），支持 IP 访问
   if (typeof window !== 'undefined') {
     return `${window.location.protocol}//${window.location.host}`;
   }
