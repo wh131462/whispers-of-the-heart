@@ -285,6 +285,13 @@ export function useOnlineGame(options: UseOnlineGameOptions) {
 
         case 'system': {
           if (payload.event === 'player_left') {
+            // 首先从玩家列表中移除离开的玩家
+            setPlayers(prev => {
+              const newPlayers = new Map(prev);
+              newPlayers.delete(peerId);
+              return newPlayers;
+            });
+
             // 玩家离开，如果是对战玩家，观战者可以接替
             const leftRole = payload.data.role as PlayerRole;
             if (leftRole !== 'spectator' && myRoleRef.current === 'spectator') {
@@ -589,10 +596,21 @@ export function useOnlineGame(options: UseOnlineGameOptions) {
 
   // 离开房间
   const leaveRoom = useCallback(() => {
+    // 先广播自己离开的消息（在清空 sendMessageRef 之前）
+    if (sendMessageRef.current && myRoleRef.current !== 'spectator') {
+      sendMessageRef.current({
+        type: 'system',
+        event: 'player_left',
+        data: { role: myRoleRef.current, name: userNameRef.current },
+      });
+    }
+    // 然后再清空状态
     sendMessageRef.current = null;
     setMyRole('spectator');
     setPlayers(new Map());
     setError(null);
+    setPendingSwapRequest(null);
+    setSwapStatus(null);
     resetRoom();
   }, [resetRoom]);
 
