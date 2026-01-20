@@ -171,6 +171,14 @@ export const appRegistry: AppMeta[] = [
     tags: ['娱乐'],
     component: lazy(() => import('./gomoku')),
   },
+  {
+    id: 'slime-soccer',
+    name: '史莱姆足球',
+    description: '2D物理足球游戏，控制史莱姆进行激烈对战',
+    icon: 'Goal',
+    tags: ['娱乐'],
+    component: lazy(() => import('./slime-soccer')),
+  },
   // 媒体工具
   {
     id: 'audio-player',
