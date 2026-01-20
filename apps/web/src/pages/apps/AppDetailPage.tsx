@@ -3,6 +3,7 @@ import { useParams, Link, Navigate } from 'react-router-dom';
 import { ArrowLeft, Maximize2, Minimize2, Info } from 'lucide-react';
 import { getAppById } from '../../apps';
 import { Button } from '../../components/ui/button';
+import { ErrorBoundary } from '../../components/ErrorBoundary';
 
 function AppLoader() {
   return (
@@ -43,9 +44,11 @@ export default function AppDetailPage() {
       <div className="fixed inset-0 w-screen h-screen z-50 bg-white overflow-auto flex items-center justify-center">
         {/* App Content - 全屏 */}
         <div className="size-full">
-          <Suspense fallback={<AppLoader />}>
-            <AppComponent />
-          </Suspense>
+          <ErrorBoundary>
+            <Suspense fallback={<AppLoader />}>
+              <AppComponent />
+            </Suspense>
+          </ErrorBoundary>
         </div>
 
         {/* 右上角退出按钮 */}
@@ -101,9 +104,11 @@ export default function AppDetailPage() {
 
       {/* App Content */}
       <div className="rounded-xl border bg-card">
-        <Suspense fallback={<AppLoader />}>
-          <AppComponent />
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<AppLoader />}>
+            <AppComponent />
+          </Suspense>
+        </ErrorBoundary>
       </div>
     </div>
   );
