@@ -67,6 +67,10 @@ interface GameSidePanelProps {
   roomStatus: 'idle' | 'connecting' | 'connected' | 'disconnected';
   roomCode: string | null;
 
+  // 游戏信息
+  gameName: string; // 游戏名称，用于邀请文案
+  gamePath: string; // 游戏路径，如 'gomoku', 'reversi'
+
   // 玩家信息
   myRole: PlayerRole;
   player1?: OnlinePlayer;
@@ -106,6 +110,8 @@ interface GameSidePanelProps {
 export function GameSidePanel({
   roomStatus,
   roomCode,
+  gameName,
+  gamePath,
   myRole,
   player1,
   player2,
@@ -210,7 +216,18 @@ export function GameSidePanel({
 
   const handleCopyRoomCode = async () => {
     if (roomCode) {
-      await navigator.clipboard.writeText(roomCode);
+      // 生成邀请链接
+      const baseUrl = window.location.origin;
+      const inviteUrl = `${baseUrl}/apps/${gamePath}?inviteRoom=${roomCode}`;
+
+      // 生成友好的邀请文案
+      const inviteText = `${userName} 邀请你一起玩${gameName}！
+点击链接加入对局吧~
+${inviteUrl}
+
+或者手动加入房间，房间号为 ${roomCode}`;
+
+      await navigator.clipboard.writeText(inviteText);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -393,7 +410,7 @@ export function GameSidePanel({
               <button
                 onClick={handleCopyRoomCode}
                 className="p-0.5 rounded hover:bg-white/50 transition-colors"
-                title="复制房间号"
+                title="复制邀请信息"
               >
                 {copied ? (
                   <CheckCheck className="w-3.5 h-3.5 text-green-500" />

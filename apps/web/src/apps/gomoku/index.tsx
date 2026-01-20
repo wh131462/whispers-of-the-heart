@@ -238,6 +238,8 @@ function OnlineGame({
         <GameSidePanel
           roomStatus={onlineState.roomStatus}
           roomCode={onlineState.roomCode}
+          gameName="五子棋"
+          gamePath="gomoku"
           myRole={onlineState.myRole}
           player1={onlineState.player1}
           player2={onlineState.player2}
@@ -266,6 +268,8 @@ function OnlineGame({
         <GameSidePanel
           roomStatus={onlineState.roomStatus}
           roomCode={onlineState.roomCode}
+          gameName="五子棋"
+          gamePath="gomoku"
           myRole={onlineState.myRole}
           player1={onlineState.player1}
           player2={onlineState.player2}

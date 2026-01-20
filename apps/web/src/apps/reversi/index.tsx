@@ -261,6 +261,8 @@ function OnlineGame({
         <GameSidePanel
           roomStatus={onlineState.roomStatus}
           roomCode={onlineState.roomCode}
+          gameName="黑白棋"
+          gamePath="reversi"
           myRole={onlineState.myRole}
           player1={onlineState.player1}
           player2={onlineState.player2}
@@ -289,6 +291,8 @@ function OnlineGame({
         <GameSidePanel
           roomStatus={onlineState.roomStatus}
           roomCode={onlineState.roomCode}
+          gameName="黑白棋"
+          gamePath="reversi"
           myRole={onlineState.myRole}
           player1={onlineState.player1}
           player2={onlineState.player2}
