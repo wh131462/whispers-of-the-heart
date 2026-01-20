@@ -54,6 +54,22 @@ export const THEME_EMERALD: GameSidePanelTheme = {
   gradient: { from: 'from-emerald-400', to: 'to-teal-500' },
 };
 
+// 玩家标签配置
+export interface PlayerLabelConfig {
+  player1Label: string; // e.g., '黑棋' or '青色方'
+  player2Label: string; // e.g., '白棋' or '红色方'
+  player1ColorClass: string; // e.g., 'bg-zinc-800'
+  player2ColorClass: string; // e.g., 'bg-white border border-zinc-300'
+}
+
+// 默认玩家标签（五子棋/黑白棋风格）
+export const DEFAULT_PLAYER_LABELS: PlayerLabelConfig = {
+  player1Label: '黑棋',
+  player2Label: '白棋',
+  player1ColorClass: 'bg-zinc-800',
+  player2ColorClass: 'bg-white border border-zinc-300',
+};
+
 interface PlayerInfo {
   player?: OnlinePlayer;
   colorLabel: string; // e.g., '黑棋' or '白棋'
@@ -103,6 +119,9 @@ interface GameSidePanelProps {
   // 主题
   theme?: GameSidePanelTheme;
 
+  // 玩家标签配置
+  playerLabels?: PlayerLabelConfig;
+
   // 扩展内容
   actionButtons?: React.ReactNode;
 }
@@ -132,6 +151,7 @@ export function GameSidePanel({
   onRespondSwap,
   onResetGame,
   theme = THEME_AMBER,
+  playerLabels = DEFAULT_PLAYER_LABELS,
   actionButtons,
 }: GameSidePanelProps) {
   const [inputRoomCode, setInputRoomCode] = useState('');
@@ -351,15 +371,15 @@ ${inviteUrl}
   const players: PlayerInfo[] = [
     {
       player: player1,
-      colorLabel: '黑棋',
-      colorClass: 'bg-zinc-800',
+      colorLabel: playerLabels.player1Label,
+      colorClass: playerLabels.player1ColorClass,
       isMe: myRole === 'player1',
       role: 'player1',
     },
     {
       player: player2,
-      colorLabel: '白棋',
-      colorClass: 'bg-white border border-zinc-300',
+      colorLabel: playerLabels.player2Label,
+      colorClass: playerLabels.player2ColorClass,
       isMe: myRole === 'player2',
       role: 'player2',
     },
@@ -760,8 +780,8 @@ ${inviteUrl}
                 onClick={() => onRequestSwap?.('player1')}
                 className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-xs bg-zinc-100 text-zinc-600 hover:bg-zinc-200 transition-colors"
               >
-                <ArrowLeftRight className="w-3.5 h-3.5" />
-                换黑棋
+                <ArrowLeftRight className="w-3.5 h-3.5" />换
+                {playerLabels.player1Label}
               </button>
             )}
             {player2 && (
@@ -769,8 +789,8 @@ ${inviteUrl}
                 onClick={() => onRequestSwap?.('player2')}
                 className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg text-xs bg-zinc-100 text-zinc-600 hover:bg-zinc-200 transition-colors"
               >
-                <ArrowLeftRight className="w-3.5 h-3.5" />
-                换白棋
+                <ArrowLeftRight className="w-3.5 h-3.5" />换
+                {playerLabels.player2Label}
               </button>
             )}
           </div>
@@ -814,7 +834,10 @@ ${inviteUrl}
                     : 'text-emerald-600'
                 }
               >
-                你是{myRole === 'player1' ? '黑棋' : '白棋'}
+                你是
+                {myRole === 'player1'
+                  ? playerLabels.player1Label
+                  : playerLabels.player2Label}
               </span>
             </>
           )}
