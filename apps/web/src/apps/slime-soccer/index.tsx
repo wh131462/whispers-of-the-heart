@@ -18,6 +18,9 @@ import GameCanvas from './components/GameCanvas';
 import GameMenu from './components/GameMenu';
 import { PauseMenu } from './components/GameMenu';
 import GameOverModal from './components/GameOverModal';
+import TouchControls, {
+  type TouchInputState,
+} from './components/TouchControls';
 import { useSlimeSoccer } from './hooks/useSlimeSoccer';
 import { useOnlineSlimeSoccer } from './hooks/useOnlineSlimeSoccer';
 import type { GameMode, MatchDuration, AIDifficulty } from './types';
@@ -51,13 +54,24 @@ function OfflineGame() {
     restartGame,
     quitToMenu,
     setMatchDuration,
+    updateTouchInput,
   } = useSlimeSoccer();
+  const isMobile = useIsMobile();
 
   const handleStartGame = useCallback(
     (mode: GameMode, duration: MatchDuration, diff?: AIDifficulty) => {
       startGame(mode, duration, diff);
     },
     [startGame]
+  );
+
+  // 处理触摸输入
+  const handleTouchInput = useCallback(
+    (input: TouchInputState) => {
+      // 单人模式控制右侧（玩家），双人模式控制右侧（移动端双人模式不太实用）
+      updateTouchInput(input, 'right');
+    },
+    [updateTouchInput]
   );
 
   const scale = useMemo(() => {
@@ -69,10 +83,11 @@ function OfflineGame() {
   }, []);
 
   const canvasHeight = GAME_CONFIG.FIELD_HEIGHT * scale;
+  const showTouchControls = isMobile && gameState.status === 'playing';
 
   return (
     <div
-      className="relative w-full flex flex-col items-center justify-center bg-gray-900 p-4"
+      className="relative w-full flex flex-col items-center bg-gray-900 p-4"
       style={{ minHeight: canvasHeight + 80 }}
     >
       {/* 游戏画布 */}
@@ -103,8 +118,15 @@ function OfflineGame() {
       </div>
 
       {/* 底部提示 */}
-      {gameState.status === 'playing' && (
+      {gameState.status === 'playing' && !isMobile && (
         <p className="mt-4 text-gray-500 text-sm">按 ESC 暂停游戏</p>
+      )}
+
+      {/* 移动端触摸控制 - 放在画布下方 */}
+      {showTouchControls && (
+        <div className="mt-4 w-full">
+          <TouchControls onInputChange={handleTouchInput} />
+        </div>
       )}
 
       {/* 菜单层 - 移到外层使其覆盖整个游戏区域 */}
@@ -138,8 +160,17 @@ function OnlineGame({
     startGame,
     reset,
     sendChat,
+    updateTouchInput,
   } = useOnlineSlimeSoccer({ userName });
   const isMobile = useIsMobile();
+
+  // 处理触摸输入
+  const handleTouchInput = useCallback(
+    (input: TouchInputState) => {
+      updateTouchInput(input);
+    },
+    [updateTouchInput]
+  );
 
   const scale = useMemo(() => {
     if (typeof window !== 'undefined') {
@@ -151,6 +182,11 @@ function OnlineGame({
 
   const canvasHeight = GAME_CONFIG.FIELD_HEIGHT * scale;
   const isConnected = onlineState.roomStatus === 'connected';
+  const showTouchControls =
+    isMobile &&
+    isGameStarted &&
+    gameState.status === 'playing' &&
+    onlineState.mySide;
 
   // 未连接时，只显示侧边面板（居中）
   if (!isConnected) {
@@ -329,7 +365,7 @@ function OnlineGame({
         </div>
 
         {/* 操作提示 */}
-        {isGameStarted && onlineState.mySide && (
+        {isGameStarted && onlineState.mySide && !isMobile && (
           <div className="mt-4 text-center">
             <p className="text-gray-400 text-sm">
               你是
@@ -351,6 +387,13 @@ function OnlineGame({
             </p>
           </div>
         )}
+
+        {/* 移动端触摸控制 - 放在画布下方 */}
+        {showTouchControls && (
+          <div className="mt-4 w-full">
+            <TouchControls onInputChange={handleTouchInput} />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -362,15 +405,14 @@ export default function SlimeSoccer() {
   const [userName, setUserName] = useState(generateDefaultName);
 
   return (
-    <div className="w-full max-w-fit mx-auto">
+    <div className="w-full h-full flex items-center justify-center">
       <div
         className={cn(
           'flex flex-col',
           'bg-gray-900',
           'rounded-xl',
           'border border-gray-700',
-          'shadow-lg shadow-black/30',
-          'overflow-hidden'
+          'shadow-lg shadow-black/30'
         )}
       >
         {/* 顶部标题栏 */}

@@ -282,6 +282,16 @@ export function useSlimeSoccer(initialDuration: MatchDuration = 2) {
     }));
   }, []);
 
+  // 更新触摸输入状态（供移动端触摸控制使用）
+  // side: 'left' | 'right' - 控制哪一方
+  // 单人模式默认控制右侧（玩家），双人模式需要指定
+  const updateTouchInput = useCallback(
+    (input: InputState, side: 'left' | 'right' = 'right') => {
+      inputRef.current[side] = input;
+    },
+    []
+  );
+
   return {
     gameState,
     startGame,
@@ -289,5 +299,6 @@ export function useSlimeSoccer(initialDuration: MatchDuration = 2) {
     restartGame,
     quitToMenu,
     setMatchDuration,
+    updateTouchInput,
   };
 }

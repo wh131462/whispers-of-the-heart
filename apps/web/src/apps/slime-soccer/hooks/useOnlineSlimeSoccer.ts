@@ -526,6 +526,11 @@ export function useOnlineSlimeSoccer({
     [sendGameAction]
   );
 
+  // 更新触摸输入状态（供移动端触摸控制使用）
+  const updateTouchInput = useCallback((input: InputState) => {
+    inputRef.current = input;
+  }, []);
+
   return {
     gameState,
     matchDuration,
@@ -546,5 +551,6 @@ export function useOnlineSlimeSoccer({
     reset,
     sendChat,
     quitToMenu,
+    updateTouchInput,
   };
 }
