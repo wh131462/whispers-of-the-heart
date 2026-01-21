@@ -179,6 +179,14 @@ export const appRegistry: AppMeta[] = [
     tags: ['娱乐'],
     component: lazy(() => import('./slime-soccer')),
   },
+  {
+    id: 'piano-player',
+    name: '钢琴演奏器',
+    description: '虚拟钢琴键盘，支持键盘和多点触控演奏',
+    icon: 'Piano',
+    tags: ['娱乐'],
+    component: lazy(() => import('./piano-player')),
+  },
   // 媒体工具
   {
     id: 'audio-player',
