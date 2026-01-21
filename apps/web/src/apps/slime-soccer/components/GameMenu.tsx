@@ -33,10 +33,7 @@ export default function GameMenu({ onStartGame }: GameMenuProps) {
   };
 
   return (
-    <div
-      className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      style={{ borderRadius: '8px' }}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="bg-gray-900/95 rounded-lg p-4 max-w-xs w-full mx-3 shadow-2xl border border-gray-700">
         <h1
           className="text-xl font-bold text-center mb-3"
@@ -166,10 +163,7 @@ export function PauseMenu({
   onDurationChange,
 }: PauseMenuProps) {
   return (
-    <div
-      className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      style={{ borderRadius: '8px' }}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="bg-gray-900/95 rounded-xl p-6 max-w-xs w-full mx-4 shadow-2xl border border-gray-700">
         <h2 className="text-2xl font-bold text-white text-center mb-6">暂停</h2>
 

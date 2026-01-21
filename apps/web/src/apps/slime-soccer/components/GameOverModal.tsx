@@ -41,10 +41,7 @@ export default function GameOverModal({
   };
 
   return (
-    <div
-      className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-      style={{ borderRadius: '8px' }}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="bg-gray-900/95 rounded-lg p-4 max-w-xs w-full mx-3 shadow-2xl border border-gray-700 text-center">
         {/* 奖杯图标 */}
         <div
