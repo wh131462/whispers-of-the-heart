@@ -5,8 +5,12 @@ export type ConnectionState =
   | 'connected' // 已连接
   | 'disconnected'; // 断开连接
 
+// 消息内容类型
+export type MessageType = 'text' | 'image';
+
 // 消息负载（通过 WebRTC 传输）
 export interface MessagePayload {
+  type: string; // 'text' | 'image'
   content: string;
   senderName: string;
   timestamp: number;
@@ -16,6 +20,7 @@ export interface MessagePayload {
 // 消息类型
 export interface ChatMessage {
   id: string;
+  type: MessageType;
   content: string;
   timestamp: number;
   sender: 'local' | 'remote';

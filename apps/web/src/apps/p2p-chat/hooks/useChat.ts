@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { ChatMessage } from '../types';
+import type { ChatMessage, MessageType } from '../types';
 
 // 生成 UUID（兼容非 HTTPS 环境）
 function generateUUID(): string {
@@ -27,9 +27,15 @@ export function useChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   const addMessage = useCallback(
-    (content: string, sender: 'local' | 'remote', senderName: string) => {
+    (
+      content: string,
+      sender: 'local' | 'remote',
+      senderName: string,
+      type: MessageType = 'text'
+    ) => {
       const newMessage: ChatMessage = {
         id: generateUUID(),
+        type,
         content,
         timestamp: Date.now(),
         sender,

@@ -8,7 +8,7 @@ import { MessageInput } from './components/MessageInput';
 import { HelpDialog } from './components/HelpDialog';
 import { useRoom } from './hooks/useWebRTC';
 import { useChat } from './hooks/useChat';
-import type { MessagePayload } from './types';
+import type { MessagePayload, MessageType } from './types';
 
 // 生成默认用户名
 function generateDefaultName() {
@@ -22,7 +22,12 @@ export default function P2PChat() {
 
   const handleMessage = useCallback(
     (payload: MessagePayload) => {
-      addMessage(payload.content, 'remote', payload.senderName);
+      addMessage(
+        payload.content,
+        'remote',
+        payload.senderName,
+        (payload.type as MessageType) || 'text'
+      );
     },
     [addMessage]
   );
@@ -44,9 +49,9 @@ export default function P2PChat() {
   }, [state.connectionState, reset, clearMessages]);
 
   const handleSend = useCallback(
-    (content: string) => {
-      if (sendMessage(content)) {
-        addMessage(content, 'local', userName);
+    (content: string, type: MessageType) => {
+      if (sendMessage(content, type)) {
+        addMessage(content, 'local', userName, type);
       }
     },
     [sendMessage, addMessage, userName]

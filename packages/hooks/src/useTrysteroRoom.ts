@@ -525,7 +525,7 @@ export function useTrysteroRoom(config: RoomConfig) {
    * @returns 发送函数
    */
   const createAction = useCallback(
-    <T extends Record<string, string | number | boolean | null>>(
+    <T extends Record<string, unknown>>(
       actionName: string,
       onReceive?: ActionReceiver<T>
     ): ActionSender<T> | null => {
