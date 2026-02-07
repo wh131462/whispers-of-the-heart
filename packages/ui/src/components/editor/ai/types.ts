@@ -13,9 +13,9 @@ export interface AIConfig {
   provider: AIProvider;
 
   /**
-   * API 密钥
+   * API 密钥（直连模式必填，代理模式不需要）
    */
-  apiKey: string;
+  apiKey?: string;
 
   /**
    * API 基础 URL（可选，用于自定义端点）
@@ -37,6 +37,17 @@ export interface AIConfig {
    * 是否启用 AI 功能
    */
   enabled?: boolean;
+
+  /**
+   * 代理端点 URL（设置后使用代理模式，API Key 由后端管理）
+   * 例: http://localhost:7777/api/v1/ai-proxy
+   */
+  proxyUrl?: string;
+
+  /**
+   * JWT 认证令牌（代理模式下用于后端鉴权）
+   */
+  authToken?: string;
 }
 
 /**
@@ -69,10 +80,12 @@ export function getFullAIConfig(config: AIConfig): Required<AIConfig> {
   if (provider === 'custom') {
     return {
       provider: config.provider,
-      apiKey: config.apiKey,
+      apiKey: config.apiKey || '',
       baseURL: config.baseURL || '',
       model: config.model,
       enabled: config.enabled ?? true,
+      proxyUrl: config.proxyUrl || '',
+      authToken: config.authToken || '',
     };
   }
 
@@ -80,9 +93,11 @@ export function getFullAIConfig(config: AIConfig): Required<AIConfig> {
 
   return {
     provider: config.provider,
-    apiKey: config.apiKey,
+    apiKey: config.apiKey || '',
     baseURL: config.baseURL || defaults.baseURL,
     model: config.model || defaults.defaultModel,
     enabled: config.enabled ?? true,
+    proxyUrl: config.proxyUrl || '',
+    authToken: config.authToken || '',
   };
 }

@@ -210,25 +210,34 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
   const [_mediaPickerRequest, setMediaPickerRequest] =
     useState<MediaPickerRequest | null>(null);
 
+  // 合并 authToken 到 aiConfig（代理模式需要）
+  const mergedAiConfig = useMemo(() => {
+    if (!aiConfig) return undefined;
+    if (aiConfig.proxyUrl && authToken) {
+      return { ...aiConfig, authToken };
+    }
+    return aiConfig;
+  }, [aiConfig, authToken]);
+
   // AI 是否启用
   const isAIEnabled = useMemo(() => {
-    if (!aiConfig) return false;
-    const validation = validateAIConfig(aiConfig);
-    return validation.valid && aiConfig.enabled !== false;
-  }, [aiConfig]);
+    if (!mergedAiConfig) return false;
+    const validation = validateAIConfig(mergedAiConfig);
+    return validation.valid && mergedAiConfig.enabled !== false;
+  }, [mergedAiConfig]);
 
   // 创建 AI Transport
   const aiTransport = useMemo(() => {
-    if (!isAIEnabled || !aiConfig) return null;
+    if (!isAIEnabled || !mergedAiConfig) return null;
     try {
-      const model = createLanguageModel(aiConfig);
+      const model = createLanguageModel(mergedAiConfig);
       return new ClientSideTransport({ model });
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('[BlockNoteEditor] Failed to create AI transport:', error);
       return null;
     }
-  }, [isAIEnabled, aiConfig]);
+  }, [isAIEnabled, mergedAiConfig]);
 
   useEffect(() => {
     authTokenRef.current = authToken;

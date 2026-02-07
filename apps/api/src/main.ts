@@ -63,7 +63,10 @@ async function bootstrap() {
 
   // 设置 API 路由默认响应头为 UTF-8（仅对 /api/v1 路由生效，避免覆盖静态资源的 MIME 类型）
   app.use((req, res, next) => {
-    if (req.url.startsWith('/api/v1')) {
+    if (
+      req.url.startsWith('/api/v1') &&
+      !req.url.startsWith('/api/v1/ai-proxy')
+    ) {
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
     }
     next();
