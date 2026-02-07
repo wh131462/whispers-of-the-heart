@@ -491,8 +491,6 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
   // 处理内容变化
   const handleChange = useCallback(() => {
     if (isUpdatingFromPropRef.current) {
-      // eslint-disable-next-line no-console
-      console.log('[BlockNoteEditor] Skipping onChange during initialization');
       return;
     }
 
