@@ -52,9 +52,9 @@ import {
   MEDIA_BLOCK_TYPES,
   MEDIA_TYPE_NAMES,
   MEDIA_TYPE_MAP,
-  applyAllMarkdownFixes,
   preprocessMarkdownForMindMap,
   getFullCustomSlashMenuItems,
+  blocksToMarkdown,
 } from './utils';
 
 // 媒体替换按钮
@@ -502,21 +502,7 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
 
     debounceTimerRef.current = setTimeout(() => {
       try {
-        const blocks = editor.document;
-        // eslint-disable-next-line no-console
-        console.log(
-          '[BlockNoteEditor] Current blocks:',
-          JSON.stringify(blocks, null, 2)
-        );
-        let markdown = editor.blocksToMarkdownLossy(blocks);
-        // eslint-disable-next-line no-console
-        console.log('[BlockNoteEditor] Raw markdown:', markdown);
-
-        // 应用所有 markdown 修复
-        markdown = applyAllMarkdownFixes(markdown, blocks, true);
-
-        // eslint-disable-next-line no-console
-        console.log('[BlockNoteEditor] Fixed markdown:', markdown);
+        const markdown = blocksToMarkdown(editor, editor.document);
         onChange(markdown);
       } catch (error) {
         // eslint-disable-next-line no-console

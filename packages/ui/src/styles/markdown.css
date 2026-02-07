@@ -196,6 +196,10 @@
 }
 
 /* 任务列表 */
+.markdown-content li:has(> input[type="checkbox"]) {
+  list-style-type: none !important;
+}
+
 .markdown-content input[type="checkbox"] {
   margin-right: 0.5em;
   accent-color: hsl(var(--primary));

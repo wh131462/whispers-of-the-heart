@@ -28,8 +28,8 @@ import { type MediaSelectResult } from './MediaPicker';
 // 共享工具导入
 import {
   DEFAULT_UPLOAD_ENDPOINT,
-  applyAllMarkdownFixes,
   getCommentSlashMenuItems,
+  blocksToMarkdown,
 } from './utils';
 
 export interface CommentEditorProps {
@@ -185,11 +185,7 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
         },
         getContent: () => {
           try {
-            const blocks = editor.document;
-            let markdown = editor.blocksToMarkdownLossy(blocks);
-            // 应用所有 markdown 修复（CommentEditor 不需要清理无效链接）
-            markdown = applyAllMarkdownFixes(markdown, blocks, false);
-            return markdown;
+            return blocksToMarkdown(editor, editor.document);
           } catch (error) {
             // eslint-disable-next-line no-console
             console.error('Failed to get content:', error);
@@ -264,19 +260,7 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
         if (!isMountedRef.current) return;
 
         try {
-          const blocks = editor.document;
-          // eslint-disable-next-line no-console
-          console.log(
-            '[CommentEditor] Current blocks:',
-            JSON.stringify(blocks, null, 2)
-          );
-          let markdown = editor.blocksToMarkdownLossy(blocks);
-          // eslint-disable-next-line no-console
-          console.log('[CommentEditor] Raw markdown:', markdown);
-          // 应用所有 markdown 修复（CommentEditor 不需要清理无效链接）
-          markdown = applyAllMarkdownFixes(markdown, blocks, false);
-          // eslint-disable-next-line no-console
-          console.log('[CommentEditor] Fixed markdown:', markdown);
+          const markdown = blocksToMarkdown(editor, editor.document);
           onChange(markdown);
         } catch (error) {
           // eslint-disable-next-line no-console
