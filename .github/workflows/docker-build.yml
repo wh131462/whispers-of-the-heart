@@ -107,6 +107,10 @@ jobs:
           # cache-to: type=gha,mode=max,scope=web
           build-args: |
             VITE_API_URL=${{ vars.VITE_API_URL || 'https://api.131462.wang' }}
+            VITE_AI_PROVIDER=${{ vars.VITE_AI_PROVIDER || 'deepseek' }}
+            VITE_AI_MODEL=${{ vars.VITE_AI_MODEL || 'deepseek-chat' }}
+            VITE_AI_BASE_URL=${{ vars.VITE_AI_BASE_URL || 'https://api.deepseek.com/v1' }}
+            VITE_AI_ENABLED=${{ vars.VITE_AI_ENABLED || 'true' }}
 
   deploy:
     runs-on: ubuntu-latest
