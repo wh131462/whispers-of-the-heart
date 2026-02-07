@@ -137,6 +137,59 @@ jobs:
           docker save ghcr.io/wh131462/whispers-of-the-heart/web:latest | gzip > web-image.tar.gz
           ls -lh *.tar.gz
 
+      - name: Generate production environment config
+        run: |
+          mkdir -p configs
+          cat > configs/env.production << 'EOF'
+          NODE_ENV=production
+          DATABASE_URL=postgresql://${{ secrets.POSTGRES_USERNAME }}:${{ secrets.POSTGRES_PASSWORD }}@postgres:5432/whispers_db
+          POSTGRES_HOST=postgres
+          POSTGRES_PORT=5432
+          POSTGRES_USERNAME=${{ secrets.POSTGRES_USERNAME }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DATABASE=whispers_db
+          REDIS_HOST=redis
+          REDIS_PORT=6379
+          JWT_SECRET=${{ secrets.JWT_SECRET }}
+          JWT_EXPIRES_IN=7d
+          REFRESH_TOKEN_SECRET=${{ secrets.REFRESH_TOKEN_SECRET }}
+          REFRESH_TOKEN_EXPIRES_IN=30d
+          UPLOAD_PATH=./uploads
+          MAX_FILE_SIZE=52428800
+          ALLOWED_IMAGE_TYPES=jpg,jpeg,png,gif,webp
+          ALLOWED_VIDEO_TYPES=mp4,webm,avi,mov
+          ALLOWED_AUDIO_TYPES=mp3,wav,ogg,m4a
+          MINIO_ENDPOINT=minio
+          MINIO_PORT=9000
+          MINIO_ACCESS_KEY=${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY=${{ secrets.MINIO_SECRET_KEY }}
+          MINIO_BUCKET=whispers-storage
+          MINIO_USE_SSL=false
+          MAIL_HOST=${{ vars.MAIL_HOST || 'smtp.exmail.qq.com' }}
+          MAIL_PORT=${{ vars.MAIL_PORT || '465' }}
+          MAIL_USERNAME=${{ vars.MAIL_USERNAME || 'no-reply@131462.wang' }}
+          MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}
+          MAIL_FROM=${{ vars.MAIL_FROM || 'no-reply@131462.wang' }}
+          APP_NAME="Whispers of the Heart"
+          WEB_URL=${{ vars.WEB_URL || 'https://131462.wang' }}
+          API_URL=${{ vars.VITE_API_URL || 'https://api.131462.wang' }}
+          API_PORT=7777
+          WEB_PORT=8888
+          LOG_LEVEL=info
+          LOG_FILE=logs/app.log
+          CORS_ORIGINS=${{ vars.CORS_ORIGINS || 'https://131462.wang,https://www.131462.wang' }}
+          SESSION_SECRET=${{ secrets.SESSION_SECRET }}
+          BCRYPT_ROUNDS=12
+          ADMIN_EMAIL=${{ vars.ADMIN_EMAIL || 'admin@131462.wang' }}
+          ADMIN_USERNAME=${{ vars.ADMIN_USERNAME || 'admin' }}
+          ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}
+          ENABLE_REGISTRATION=true
+          ENABLE_COMMENTS=true
+          ENABLE_LIKES=true
+          ENABLE_EMAIL_VERIFICATION=true
+          AI_API_KEY=${{ secrets.AI_API_KEY }}
+          EOF
+
       - name: Copy files to server
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -144,7 +197,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
-          source: "docker-compose.ghcr.yml,infra/nginx/,api-image.tar.gz,web-image.tar.gz"
+          source: "docker-compose.ghcr.yml,infra/nginx/,api-image.tar.gz,web-image.tar.gz,configs/env.production"
           target: ${{ secrets.DEPLOY_PATH || '/workspace/deploy/whispers' }}
 
       - name: Deploy to server via SSH
@@ -164,7 +217,7 @@ jobs:
             cd ${{ secrets.DEPLOY_PATH || '/workspace/deploy/whispers' }}
 
             # 确保必要目录存在
-            mkdir -p infra/ssl uploads logs backups configs
+            mkdir -p infra/ssl uploads logs backups
 
             # 检查 SSL 证书是否存在
             if [ ! -f "infra/ssl/131462.wang.crt" ] || [ ! -f "infra/ssl/api.131462.wang.crt" ]; then
@@ -173,58 +226,7 @@ jobs:
                 exit 1
             fi
 
-            # 从 GitHub Secrets/Variables 自动生成环境配置
-            cat > configs/env.production << 'ENVEOF'
-            NODE_ENV=production
-            DATABASE_URL=postgresql://${{ secrets.POSTGRES_USERNAME }}:${{ secrets.POSTGRES_PASSWORD }}@postgres:5432/whispers_db
-            POSTGRES_HOST=postgres
-            POSTGRES_PORT=5432
-            POSTGRES_USERNAME=${{ secrets.POSTGRES_USERNAME }}
-            POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-            POSTGRES_DATABASE=whispers_db
-            REDIS_HOST=redis
-            REDIS_PORT=6379
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
-            JWT_EXPIRES_IN=7d
-            REFRESH_TOKEN_SECRET=${{ secrets.REFRESH_TOKEN_SECRET }}
-            REFRESH_TOKEN_EXPIRES_IN=30d
-            UPLOAD_PATH=./uploads
-            MAX_FILE_SIZE=52428800
-            ALLOWED_IMAGE_TYPES=jpg,jpeg,png,gif,webp
-            ALLOWED_VIDEO_TYPES=mp4,webm,avi,mov
-            ALLOWED_AUDIO_TYPES=mp3,wav,ogg,m4a
-            MINIO_ENDPOINT=minio
-            MINIO_PORT=9000
-            MINIO_ACCESS_KEY=${{ secrets.MINIO_ACCESS_KEY }}
-            MINIO_SECRET_KEY=${{ secrets.MINIO_SECRET_KEY }}
-            MINIO_BUCKET=whispers-storage
-            MINIO_USE_SSL=false
-            MAIL_HOST=${{ vars.MAIL_HOST || 'smtp.exmail.qq.com' }}
-            MAIL_PORT=${{ vars.MAIL_PORT || '465' }}
-            MAIL_USERNAME=${{ vars.MAIL_USERNAME || 'no-reply@131462.wang' }}
-            MAIL_PASSWORD=${{ secrets.MAIL_PASSWORD }}
-            MAIL_FROM=${{ vars.MAIL_FROM || 'no-reply@131462.wang' }}
-            APP_NAME="Whispers of the Heart"
-            WEB_URL=${{ vars.WEB_URL || 'https://131462.wang' }}
-            API_URL=${{ vars.VITE_API_URL || 'https://api.131462.wang' }}
-            API_PORT=7777
-            WEB_PORT=8888
-            LOG_LEVEL=info
-            LOG_FILE=logs/app.log
-            CORS_ORIGINS=${{ vars.CORS_ORIGINS || 'https://131462.wang,https://www.131462.wang' }}
-            SESSION_SECRET=${{ secrets.SESSION_SECRET }}
-            BCRYPT_ROUNDS=12
-            ADMIN_EMAIL=${{ vars.ADMIN_EMAIL || 'admin@131462.wang' }}
-            ADMIN_USERNAME=${{ vars.ADMIN_USERNAME || 'admin' }}
-            ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}
-            ENABLE_REGISTRATION=true
-            ENABLE_COMMENTS=true
-            ENABLE_LIKES=true
-            ENABLE_EMAIL_VERIFICATION=true
-            AI_API_KEY=${{ secrets.AI_API_KEY }}
-            ENVEOF
-
-            # 加载环境变量（供 docker-compose 变量替换使用）
+            # 加载环境变量（由 CI/CD 自动生成并传输到服务器）
             set -a
             source configs/env.production
             set +a
