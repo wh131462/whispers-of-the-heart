@@ -247,8 +247,8 @@ importers:
   apps/web:
     dependencies:
       '@eternalheart/react-file-preview':
-        specifier: ^1.0.3
-        version: 1.0.3(@types/react@19.2.7)(@types/video.js@7.3.58)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        specifier: ^1.0.4
+        version: 1.0.4(@types/react@19.2.7)(@types/video.js@7.3.58)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@floating-ui/react':
         specifier: ^0.27.16
         version: 0.27.16(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -480,8 +480,8 @@ importers:
         specifier: ^1.1.1
         version: 1.1.1(emoji-mart@5.6.0)(react@19.2.3)
       '@eternalheart/react-file-preview':
-        specifier: ^1.0.3
-        version: 1.0.3(@types/react@19.2.7)(@types/video.js@7.3.58)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        specifier: ^1.0.4
+        version: 1.0.4(@types/react@19.2.7)(@types/video.js@7.3.58)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@mantine/core':
         specifier: ^8.3.10
         version: 8.3.10(@mantine/hooks@8.3.10(react@19.2.3))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -1381,8 +1381,8 @@ packages:
     resolution: {integrity: sha512-43/qtrDUokr7LJqoF2c3+RInu/t4zfrpYdoSDfYyhg52rwLV6TnOvdG4fXm7IkSB3wErkcmJS9iEhjVtOSEjjA==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
 
-  '@eternalheart/react-file-preview@1.0.3':
-    resolution: {integrity: sha512-aJpdKxTl3jlfNmqlP3YTwtfuYQ0egmzR5JsWvxunhFzclA0irQf1DvGz1qEdQjrhu9MdX37KxdKAu/6mHkHGlg==}
+  '@eternalheart/react-file-preview@1.0.4':
+    resolution: {integrity: sha512-64sweVluRD6Q2zp2df7PfIzlkkrXZjoLAbswNr9829y3SWK1OW0oVSSCDh512gVnsV/Ma8UPPL+0XbRBgZdnRA==}
     peerDependencies:
       react: ^19.1.1
       react-dom: ^19.1.1
@@ -11104,7 +11104,7 @@ snapshots:
       '@eslint/core': 0.17.0
       levn: 0.4.1
 
-  '@eternalheart/react-file-preview@1.0.3(@types/react@19.2.7)(@types/video.js@7.3.58)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
+  '@eternalheart/react-file-preview@1.0.4(@types/react@19.2.7)(@types/video.js@7.3.58)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)':
     dependencies:
       '@types/react-syntax-highlighter': 15.5.13
       '@videojs-player/react': 1.0.0(@types/video.js@7.3.58)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(video.js@8.23.4)
