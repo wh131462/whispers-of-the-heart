@@ -204,6 +204,14 @@ export const appRegistry: AppMeta[] = [
     tags: ['实用'],
     component: lazy(() => import('./video-player')),
   },
+  {
+    id: 'dou-di-zhu',
+    name: '斗地主',
+    description: '经典三人斗地主纸牌游戏，支持叫地主、出牌提示、AI对战',
+    icon: 'Crown',
+    tags: ['娱乐'],
+    component: lazy(() => import('./dou-di-zhu')),
+  },
 ];
 
 export function getAppById(id: string): AppMeta | undefined {

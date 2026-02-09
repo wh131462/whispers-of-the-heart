@@ -44,7 +44,7 @@
     "@blocknote/xl-ai": "^0.45.0",
     "@emoji-mart/data": "^1.2.1",
     "@emoji-mart/react": "^1.1.1",
-    "@eternalheart/react-file-preview": "^1.0.3",
+    "@eternalheart/react-file-preview": "^1.0.4",
     "@mantine/core": "^8.3.10",
     "@monaco-editor/react": "^4.7.0",
     "@radix-ui/react-slot": "^1.1.0",
