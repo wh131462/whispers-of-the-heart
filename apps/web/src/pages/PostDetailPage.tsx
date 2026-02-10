@@ -271,12 +271,6 @@ const PostDetailPage: React.FC = () => {
             <div className="max-w-3xl mx-auto">
               <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-serif font-bold leading-tight mb-3 md:mb-4 text-foreground drop-shadow-sm">
                 {post.title}
-                {post.isRepost && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-orange-500/20 text-orange-300 backdrop-blur-sm ml-3 align-middle">
-                    <ExternalLink className="h-3 w-3" />
-                    转载
-                  </span>
-                )}
               </h1>
 
               {/* 元信息 */}
@@ -338,6 +332,18 @@ const PostDetailPage: React.FC = () => {
                   <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
                   <span>{post.views} 阅读</span>
                 </div>
+
+                {post.isRepost && (
+                  <>
+                    <span className="text-muted-foreground/50 hidden sm:inline">
+                      ·
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-orange-500/20 text-orange-300 backdrop-blur-sm">
+                      <ExternalLink className="h-3 w-3" />
+                      转载
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -355,12 +361,6 @@ const PostDetailPage: React.FC = () => {
 
           <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-serif font-bold leading-tight mb-4 md:mb-6">
             {post.title}
-            {post.isRepost && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 ml-3 align-middle">
-                <ExternalLink className="h-3 w-3" />
-                转载
-              </span>
-            )}
           </h1>
 
           {/* 元信息 */}
@@ -417,6 +417,18 @@ const PostDetailPage: React.FC = () => {
               <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
               <span>{post.views} 阅读</span>
             </div>
+
+            {post.isRepost && (
+              <>
+                <span className="text-muted-foreground/50 hidden sm:inline">
+                  ·
+                </span>
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">
+                  <ExternalLink className="h-3 w-3" />
+                  转载
+                </span>
+              </>
+            )}
           </div>
         </div>
       )}
