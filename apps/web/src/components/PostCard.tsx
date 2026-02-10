@@ -7,6 +7,7 @@ import {
   MessageCircle,
   Tag,
   Bookmark,
+  ExternalLink,
 } from 'lucide-react';
 import {
   Card,
@@ -35,6 +36,11 @@ interface PostCardProps {
     views: number;
     likes: number;
     comments: number;
+    isRepost?: boolean;
+    _count?: {
+      postLikes?: number;
+      postComments?: number;
+    };
     postTags: Array<{
       id: string;
       postId: string;
@@ -54,7 +60,9 @@ interface PostCardProps {
 const PostCard: React.FC<PostCardProps> = ({ post }) => {
   const [isLiked, setIsLiked] = useState(false);
   const [isBookmarked, setIsBookmarked] = useState(false);
-  const [likesCount, setLikesCount] = useState(post.likes);
+  const [likesCount, setLikesCount] = useState(
+    post._count?.postLikes || post.likes || 0
+  );
   const [isLikeLoading, setIsLikeLoading] = useState(false);
   const [isFavoriteLoading, setIsFavoriteLoading] = useState(false);
   const [showLoginDialog, setShowLoginDialog] = useState(false);
@@ -188,6 +196,12 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
         {/* 文章标题 */}
         <CardTitle className="group-hover:text-primary transition-colors line-clamp-2">
           <Link to={`/posts/${post.slug}`} className="hover:underline">
+            {post.isRepost && (
+              <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 mr-1.5 align-middle">
+                <ExternalLink className="h-2.5 w-2.5" />
+                转载
+              </span>
+            )}
             {post.title}
           </Link>
         </CardTitle>

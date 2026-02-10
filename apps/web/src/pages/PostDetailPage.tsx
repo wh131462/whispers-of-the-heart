@@ -12,6 +12,7 @@ import {
   FileX,
   Home,
   FileText,
+  ExternalLink,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { MarkdownRenderer } from '@whispers/ui';
@@ -33,6 +34,10 @@ interface Post {
   updatedAt: string;
   views: number;
   likes: number;
+  isRepost?: boolean;
+  sourceUrl?: string | null;
+  sourceAuthor?: string | null;
+  sourceName?: string | null;
   author: {
     id: string;
     username: string;
@@ -110,7 +115,7 @@ const PostDetailPage: React.FC = () => {
         const postData = response.data.data;
         setPost(postData);
         setCommentCount(postData._count?.postComments || 0);
-        setLikesCount(postData.likes || 0);
+        setLikesCount(postData._count?.postLikes || 0);
 
         if (isAuthenticated) {
           try {
@@ -266,6 +271,12 @@ const PostDetailPage: React.FC = () => {
             <div className="max-w-3xl mx-auto">
               <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-serif font-bold leading-tight mb-3 md:mb-4 text-foreground drop-shadow-sm">
                 {post.title}
+                {post.isRepost && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-orange-500/20 text-orange-300 backdrop-blur-sm ml-3 align-middle">
+                    <ExternalLink className="h-3 w-3" />
+                    转载
+                  </span>
+                )}
               </h1>
 
               {/* 元信息 */}
@@ -333,7 +344,7 @@ const PostDetailPage: React.FC = () => {
         </div>
       ) : (
         /* 无封面时的普通头部 */
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-0 mb-8 md:mb-12">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-0 mb-4 md:mb-12">
           <Link
             to="/posts"
             className="inline-flex items-center text-sm text-muted-foreground hover:text-foreground mb-6 md:mb-8"
@@ -344,6 +355,12 @@ const PostDetailPage: React.FC = () => {
 
           <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-serif font-bold leading-tight mb-4 md:mb-6">
             {post.title}
+            {post.isRepost && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 ml-3 align-middle">
+                <ExternalLink className="h-3 w-3" />
+                转载
+              </span>
+            )}
           </h1>
 
           {/* 元信息 */}
@@ -408,7 +425,7 @@ const PostDetailPage: React.FC = () => {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-0">
         {/* 标签 */}
         {post.postTags && post.postTags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-8 md:mb-12">
+          <div className="flex flex-wrap gap-2 mb-4">
             {post.postTags.map(postTag => (
               <span
                 key={postTag.id}
@@ -425,6 +442,45 @@ const PostDetailPage: React.FC = () => {
         <div className="prose prose-sm sm:prose-base md:prose-lg dark:prose-invert max-w-none mb-8 md:mb-12 overflow-x-auto">
           <MarkdownRenderer content={post.content} className="prose-article" />
         </div>
+
+        {/* 转载来源信息 */}
+        {post.isRepost &&
+          (post.sourceName || post.sourceAuthor || post.sourceUrl) && (
+            <div className="border border-border/60 rounded-lg px-5 py-4 mb-8 md:mb-12 bg-muted/30">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                <ExternalLink className="h-3.5 w-3.5" />
+                <span className="font-medium">转载声明</span>
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                本文转载自
+                {post.sourceName && (
+                  <span className="font-medium text-foreground">
+                    {post.sourceName}
+                  </span>
+                )}
+                {post.sourceAuthor && (
+                  <span>
+                    {post.sourceName ? '，' : ''}作者{' '}
+                    <span className="font-medium text-foreground">
+                      {post.sourceAuthor}
+                    </span>
+                  </span>
+                )}
+                。原文内容版权归原作者所有。
+              </p>
+              {post.sourceUrl && (
+                <a
+                  href={post.sourceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 mt-2 text-sm text-primary hover:underline"
+                >
+                  查看原文
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              )}
+            </div>
+          )}
 
         {/* 操作栏 */}
         <div className="flex items-center justify-between py-4 border-y mb-8 md:mb-12">

@@ -23,6 +23,22 @@ export class CreatePostDto {
   @IsArray()
   @IsString({ each: true })
   tags?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  isRepost?: boolean;
+
+  @IsOptional()
+  @IsString()
+  sourceUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  sourceAuthor?: string;
+
+  @IsOptional()
+  @IsString()
+  sourceName?: string;
 }
 
 export class UpdatePostDto {
@@ -50,6 +66,22 @@ export class UpdatePostDto {
   @IsArray()
   @IsString({ each: true })
   tags?: string[];
+
+  @IsOptional()
+  @IsBoolean()
+  isRepost?: boolean;
+
+  @IsOptional()
+  @IsString()
+  sourceUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  sourceAuthor?: string;
+
+  @IsOptional()
+  @IsString()
+  sourceName?: string;
 }
 
 export class CreateTagDto {
@@ -58,7 +90,7 @@ export class CreateTagDto {
 
   @IsOptional()
   @IsString()
-  slug?: string;  // 可选，后端会自动生成
+  slug?: string; // 可选，后端会自动生成
 
   @IsOptional()
   @IsString()
@@ -72,7 +104,7 @@ export class UpdateTagDto {
 
   @IsOptional()
   @IsString()
-  slug?: string;  // 可选，后端会自动生成
+  slug?: string; // 可选，后端会自动生成
 
   @IsOptional()
   @IsString()

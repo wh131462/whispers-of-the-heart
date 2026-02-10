@@ -9,6 +9,7 @@ import {
   Tag,
   FileText,
   Circle,
+  ExternalLink,
 } from 'lucide-react';
 import {
   blogApi,
@@ -45,6 +46,10 @@ interface LocalPost {
   createdAt?: string;
   updatedAt?: string;
   views?: number;
+  isRepost: boolean;
+  sourceUrl?: string;
+  sourceAuthor?: string;
+  sourceName?: string;
 }
 
 const PostEditPage: React.FC = () => {
@@ -61,6 +66,7 @@ const PostEditPage: React.FC = () => {
     tags: [],
     published: false,
     views: 0,
+    isRepost: false,
   });
 
   const [loading, setLoading] = useState(false);
@@ -144,6 +150,10 @@ const PostEditPage: React.FC = () => {
           createdAt: apiPost.createdAt,
           updatedAt: apiPost.updatedAt,
           views: apiPost.views || 0,
+          isRepost: apiPost.isRepost || false,
+          sourceUrl: apiPost.sourceUrl || '',
+          sourceAuthor: apiPost.sourceAuthor || '',
+          sourceName: apiPost.sourceName || '',
         });
         // 重新创建编辑器以加载新内容
         setEditorKey(prev => prev + 1);
@@ -179,6 +189,10 @@ const PostEditPage: React.FC = () => {
         coverImage: post.coverImage,
         published: publishStatus,
         tags: post.tags,
+        isRepost: post.isRepost,
+        sourceUrl: post.isRepost ? post.sourceUrl : null,
+        sourceAuthor: post.isRepost ? post.sourceAuthor : null,
+        sourceName: post.isRepost ? post.sourceName : null,
       };
 
       let response;
@@ -406,6 +420,65 @@ const PostEditPage: React.FC = () => {
                 onRemove={handleRemoveTag}
                 onCreate={handleCreateTag}
               />
+            </PropertyRow>
+
+            {/* 转载 */}
+            <PropertyRow icon={ExternalLink} label="转载">
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer h-7">
+                  <input
+                    type="checkbox"
+                    checked={post.isRepost}
+                    onChange={e =>
+                      setPost(prev => ({ ...prev, isRepost: e.target.checked }))
+                    }
+                    className="rounded border-border"
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    这是一篇转载文章
+                  </span>
+                </label>
+                {post.isRepost && (
+                  <div className="space-y-2 pl-6">
+                    <input
+                      type="url"
+                      placeholder="原文链接"
+                      value={post.sourceUrl || ''}
+                      onChange={e =>
+                        setPost(prev => ({
+                          ...prev,
+                          sourceUrl: e.target.value,
+                        }))
+                      }
+                      className="w-full text-sm bg-transparent border-0 border-b border-border/50 outline-none py-1 text-foreground placeholder:text-muted-foreground/50 focus:border-primary transition-colors"
+                    />
+                    <input
+                      type="text"
+                      placeholder="原文作者"
+                      value={post.sourceAuthor || ''}
+                      onChange={e =>
+                        setPost(prev => ({
+                          ...prev,
+                          sourceAuthor: e.target.value,
+                        }))
+                      }
+                      className="w-full text-sm bg-transparent border-0 border-b border-border/50 outline-none py-1 text-foreground placeholder:text-muted-foreground/50 focus:border-primary transition-colors"
+                    />
+                    <input
+                      type="text"
+                      placeholder="来源站点"
+                      value={post.sourceName || ''}
+                      onChange={e =>
+                        setPost(prev => ({
+                          ...prev,
+                          sourceName: e.target.value,
+                        }))
+                      }
+                      className="w-full text-sm bg-transparent border-0 border-b border-border/50 outline-none py-1 text-foreground placeholder:text-muted-foreground/50 focus:border-primary transition-colors"
+                    />
+                  </div>
+                )}
+              </div>
             </PropertyRow>
 
             {/* 摘要 */}

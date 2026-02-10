@@ -116,6 +116,12 @@ model Post {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  // 转载信息
+  isRepost     Boolean  @default(false)
+  sourceUrl    String?
+  sourceAuthor String?
+  sourceName   String?
+
   // 关联关系
   authorId      String
   author        User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
