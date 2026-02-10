@@ -334,7 +334,7 @@ const MainLayout: React.FC = () => {
                 variant="ghost"
                 size="icon"
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                className={`hidden sm:flex ${
+                className={`hidden sm:!flex ${
                   isHomePage && !isScrolled
                     ? 'text-foreground hover:bg-foreground/10'
                     : ''
