@@ -180,6 +180,24 @@
   margin: 0.5em 0;
 }
 
+/* 图片 figure 容器 */
+.markdown-content .md-image-figure {
+  margin: 1em 0;
+  text-align: center;
+}
+
+.markdown-content .md-image-figure img {
+  margin: 0 auto;
+}
+
+/* 图片说明文字 */
+.markdown-content .md-image-caption {
+  margin-top: 0.5em;
+  font-size: 0.875em;
+  color: hsl(var(--muted-foreground));
+  text-align: center;
+}
+
 /* 强调文本 */
 .markdown-content strong {
   font-weight: 600;

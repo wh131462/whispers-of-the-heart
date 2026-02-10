@@ -77,6 +77,16 @@ const createMarkedInstance = (
 
   // 自定义代码块渲染器
   const renderer = {
+    image(token: Tokens.Image): string {
+      const src = token.href;
+      const alt = token.text || '';
+      const title = token.title || '';
+      const caption = alt || title;
+      if (caption) {
+        return `<figure class="md-image-figure"><img src="${src}" alt="${alt}"${title ? ` title="${title}"` : ''} /><figcaption class="md-image-caption">${caption}</figcaption></figure>`;
+      }
+      return `<img src="${src}" alt="${alt}"${title ? ` title="${title}"` : ''} />`;
+    },
     code(token: Tokens.Code): string {
       const { text, lang } = token;
       // 处理 markmap 代码块
