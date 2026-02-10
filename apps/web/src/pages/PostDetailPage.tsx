@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   Calendar,
+  Clock,
   Eye,
   Heart,
   MessageCircle,
@@ -13,6 +14,7 @@ import {
   Home,
   FileText,
   ExternalLink,
+  Type,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { MarkdownRenderer } from '@whispers/ui';
@@ -57,6 +59,32 @@ interface Post {
     postLikes: number;
   };
 }
+
+// 统计字数（中文字符 + 英文单词）
+const getWordCount = (content: string): string => {
+  const chineseChars = (content.match(/[\u4e00-\u9fff]/g) || []).length;
+  const englishWords = (
+    content.replace(/[\u4e00-\u9fff]/g, '').match(/[a-zA-Z]+/g) || []
+  ).length;
+  const total = chineseChars + englishWords;
+  if (total >= 10000) {
+    return `${(total / 10000).toFixed(1)}w`;
+  }
+  return `${total}`;
+};
+
+// 计算阅读时间（分钟）
+const getReadingTime = (content: string): number => {
+  // 中文字符数
+  const chineseChars = (content.match(/[\u4e00-\u9fff]/g) || []).length;
+  // 英文单词数
+  const englishWords = (
+    content.replace(/[\u4e00-\u9fff]/g, '').match(/[a-zA-Z]+/g) || []
+  ).length;
+  // 中文 400 字/分钟，英文 200 词/分钟
+  const minutes = chineseChars / 400 + englishWords / 200;
+  return Math.max(1, Math.ceil(minutes));
+};
 
 const PostDetailPage: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -271,16 +299,10 @@ const PostDetailPage: React.FC = () => {
             <div className="max-w-3xl mx-auto">
               <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-serif font-bold leading-tight mb-3 md:mb-4 text-foreground drop-shadow-sm">
                 {post.title}
-                {post.isRepost && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-orange-500/20 text-orange-300 backdrop-blur-sm ml-3 align-middle">
-                    <ExternalLink className="h-3 w-3" />
-                    转载
-                  </span>
-                )}
               </h1>
 
               {/* 元信息 */}
-              <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm leading-5 tabular-nums text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center overflow-hidden ring-2 ring-background/50">
                     {post.author.avatar ? (
@@ -338,6 +360,36 @@ const PostDetailPage: React.FC = () => {
                   <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
                   <span>{post.views} 阅读</span>
                 </div>
+
+                <span className="text-muted-foreground/50 hidden sm:inline">
+                  ·
+                </span>
+
+                <div className="flex items-center gap-1">
+                  <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span>{getReadingTime(post.content)} 分钟</span>
+                </div>
+
+                <span className="text-muted-foreground/50 hidden sm:inline">
+                  ·
+                </span>
+
+                <div className="flex items-center gap-1">
+                  <Type className="w-3 h-3 sm:w-4 sm:h-4" />
+                  <span>{getWordCount(post.content)} 字</span>
+                </div>
+
+                {post.isRepost && (
+                  <>
+                    <span className="text-muted-foreground/50 hidden sm:inline">
+                      ·
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-orange-500/20 text-orange-300 backdrop-blur-sm">
+                      <ExternalLink className="h-3 w-3" />
+                      转载
+                    </span>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -355,16 +407,10 @@ const PostDetailPage: React.FC = () => {
 
           <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-serif font-bold leading-tight mb-4 md:mb-6">
             {post.title}
-            {post.isRepost && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400 ml-3 align-middle">
-                <ExternalLink className="h-3 w-3" />
-                转载
-              </span>
-            )}
           </h1>
 
           {/* 元信息 */}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm leading-5 tabular-nums text-muted-foreground">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
                 {post.author.avatar ? (
@@ -417,6 +463,32 @@ const PostDetailPage: React.FC = () => {
               <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
               <span>{post.views} 阅读</span>
             </div>
+
+            <span className="text-muted-foreground/50 hidden sm:inline">·</span>
+
+            <div className="flex items-center gap-1">
+              <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span>{getReadingTime(post.content)} 分钟</span>
+            </div>
+
+            <span className="text-muted-foreground/50 hidden sm:inline">·</span>
+
+            <div className="flex items-center gap-1">
+              <Type className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span>{getWordCount(post.content)} 字</span>
+            </div>
+
+            {post.isRepost && (
+              <>
+                <span className="text-muted-foreground/50 hidden sm:inline">
+                  ·
+                </span>
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400">
+                  <ExternalLink className="h-3 w-3" />
+                  转载
+                </span>
+              </>
+            )}
           </div>
         </div>
       )}
