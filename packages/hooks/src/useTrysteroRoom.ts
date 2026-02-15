@@ -357,12 +357,12 @@ export function useTrysteroRoom(config: RoomConfig) {
         );
       });
 
-      socket.on('connect_error', error => {
+      socket.on('connect_error', (error: Error) => {
         console.error('[Signaling] Connection error:', error);
         // 不立即设为 disconnected，等待重连
       });
 
-      socket.on('disconnect', reason => {
+      socket.on('disconnect', (reason: string) => {
         console.log('[Signaling] Disconnected from server:', reason);
         // 如果是服务端主动断开或传输关闭，尝试重连
         if (reason === 'io server disconnect') {
@@ -374,7 +374,7 @@ export function useTrysteroRoom(config: RoomConfig) {
       });
 
       // 重连尝试
-      socket.io.on('reconnect_attempt', attempt => {
+      socket.io.on('reconnect_attempt', (attempt: number) => {
         console.log(`[Signaling] Reconnection attempt ${attempt}`);
         updateState({
           status: 'connecting',
