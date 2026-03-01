@@ -38,14 +38,23 @@ async function bootstrap() {
   const isProduction = configService.get('NODE_ENV') === 'production';
 
   if (isProduction) {
-    // 生产环境：nginx 已处理 CORS，后端不添加 header（避免重复）
-    // 只需要响应 OPTIONS 预检请求
-    app.use((req, res, next) => {
-      if (req.method === 'OPTIONS') {
-        res.status(204).end();
-        return;
-      }
-      next();
+    // 生产环境：Traefik 直接路由到 API，需要后端自行处理 CORS
+    const corsOrigins = configService.get('CORS_ORIGINS');
+    const allowedOrigins = corsOrigins
+      ? corsOrigins.split(',').map((o: string) => o.trim())
+      : ['https://131462.wang', 'https://www.131462.wang'];
+    app.enableCors({
+      origin: allowedOrigins,
+      credentials: true,
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+      allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'Accept',
+        'Origin',
+        'X-Requested-With',
+      ],
+      maxAge: 86400,
     });
   } else {
     // 开发环境：后端处理 CORS（无 nginx）
