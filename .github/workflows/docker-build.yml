@@ -6,7 +6,8 @@ on:
     paths:
       - 'apps/**'
       - 'packages/**'
-      - 'infra/docker/**'
+      - 'infra/**'
+      - 'docker-compose*.yml'
       - 'pnpm-lock.yaml'
   workflow_dispatch:
     inputs:
