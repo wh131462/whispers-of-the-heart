@@ -97,6 +97,7 @@ services:
         condition: service_completed_successfully
     labels:
       - traefik.enable=true
+      - traefik.docker.network=proxy
       - traefik.http.routers.whispers-web.rule=Host(`131462.wang`)
       - traefik.http.routers.whispers-web.entrypoints=websecure
       - traefik.http.routers.whispers-web.tls.certresolver=letsencrypt
@@ -127,6 +128,7 @@ services:
         condition: service_healthy
     labels:
       - traefik.enable=true
+      - traefik.docker.network=proxy
       - traefik.http.routers.whispers-api.rule=Host(`api.131462.wang`)
       - traefik.http.routers.whispers-api.entrypoints=websecure
       - traefik.http.routers.whispers-api.tls.certresolver=letsencrypt

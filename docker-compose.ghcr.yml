@@ -24,12 +24,13 @@ services:
         condition: service_completed_successfully
     labels:
       - traefik.enable=true
+      - traefik.docker.network=proxy
       - traefik.http.routers.whispers-web.rule=Host(`131462.wang`)
       - traefik.http.routers.whispers-web.entrypoints=websecure
       - traefik.http.routers.whispers-web.tls.certresolver=letsencrypt
       - traefik.http.services.whispers-web.loadbalancer.server.port=80
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -62,6 +63,7 @@ services:
         condition: service_healthy
     labels:
       - traefik.enable=true
+      - traefik.docker.network=proxy
       - traefik.http.routers.whispers-api.rule=Host(`api.131462.wang`)
       - traefik.http.routers.whispers-api.entrypoints=websecure
       - traefik.http.routers.whispers-api.tls.certresolver=letsencrypt
