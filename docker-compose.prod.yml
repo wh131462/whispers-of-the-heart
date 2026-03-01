@@ -1,26 +1,30 @@
 services:
   # ============================================
-  # Nginx - 唯一对外入口
-  # 职责：反向代理 + 静态文件服务
+  # Nginx - Web 前端静态文件服务
+  # 职责：SPA 静态文件服务 + 上传文件访问
+  # 流量入口由 Traefik 统一管理
   # ============================================
   nginx:
     image: nginx:alpine
     container_name: whispers-nginx-prod
     restart: always
-    ports:
-      - "80:80"
-      - "443:443"
     volumes:
       - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./infra/nginx/sites-available:/etc/nginx/sites-available:ro
-      - ./infra/ssl:/etc/nginx/ssl:ro
       - ./uploads:/var/www/uploads:ro
       - web_dist:/usr/share/nginx/html:ro
     networks:
-      - whispers-network
+      - proxy
+      - whispers-internal
     depends_on:
       web:
         condition: service_completed_successfully
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.whispers-web.rule=Host(`131462.wang`)
+      - traefik.http.routers.whispers-web.entrypoints=websecure
+      - traefik.http.routers.whispers-web.tls.certresolver=letsencrypt
+      - traefik.http.services.whispers-web.loadbalancer.server.port=80
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
       interval: 30s
@@ -31,7 +35,7 @@ services:
   # ============================================
   # API - 后端服务
   # 职责：提供 REST API
-  # 仅通过内部网络暴露，不对外开放端口
+  # 通过 Traefik 对外暴露
   # ============================================
   api:
     build:
@@ -40,7 +44,6 @@ services:
       target: production
     container_name: whispers-api-prod
     restart: always
-    # 仅在内部网络暴露端口，不映射到宿主机
     expose:
       - "7777"
     environment:
@@ -51,12 +54,19 @@ services:
       - ./uploads:/app/uploads
       - ./logs:/app/logs
     networks:
-      - whispers-network
+      - proxy
+      - whispers-internal
     depends_on:
       postgres:
         condition: service_healthy
       minio:
         condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.whispers-api.rule=Host(`api.131462.wang`)
+      - traefik.http.routers.whispers-api.entrypoints=websecure
+      - traefik.http.routers.whispers-api.tls.certresolver=letsencrypt
+      - traefik.http.services.whispers-api.loadbalancer.server.port=7777
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:7777/api/v1/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"]
       interval: 30s
@@ -77,15 +87,15 @@ services:
       args:
         - VITE_API_URL=https://api.131462.wang
     container_name: whispers-web-prod
-    # 构建完成后退出，不需要重启
     restart: "no"
     volumes:
       - web_dist:/dist
     networks:
-      - whispers-network
+      - whispers-internal
 
   # ============================================
   # PostgreSQL - 数据库
+  # 仅内部网络，不对外暴露
   # ============================================
   postgres:
     image: postgres:15-alpine
@@ -100,7 +110,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./backups:/backups
     networks:
-      - whispers-network
+      - whispers-internal
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME} -d whispers_prod"]
       interval: 30s
@@ -109,6 +119,7 @@ services:
 
   # ============================================
   # MinIO - 对象存储
+  # 仅内部网络，不对外暴露
   # ============================================
   minio:
     image: minio/minio:latest
@@ -121,7 +132,7 @@ services:
     volumes:
       - minio_data:/data
     networks:
-      - whispers-network
+      - whispers-internal
     command: server /data --console-address ":9001"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
@@ -138,6 +149,8 @@ volumes:
     name: whispers_web_dist
 
 networks:
-  whispers-network:
-    name: whispers-prod-network
+  proxy:
+    external: true
+  whispers-internal:
+    name: whispers-prod-internal
     driver: bridge

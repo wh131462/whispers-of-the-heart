@@ -75,30 +75,35 @@ MINIO_ACCESS_KEY=@!Qq542624047
 MINIO_SECRET_KEY=@!Qq542624047
 ENVEOF
 
-# 创建部署用的 docker-compose
+# 创建部署用的 docker-compose（Traefik 方案）
 cat > "$RELEASE_DIR/docker-compose.yml" << 'EOF'
 services:
-  # Nginx 反向代理 + 静态文件服务
+  # Nginx - Web 前端静态文件服务
+  # 流量入口由 Traefik 统一管理
   nginx:
     image: nginx:alpine
     container_name: whispers-nginx
     restart: always
-    ports:
-      - "80:80"
-      - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/sites-available:/etc/nginx/sites-available:ro
-      - ./ssl:/etc/nginx/ssl:ro
       - ./uploads:/var/www/uploads:ro
       - web_dist:/usr/share/nginx/html:ro
     networks:
-      - whispers-network
+      - proxy
+      - whispers-internal
     depends_on:
       web:
         condition: service_completed_successfully
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.whispers-web.rule=Host(`131462.wang`)
+      - traefik.http.routers.whispers-web.entrypoints=websecure
+      - traefik.http.routers.whispers-web.tls.certresolver=letsencrypt
+      - traefik.http.services.whispers-web.loadbalancer.server.port=80
 
   # API 后端服务
+  # 通过 Traefik 对外暴露
   api:
     image: whispers-api:latest
     container_name: whispers-api
@@ -113,12 +118,19 @@ services:
       - ./uploads:/app/uploads
       - ./logs:/app/logs
     networks:
-      - whispers-network
+      - proxy
+      - whispers-internal
     depends_on:
       postgres:
         condition: service_healthy
       minio:
         condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.whispers-api.rule=Host(`api.131462.wang`)
+      - traefik.http.routers.whispers-api.entrypoints=websecure
+      - traefik.http.routers.whispers-api.tls.certresolver=letsencrypt
+      - traefik.http.services.whispers-api.loadbalancer.server.port=7777
 
   # Web 前端构建服务（构建完成后退出）
   web:
@@ -128,9 +140,10 @@ services:
     volumes:
       - web_dist:/dist
     networks:
-      - whispers-network
+      - whispers-internal
 
   # PostgreSQL 数据库
+  # 仅内部网络，不对外暴露
   postgres:
     image: postgres:15-alpine
     container_name: whispers-postgres
@@ -143,7 +156,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
-      - whispers-network
+      - whispers-internal
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
@@ -151,6 +164,7 @@ services:
       retries: 5
 
   # MinIO 对象存储
+  # 仅内部网络，不对外暴露
   minio:
     image: minio/minio:latest
     container_name: whispers-minio
@@ -162,7 +176,7 @@ services:
     volumes:
       - minio_data:/data
     networks:
-      - whispers-network
+      - whispers-internal
     command: server /data --console-address ":9001"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
@@ -176,7 +190,10 @@ volumes:
   web_dist:
 
 networks:
-  whispers-network:
+  proxy:
+    external: true
+  whispers-internal:
+    name: whispers-internal
     driver: bridge
 EOF
 
@@ -194,76 +211,24 @@ echo "  Whispers of the Heart - 部署"
 echo "========================================"
 
 # 加载镜像
-echo "[1/4] 加载 Docker 镜像..."
+echo "[1/3] 加载 Docker 镜像..."
 docker load < whispers-api.tar.gz
 docker load < whispers-web.tar.gz
 
 # 停止旧服务并清理
-echo "[2/4] 停止旧服务..."
+echo "[2/3] 停止旧服务..."
 docker compose down --remove-orphans 2>/dev/null || true
-# 强制删除可能残留的容器
 docker rm -f whispers-nginx whispers-api whispers-web whispers-postgres whispers-minio 2>/dev/null || true
 
-# 创建 SSL 证书
-echo "[3/4] 检查 SSL 证书..."
-mkdir -p ssl
-
-# 检查是否安装了 certbot
-if command -v certbot &> /dev/null; then
-  # 使用 Let's Encrypt 申请证书
-  if [ ! -f ssl/131462.wang.crt ]; then
-    echo "使用 Let's Encrypt 申请证书..."
-    # 确保 80 端口没有被占用
-    docker stop whispers-nginx 2>/dev/null || true
-
-    # 申请主域名证书
-    certbot certonly --standalone --non-interactive --agree-tos \
-      --email admin@131462.wang \
-      -d 131462.wang -d www.131462.wang \
-      || echo "Let's Encrypt 申请失败，使用自签名证书"
-
-    # 申请 API 域名证书
-    certbot certonly --standalone --non-interactive --agree-tos \
-      --email admin@131462.wang \
-      -d api.131462.wang \
-      || echo "Let's Encrypt API 证书申请失败，使用自签名证书"
-
-    # 复制证书到 ssl 目录
-    if [ -f /etc/letsencrypt/live/131462.wang/fullchain.pem ]; then
-      cp /etc/letsencrypt/live/131462.wang/fullchain.pem ssl/131462.wang.crt
-      cp /etc/letsencrypt/live/131462.wang/privkey.pem ssl/131462.wang.key
-      echo "✓ 131462.wang Let's Encrypt 证书已安装"
-    fi
-    if [ -f /etc/letsencrypt/live/api.131462.wang/fullchain.pem ]; then
-      cp /etc/letsencrypt/live/api.131462.wang/fullchain.pem ssl/api.131462.wang.crt
-      cp /etc/letsencrypt/live/api.131462.wang/privkey.pem ssl/api.131462.wang.key
-      echo "✓ api.131462.wang Let's Encrypt 证书已安装"
-    fi
-  fi
-else
-  echo "certbot 未安装，如需 Let's Encrypt 证书请先安装: apt install certbot"
-fi
-
-# 如果没有证书，创建自签名证书作为后备
-if [ ! -f ssl/131462.wang.crt ]; then
-  echo "创建自签名 SSL 证书..."
-  openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-    -keyout ssl/131462.wang.key \
-    -out ssl/131462.wang.crt \
-    -subj "/C=CN/ST=Beijing/L=Beijing/O=Whispers/CN=131462.wang" \
-    -addext "subjectAltName=DNS:131462.wang,DNS:www.131462.wang"
-fi
-if [ ! -f ssl/api.131462.wang.crt ]; then
-  echo "创建 API 自签名 SSL 证书..."
-  openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-    -keyout ssl/api.131462.wang.key \
-    -out ssl/api.131462.wang.crt \
-    -subj "/C=CN/ST=Beijing/L=Beijing/O=Whispers/CN=api.131462.wang" \
-    -addext "subjectAltName=DNS:api.131462.wang"
+# 确保 Traefik 外部网络存在
+echo "检查 Docker 网络..."
+if ! docker network inspect proxy >/dev/null 2>&1; then
+    echo "创建 Traefik 外部网络 'proxy'..."
+    docker network create proxy
 fi
 
 # 启动所有服务（API 容器会自动运行数据库迁移）
-echo "[4/4] 启动服务..."
+echo "[3/3] 启动服务..."
 docker compose up -d
 
 # 等待服务就绪
@@ -275,46 +240,6 @@ sleep 10
 echo ""
 echo "服务状态:"
 docker compose ps
-
-# 设置 Let's Encrypt 证书自动续期
-if command -v certbot &> /dev/null && [ -d /etc/letsencrypt/live ]; then
-  echo ""
-  echo "[自动续期] 配置证书自动续期..."
-
-  # 创建续期脚本
-  cat > /usr/local/bin/whispers-renew-ssl.sh << 'RENEW_EOF'
-#!/bin/bash
-# Whispers SSL 证书续期脚本
-cd /workspace/deploy/whispers
-
-# 停止 nginx 释放 80 端口
-docker stop whispers-nginx 2>/dev/null || true
-
-# 续期证书
-certbot renew --quiet
-
-# 复制新证书
-if [ -f /etc/letsencrypt/live/131462.wang/fullchain.pem ]; then
-  cp /etc/letsencrypt/live/131462.wang/fullchain.pem ssl/131462.wang.crt
-  cp /etc/letsencrypt/live/131462.wang/privkey.pem ssl/131462.wang.key
-fi
-if [ -f /etc/letsencrypt/live/api.131462.wang/fullchain.pem ]; then
-  cp /etc/letsencrypt/live/api.131462.wang/fullchain.pem ssl/api.131462.wang.crt
-  cp /etc/letsencrypt/live/api.131462.wang/privkey.pem ssl/api.131462.wang.key
-fi
-
-# 重启 nginx
-docker start whispers-nginx
-RENEW_EOF
-
-  chmod +x /usr/local/bin/whispers-renew-ssl.sh
-
-  # 添加 cron 任务（每月 1 号和 15 号凌晨 3 点执行）
-  CRON_JOB="0 3 1,15 * * /usr/local/bin/whispers-renew-ssl.sh >> /var/log/whispers-ssl-renew.log 2>&1"
-  (crontab -l 2>/dev/null | grep -v "whispers-renew-ssl"; echo "$CRON_JOB") | crontab -
-
-  echo "✓ 已配置证书自动续期（每月 1 号和 15 号凌晨 3 点）"
-fi
 
 echo ""
 echo "部署完成！"
@@ -445,4 +370,5 @@ echo "下一步:"
 echo "1. 上传: scp release/$ARCHIVE_FILE user@server:/path/"
 echo "2. 解压: mkdir -p whispers && tar -xvf $ARCHIVE_FILE -C whispers/"
 echo "3. 编辑 configs/env.production 配置文件"
-echo "4. 运行 ./deploy.sh 部署"
+echo "4. 确保 Traefik 已运行且 proxy 网络已创建"
+echo "5. 运行 ./deploy.sh 部署"

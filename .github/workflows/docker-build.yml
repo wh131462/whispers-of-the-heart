@@ -217,14 +217,14 @@ jobs:
             cd ${{ secrets.DEPLOY_PATH || '/workspace/deploy/whispers' }}
 
             # 确保必要目录存在
-            mkdir -p infra/ssl uploads logs backups
+            mkdir -p uploads logs backups
 
-            # 检查 SSL 证书是否存在
-            if [ ! -f "infra/ssl/131462.wang.crt" ] || [ ! -f "infra/ssl/api.131462.wang.crt" ]; then
-                echo "⚠️ SSL certificates not found!"
-                echo "Please run setup-server.sh first to configure SSL certificates"
+            # 确保 Traefik 外部网络 proxy 存在
+            docker network inspect proxy >/dev/null 2>&1 || {
+                echo "⚠️ Docker network 'proxy' not found!"
+                echo "Please create it first: docker network create proxy"
                 exit 1
-            fi
+            }
 
             # 加载环境变量（由 CI/CD 自动生成并传输到服务器）
             set -a
