@@ -96,7 +96,7 @@ services:
     container_name: whispers-postgres
     restart: always
     environment:
-      POSTGRES_DB: whispers_prod
+      POSTGRES_DB: ${POSTGRES_DATABASE:-whispers_db}
       POSTGRES_USER: ${POSTGRES_USERNAME}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       TZ: Asia/Shanghai
@@ -106,7 +106,7 @@ services:
     networks:
       - whispers-internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME} -d whispers_prod"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USERNAME} -d ${POSTGRES_DATABASE:-whispers_db}"]
       interval: 30s
       timeout: 10s
       retries: 3

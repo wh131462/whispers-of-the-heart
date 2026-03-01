@@ -273,7 +273,7 @@ docker load < whispers-web.tar.gz
 # 备份当前数据库（可选但推荐）
 echo "[2/4] 备份数据库..."
 BACKUP_FILE="backup_$(date +%Y%m%d_%H%M%S).sql"
-docker exec whispers-postgres pg_dump -U postgres whispers_prod > "backups/$BACKUP_FILE" 2>/dev/null || {
+docker exec whispers-postgres pg_dump -U postgres ${POSTGRES_DATABASE:-whispers_db} > "backups/$BACKUP_FILE" 2>/dev/null || {
   mkdir -p backups
   echo "跳过数据库备份（首次部署或数据库未运行）"
 }
