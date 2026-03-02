@@ -10,6 +10,7 @@ import {
   FileText,
   Circle,
   ExternalLink,
+  FileUp,
 } from 'lucide-react';
 import {
   blogApi,
@@ -81,6 +82,9 @@ const PostEditPage: React.FC = () => {
   // Editor MediaPicker 状态
   const [showEditorMediaPicker, setShowEditorMediaPicker] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showImportConfirm, setShowImportConfirm] = useState(false);
+  const importFileRef = useRef<HTMLInputElement>(null);
+  const pendingImportContentRef = useRef<string>('');
   const [editorMediaType, setEditorMediaType] = useState<
     'image' | 'video' | 'audio' | 'file'
   >('image');
@@ -282,6 +286,57 @@ const PostEditPage: React.FC = () => {
     }
   };
 
+  // 导入 Markdown 文件
+  const handleImportMarkdown = useCallback(() => {
+    importFileRef.current?.click();
+  }, []);
+
+  const applyImportContent = useCallback(
+    (markdownContent: string) => {
+      contentRef.current = markdownContent;
+      setPost(prev => ({ ...prev, content: markdownContent }));
+      setEditorKey(prev => prev + 1);
+      success('Markdown 导入成功');
+    },
+    [success]
+  );
+
+  const handleFileSelected = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      if (!file.name.endsWith('.md') && !file.name.endsWith('.markdown')) {
+        showError('请选择 Markdown 文件（.md 或 .markdown）');
+        e.target.value = '';
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = event => {
+        const content = event.target?.result as string;
+        if (!content) {
+          showError('文件内容为空');
+          return;
+        }
+
+        // 如果编辑器已有内容，弹窗确认
+        if (post.content.trim()) {
+          pendingImportContentRef.current = content;
+          setShowImportConfirm(true);
+        } else {
+          applyImportContent(content);
+        }
+      };
+      reader.onerror = () => {
+        showError('读取文件失败');
+      };
+      reader.readAsText(file);
+      e.target.value = '';
+    },
+    [post.content, showError, applyImportContent]
+  );
+
   // 键盘快捷键
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -354,6 +409,15 @@ const PostEditPage: React.FC = () => {
 
             {/* 右侧操作 */}
             <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleImportMarkdown}
+                className="text-muted-foreground hover:text-foreground"
+                title="导入 Markdown"
+              >
+                <FileUp className="h-4 w-4" />
+              </Button>
               {isEditing && (
                 <Button
                   variant="ghost"
@@ -552,6 +616,34 @@ const PostEditPage: React.FC = () => {
                 ? '选择音频'
                 : '选择文件'
         }
+      />
+
+      {/* 隐藏的文件输入 */}
+      <input
+        ref={importFileRef}
+        type="file"
+        accept=".md,.markdown"
+        className="hidden"
+        onChange={handleFileSelected}
+      />
+
+      {/* 导入 Markdown 确认弹窗 */}
+      <ConfirmDialog
+        isOpen={showImportConfirm}
+        onClose={() => {
+          setShowImportConfirm(false);
+          pendingImportContentRef.current = '';
+        }}
+        onConfirm={() => {
+          applyImportContent(pendingImportContentRef.current);
+          setShowImportConfirm(false);
+          pendingImportContentRef.current = '';
+        }}
+        title="导入 Markdown"
+        description="当前编辑器已有内容，导入将替换全部现有内容。确定要继续吗？"
+        confirmText="确定导入"
+        cancelText="取消"
+        variant="danger"
       />
 
       {/* 删除文章确认弹窗 */}

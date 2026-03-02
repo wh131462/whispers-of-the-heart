@@ -645,6 +645,18 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
           left: 0.5rem !important;
         }
 
+        .blocknote-wrapper .bn-inline-content a {
+          color: hsl(var(--primary));
+          text-decoration: underline;
+          text-underline-offset: 2px;
+          text-decoration-color: hsl(var(--primary) / 0.4);
+          transition: text-decoration-color 0.15s ease;
+        }
+
+        .blocknote-wrapper .bn-inline-content a:hover {
+          text-decoration-color: hsl(var(--primary));
+        }
+
         .blocknote-wrapper .bn-block-content[data-content-type="codeBlock"] {
           background: transparent !important;
         }

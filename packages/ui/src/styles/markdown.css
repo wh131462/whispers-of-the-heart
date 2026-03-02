@@ -165,11 +165,14 @@
 /* 链接 */
 .markdown-content a {
   color: hsl(var(--primary));
-  text-decoration: none;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-color: hsl(var(--primary) / 0.4);
+  transition: text-decoration-color 0.15s ease;
 }
 
 .markdown-content a:hover {
-  text-decoration: underline;
+  text-decoration-color: hsl(var(--primary));
 }
 
 /* 图片 */
