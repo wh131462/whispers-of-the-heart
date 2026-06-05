@@ -8,6 +8,48 @@
 
 ## 📝 会话日志
 
+### 2026-06-05 - FallingPattern 性能优化（跨设备 60fps）
+
+**任务概览**:
+首页 Hero 区 `FallingPattern` 背景动画在 Windows 设备上明显卡顿，需要在不改变视觉效果的前提下让所有设备稳定 60fps。走 OpenSpec `optimize-falling-pattern-performance` change 落地。
+
+**根因定位**:
+
+- 旧实现用 framer-motion 持续动画 `background-position`（36 个值字符串），每帧触发整屏 PAINT
+- 叠加全屏 `backdrop-filter: blur(0.8em)`，每帧下层 paint 变化 → blur 跟着重算
+- Windows + Intel 集显 + 1.25x/1.5x DPI 缩放下 ANGLE/D3D11 路径放大开销，macOS Metal 路径相对掩盖了问题
+
+**关键决策**:
+
+1. **transform 化分层渲染**: 将原 36 个 radial-gradient 按行拆为 12 个独立合成层，每层 `top: -sizeY / bottom: -sizeY` + `background-repeat: repeat` + 独立 CSS `@keyframes` 做 `translate3d(0,0,0) → translate3d(0,sizeY,0)`。
+2. **保留视差**: 必须用 12 层而非单一 transform 层，因为原始数据每行 `background-size`、移动距离不同，下落速度差异最大 ~3x，是视觉效果核心。
+3. **周期对齐**: 每行 `animation-duration = duration / cycles`，其中 cycles 从原始 `(endY - startY) / sizeY` 推导且全部为整数 → `duration` 秒后所有层同时回到初始相位，与原实现等价。
+4. **视口暂停**: `IntersectionObserver` 监听根元素，移出视口设置 `animationPlayState: 'paused'`。
+5. **无障碍**: `@media (prefers-reduced-motion: reduce)` 直接 `animation: none`。
+6. **保留 backdrop-filter mask 层**: 下层不再触发 paint 后，blur 从"每帧重算"退化为"缓存一次 compose"，不必再优化。
+
+**修改文件**:
+
+- [packages/ui/src/components/background/FallingPattern.tsx](packages/ui/src/components/background/FallingPattern.tsx) 单文件重写
+- 移除 framer-motion 引用（包未卸载，其他组件仍用）
+- 公开 props 接口 100% 兼容，HomePage 调用零改动
+
+**定位手段**:
+
+- Chrome DevTools Performance 面板录制首页 Hero 区，观察主线程 Paint / Composite Layers 任务
+- 重构后预期主线程在动画期间近乎空闲
+
+**待用户验证**:
+
+- 跨设备视觉对比（macOS Chrome/Safari/Windows Chrome）
+- Windows 集显 + 1.5x DPI 实测帧率（目标 55-60fps 稳定）
+- 视口外动画暂停 & 滚回恢复
+- prefers-reduced-motion 偏好下完全静止
+
+**OpenSpec change**: `openspec/changes/optimize-falling-pattern-performance/`（已生成 proposal/design/specs/tasks，待归档）
+
+---
+
 ### 2026-01-09 - BlockNote FormattingToolbar 自定义与 MarkdownRenderer 图片预览
 
 **任务概览**:

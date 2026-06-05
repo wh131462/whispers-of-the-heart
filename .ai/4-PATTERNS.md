@@ -275,6 +275,83 @@ export const PostDetail: React.FC = () => {
 **使用场景**: 需要从API获取数据的页面
 **复用指南**: 替换类型定义和API端点
 
+### 模式：装饰性背景动画性能基线
+
+**问题**：使用 framer-motion / CSS 动画 `background-position` 或类似 paint 属性驱动背景动画时，浏览器每帧 PAINT 整屏，叠加 `backdrop-filter: blur` 会在 Windows + 集显 + 高 DPI 场景导致严重卡顿。
+
+**约束**：动画必须用 GPU 合成属性驱动（`transform` / `opacity`），不要动画 `background-position` / `top` / `left` / `width` / `height` / `box-shadow` 等触发 paint 或 layout 的属性。
+
+**模板**：
+
+```tsx
+'use client';
+import { useEffect, useId, useRef, useState } from 'react';
+
+export function DecoBackground({ duration = 120, className }: Props) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(true);
+  const prefix = `bg-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
+
+  // 视口外暂停动画，节省 GPU
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return;
+    const ob = new IntersectionObserver(([e]) => setVisible(e.isIntersecting), {
+      threshold: 0,
+    });
+    ob.observe(el);
+    return () => ob.disconnect();
+  }, []);
+
+  return (
+    <div ref={rootRef} className={cn('relative overflow-hidden', className)}>
+      <style>{`
+        @keyframes ${prefix}-drift {
+          from { transform: translate3d(0,0,0); }
+          to { transform: translate3d(0,TILE_PX,0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          [data-${prefix}-layer] { animation: none !important; }
+        }
+      `}</style>
+      {/* 动画层：top/-bottom 向外扩展一个 tile，避免位移露白；background-repeat: repeat 实现无缝循环 */}
+      <div
+        data-bg-layer
+        style={{
+          position: 'absolute',
+          inset: 0,
+          top: '-TILE_PX',
+          bottom: '-TILE_PX',
+          backgroundImage: '...',
+          backgroundSize: '... TILE_PX',
+          backgroundRepeat: 'repeat',
+          animation: `${prefix}-drift ${duration}s linear infinite`,
+          animationPlayState: visible ? 'running' : 'paused',
+          willChange: 'transform',
+        }}
+      />
+    </div>
+  );
+}
+```
+
+**关键原则**：
+
+1. **位移距离 = 整数倍 tile 尺寸** → 循环边界与 pattern 平铺边界对齐 → 无缝
+2. **使用 `translate3d` 而非 `translateY`** → 强制 GPU 合成层
+3. **配合 `will-change: transform`** → 浏览器预先分配合成层，避免首帧卡顿
+4. **`IntersectionObserver` 视口暂停** → 元素离开视口时 `animationPlayState: 'paused'`
+5. **`prefers-reduced-motion` 无障碍降级** → CSS `@media` 直接 `animation: none`
+6. **多层视差**：如果原始动画有不同速度的视差，必须用多个独立合成层（每层独立 `@keyframes` 与 `animation-duration`），不能合并为单层
+
+**反模式**（❌ 已确认在 Windows 集显上卡顿）：
+
+- ❌ framer-motion 持续动画 `background-position`
+- ❌ JS `requestAnimationFrame` 改写 paint 属性
+- ❌ 全屏 `backdrop-filter: blur(>0.5em)` 叠加在持续 paint 层上方
+
+**参考实现**: [packages/ui/src/components/background/FallingPattern.tsx](packages/ui/src/components/background/FallingPattern.tsx)
+
 ## 后端模式
 
 ### 模式1: NestJS Service (完整CRUD)
