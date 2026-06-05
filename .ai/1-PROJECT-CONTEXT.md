@@ -128,7 +128,24 @@ pnpm type-check            # TypeScript类型检查
 | ------ | -------------------- | -------- |
 | 管理员 | admin@whispers.local | admin123 |
 
+## OpenSpec 协同
+
+项目同时启用了 `openspec/` 规格演进体系,与本 `.ai/` 工作区互补:
+
+- **`.ai/`**: 描述项目"现在是什么样"(背景层)
+- **`openspec/`**: 驱动"接下来要变成什么样"(变更层)
+
+### 何时使用 openspec
+
+- 实现**新功能模块** → 走 `openspec-propose` → `openspec-apply` → `openspec-archive`
+- 修改**已有领域规格** → 先在 `openspec/changes/` 提案,再实施
+- 简单 Bug 修复 / 文案调整 → 不走 openspec,直接改
+
+### Spec 索引
+
+详见 [.ai/0-INDEX.md](./0-INDEX.md) 的 "已沉淀的 Specs 索引" 章节。
+
 ---
 
-**最后更新**: 2026-01-09
+**最后更新**: 2026-06-05
 **维护者**: wh131462
