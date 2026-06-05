@@ -50,6 +50,7 @@
     "prod:logs": "docker-compose -f docker-compose.prod.yml logs -f",
     "prod:restart": "docker-compose -f docker-compose.prod.yml restart",
     "deploy:restart": "pnpm prod:build && pnpm prod:restart",
+    "kill:ports": "./scripts/kill-ports.sh 7777 8888",
     "db:backup": "scripts/backup-db.sh",
     "db:restore": "scripts/restore-db.sh",
     "db:init": "./scripts/init-db.sh",
