@@ -18,6 +18,8 @@ export type GameState = {
   status: GameStatus;
   mode: GameMode;
   difficulty: Difficulty;
+  // PVE 模式下人类玩家执棋颜色（PVP/online 模式忽略）
+  humanColor: Player;
   winner: Player | 'draw' | null;
 };
 

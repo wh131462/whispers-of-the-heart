@@ -9,7 +9,11 @@ import {
 } from '../utils/game';
 import { getAIMove } from '../utils/ai';
 
-function createInitialState(mode: GameMode, difficulty: Difficulty): GameState {
+function createInitialState(
+  mode: GameMode,
+  difficulty: Difficulty,
+  humanColor: Player
+): GameState {
   const board = createInitialBoard();
   const { black, white } = countPieces(board);
 
@@ -22,31 +26,45 @@ function createInitialState(mode: GameMode, difficulty: Difficulty): GameState {
     status: 'playing',
     mode,
     difficulty,
+    humanColor,
     winner: null,
   };
 }
 
 export function useReversi() {
   const [state, setState] = useState<GameState>(() =>
-    createInitialState('pve', 'medium')
+    createInitialState('pve', 'medium', 'black')
   );
 
   const reset = useCallback(() => {
-    setState(prev => createInitialState(prev.mode, prev.difficulty));
+    setState(prev =>
+      createInitialState(prev.mode, prev.difficulty, prev.humanColor)
+    );
   }, []);
 
   const setMode = useCallback((mode: GameMode) => {
-    setState(createInitialState(mode, 'medium'));
+    setState(prev =>
+      createInitialState(mode, prev.difficulty, prev.humanColor)
+    );
   }, []);
 
   const setDifficulty = useCallback((difficulty: Difficulty) => {
-    setState(prev => createInitialState(prev.mode, difficulty));
+    setState(prev =>
+      createInitialState(prev.mode, difficulty, prev.humanColor)
+    );
+  }, []);
+
+  const setHumanColor = useCallback((humanColor: Player) => {
+    setState(prev =>
+      createInitialState(prev.mode, prev.difficulty, humanColor)
+    );
   }, []);
 
   const placePiece = useCallback((row: number, col: number) => {
     setState(prev => {
       if (prev.status === 'ended') return prev;
-      if (prev.mode === 'pve' && prev.currentPlayer === 'white') return prev;
+      if (prev.mode === 'pve' && prev.currentPlayer !== prev.humanColor)
+        return prev;
 
       // 检查是否是有效移动
       const isValid = prev.validMoves.some(m => m.row === row && m.col === col);
@@ -89,31 +107,33 @@ export function useReversi() {
     if (
       state.mode === 'pve' &&
       state.status === 'playing' &&
-      state.currentPlayer === 'white' &&
+      state.currentPlayer !== state.humanColor &&
       state.validMoves.length > 0
     ) {
+      const aiColor: Player = state.currentPlayer;
       const timer = setTimeout(() => {
-        const aiMove = getAIMove(state.board, 'white', state.difficulty);
+        const aiMove = getAIMove(state.board, aiColor, state.difficulty);
 
         setState(prev => {
-          if (prev.currentPlayer !== 'white' || prev.status !== 'playing')
+          if (prev.currentPlayer !== aiColor || prev.status !== 'playing')
             return prev;
 
           const newBoard = makeMove(
             prev.board,
             aiMove.row,
             aiMove.col,
-            'white'
+            aiColor
           );
           const { black, white } = countPieces(newBoard);
-          let validMoves = getValidMoves(newBoard, 'black');
+          const opponent: Player = aiColor === 'black' ? 'white' : 'black';
+          let validMoves = getValidMoves(newBoard, opponent);
 
-          let nextPlayer: Player = 'black';
+          let nextPlayer: Player = opponent;
           if (validMoves.length === 0) {
-            const whiteMoves = getValidMoves(newBoard, 'white');
-            if (whiteMoves.length > 0) {
-              nextPlayer = 'white';
-              validMoves = whiteMoves;
+            const aiMoves = getValidMoves(newBoard, aiColor);
+            if (aiMoves.length > 0) {
+              nextPlayer = aiColor;
+              validMoves = aiMoves;
             }
           }
 
@@ -138,6 +158,7 @@ export function useReversi() {
     state.mode,
     state.status,
     state.currentPlayer,
+    state.humanColor,
     state.validMoves.length,
     state.board,
     state.difficulty,
@@ -148,6 +169,7 @@ export function useReversi() {
     reset,
     setMode,
     setDifficulty,
+    setHumanColor,
     placePiece,
   };
 }

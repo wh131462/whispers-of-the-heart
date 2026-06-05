@@ -35,6 +35,7 @@ function createInitialState(): Omit<GameState, 'mode' | 'difficulty'> {
     blackCount: black,
     whiteCount: white,
     status: 'playing',
+    humanColor: 'black',
     winner: null,
   };
 }

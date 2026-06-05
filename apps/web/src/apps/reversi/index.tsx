@@ -62,14 +62,16 @@ function PlayerIndicator({
   validMovesCount,
   isMyTurn,
   myColor,
+  humanColor,
 }: {
   currentPlayer: Player;
   mode: GameMode;
   validMovesCount: number;
   isMyTurn?: boolean;
   myColor?: Player | null;
+  humanColor?: Player;
 }) {
-  const isThinking = mode === 'pve' && currentPlayer === 'white';
+  const isThinking = mode === 'pve' && currentPlayer !== humanColor;
 
   return (
     <div className="flex items-center gap-2">
@@ -109,6 +111,7 @@ function OfflineGame({
   reset,
   setMode,
   setDifficulty,
+  setHumanColor,
   placePiece,
 }: ReturnType<typeof useReversi>) {
   const isMobile = useIsMobile();
@@ -123,6 +126,7 @@ function OfflineGame({
           currentPlayer={state.currentPlayer}
           mode={state.mode}
           validMovesCount={state.validMoves.length}
+          humanColor={state.humanColor}
         />
       </div>
 
@@ -179,6 +183,50 @@ function OfflineGame({
           </div>
         )}
 
+        {state.mode === 'pve' && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-zinc-500">执棋:</span>
+            <div className="flex rounded-lg overflow-hidden border border-zinc-200">
+              <button
+                onClick={() => setHumanColor('black')}
+                className={cn(
+                  'flex items-center gap-1 px-3 py-1.5 text-sm font-medium transition-colors',
+                  state.humanColor === 'black'
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-white text-zinc-600 hover:bg-zinc-50'
+                )}
+              >
+                <div
+                  className={cn(
+                    'w-3.5 h-3.5 rounded-full shadow-sm',
+                    state.humanColor === 'black' ? 'bg-white' : 'bg-zinc-800'
+                  )}
+                />
+                执黑（先手）
+              </button>
+              <button
+                onClick={() => setHumanColor('white')}
+                className={cn(
+                  'flex items-center gap-1 px-3 py-1.5 text-sm font-medium transition-colors',
+                  state.humanColor === 'white'
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-white text-zinc-600 hover:bg-zinc-50'
+                )}
+              >
+                <div
+                  className={cn(
+                    'w-3.5 h-3.5 rounded-full shadow-sm border',
+                    state.humanColor === 'white'
+                      ? 'bg-white border-emerald-300'
+                      : 'bg-white border-zinc-300'
+                  )}
+                />
+                执白（后手）
+              </button>
+            </div>
+          </div>
+        )}
+
         <button
           onClick={reset}
           className={cn(
@@ -201,7 +249,7 @@ function OfflineGame({
           onCellClick={placePiece}
           disabled={
             state.status === 'ended' ||
-            (state.mode === 'pve' && state.currentPlayer === 'white')
+            (state.mode === 'pve' && state.currentPlayer !== state.humanColor)
           }
           cellSize={cellSize}
         />
