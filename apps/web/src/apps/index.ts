@@ -25,6 +25,15 @@ export const appRegistry: AppMeta[] = [
     component: lazy(() => import('./keyboard-tester')),
   },
   {
+    id: 'screen-detector',
+    name: '屏幕检测器',
+    description:
+      '坏点/漏光/对焦/对比度/色阶/饱和度 全面屏幕检测，支持全屏目视检查',
+    icon: 'Monitor',
+    tags: ['实用'],
+    component: lazy(() => import('./screen-detector')),
+  },
+  {
     id: 'calculator',
     name: '计算器',
     description: '多功能计算器，支持标准、科学、程序员三种模式',
