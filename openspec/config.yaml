@@ -1,0 +1,36 @@
+schema: spec-driven
+
+# Project context injected when openspec generates artifacts (proposals, specs, tasks).
+# Keep concise — this is read on every generation.
+context: |
+  Project: Whispers of the Heart (个人博客平台)
+  Stack: pnpm monorepo + Turborepo / Vite + React 19 + TypeScript + Tailwind / NestJS 11 + Prisma 6 + PostgreSQL / Zustand / BlockNote / MinIO / Socket.IO
+  Structure:
+    - apps/web         前端(含管理后台)
+    - apps/api         后端 API
+    - packages/ui      共享 UI 组件
+    - packages/utils   共享工具
+    - packages/types   共享类型
+    - packages/hooks   共享 React Hooks
+  Ports: api 7777 / web 8888 / pg 5432 / minio 9000-9001
+  Conventions:
+    - TypeScript strict mode, no `any` unless commented
+    - REST API with unified response & error format
+    - All UI components must be responsive (mobile-first)
+    - Prisma only inside services, never in components
+    - Conventional commits
+  AI workspace: see .ai/0-INDEX.md for the broader knowledge base.
+  Before proposing, check .ai/3-CODING-RULES.md and .ai/4-PATTERNS.md to align with existing conventions.
+  After archiving a change, sync back any rule/structure/stack updates to .ai/ as described in .ai/0-INDEX.md.
+
+# Per-artifact rules
+rules:
+  proposal:
+    - Keep proposals concise (under 500 words) and include a "Non-goals" section
+    - Reference relevant existing specs and `.ai/` patterns instead of restating them
+  spec:
+    - Specs describe domain capability contracts (behavior, I/O, invariants), not code style
+    - Code style and naming belong in .ai/3-CODING-RULES.md, not in specs
+  tasks:
+    - Break tasks into reviewable chunks (each completable in < 2h)
+    - Mark which `.ai/` doc may need updating after the task lands
