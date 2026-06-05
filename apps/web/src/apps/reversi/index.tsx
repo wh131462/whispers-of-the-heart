@@ -104,8 +104,13 @@ function PlayerIndicator({
   );
 }
 
-function OfflineGame() {
-  const { state, reset, setMode, setDifficulty, placePiece } = useReversi();
+function OfflineGame({
+  state,
+  reset,
+  setMode,
+  setDifficulty,
+  placePiece,
+}: ReturnType<typeof useReversi>) {
   const isMobile = useIsMobile();
 
   const cellSize = isMobile ? 36 : 48;
@@ -479,7 +484,8 @@ function OnlineGame({
 export default function Reversi() {
   const [activeTab, setActiveTab] = useState<'offline' | 'online'>('offline');
   const [userName, setUserName] = useState(generateDefaultName);
-  const { state } = useReversi();
+  const offlineGame = useReversi();
+  const { state } = offlineGame;
   const isMobile = useIsMobile();
 
   return (
@@ -545,7 +551,7 @@ export default function Reversi() {
         {/* 根据标签显示不同内容 */}
         {activeTab === 'offline' ? (
           <>
-            <OfflineGame />
+            <OfflineGame {...offlineGame} />
             {/* 离线模式操作提示 */}
             <div className="text-xs text-zinc-500 text-center">
               <p>点击绿色提示位置落子</p>
