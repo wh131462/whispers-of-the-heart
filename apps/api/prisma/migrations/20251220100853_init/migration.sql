@@ -25,89 +25,89 @@
 
 */
 -- DropForeignKey
-ALTER TABLE "public"."files" DROP CONSTRAINT "files_folderId_fkey";
+ALTER TABLE "public"."files" DROP CONSTRAINT IF EXISTS "files_folderId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "public"."files" DROP CONSTRAINT "files_uploaderId_fkey";
+ALTER TABLE "public"."files" DROP CONSTRAINT IF EXISTS "files_uploaderId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "public"."folders" DROP CONSTRAINT "folders_ownerId_fkey";
+ALTER TABLE "public"."folders" DROP CONSTRAINT IF EXISTS "folders_ownerId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "public"."folders" DROP CONSTRAINT "folders_parentId_fkey";
+ALTER TABLE "public"."folders" DROP CONSTRAINT IF EXISTS "folders_parentId_fkey";
 
 -- DropForeignKey
-ALTER TABLE "public"."posts" DROP CONSTRAINT "posts_categoryId_fkey";
+ALTER TABLE "public"."posts" DROP CONSTRAINT IF EXISTS "posts_categoryId_fkey";
 
 -- DropIndex
-DROP INDEX "public"."comments_deletedAt_idx";
+DROP INDEX IF EXISTS "public"."comments_deletedAt_idx";
 
 -- DropIndex
-DROP INDEX "public"."posts_categoryId_idx";
+DROP INDEX IF EXISTS "public"."posts_categoryId_idx";
 
 -- DropIndex
-DROP INDEX "public"."posts_deletedAt_idx";
+DROP INDEX IF EXISTS "public"."posts_deletedAt_idx";
 
 -- DropIndex
-DROP INDEX "public"."posts_status_idx";
+DROP INDEX IF EXISTS "public"."posts_status_idx";
 
 -- DropIndex
-DROP INDEX "public"."tags_deletedAt_idx";
+DROP INDEX IF EXISTS "public"."tags_deletedAt_idx";
 
 -- DropIndex
-DROP INDEX "public"."users_deletedAt_idx";
+DROP INDEX IF EXISTS "public"."users_deletedAt_idx";
 
 -- AlterTable
-ALTER TABLE "public"."comments" DROP COLUMN "deletedAt",
-DROP COLUMN "likes";
+ALTER TABLE "public"."comments" DROP COLUMN IF EXISTS "deletedAt",
+DROP COLUMN IF EXISTS "likes";
 
 -- AlterTable
-ALTER TABLE "public"."media" DROP COLUMN "alt",
+ALTER TABLE "public"."media" DROP COLUMN IF EXISTS "alt",
 ADD COLUMN     "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
 ADD COLUMN     "uploaderId" TEXT NOT NULL;
 
 -- AlterTable
-ALTER TABLE "public"."posts" DROP COLUMN "categoryId",
-DROP COLUMN "comments",
-DROP COLUMN "deletedAt",
-DROP COLUMN "likes",
-DROP COLUMN "status",
+ALTER TABLE "public"."posts" DROP COLUMN IF EXISTS "categoryId",
+DROP COLUMN IF EXISTS "comments",
+DROP COLUMN IF EXISTS "deletedAt",
+DROP COLUMN IF EXISTS "likes",
+DROP COLUMN IF EXISTS "status",
 ADD COLUMN     "published" BOOLEAN NOT NULL DEFAULT false;
 
 -- AlterTable
-ALTER TABLE "public"."site_config" DROP COLUMN "contactEmail",
-DROP COLUMN "ossConfig",
-DROP COLUMN "seoSettings",
-DROP COLUMN "siteIcon",
-DROP COLUMN "siteLogo",
+ALTER TABLE "public"."site_config" DROP COLUMN IF EXISTS "contactEmail",
+DROP COLUMN IF EXISTS "ossConfig",
+DROP COLUMN IF EXISTS "seoSettings",
+DROP COLUMN IF EXISTS "siteIcon",
+DROP COLUMN IF EXISTS "siteLogo",
 ADD COLUMN     "avatar" TEXT,
 ALTER COLUMN "id" SET DEFAULT 'default',
 ALTER COLUMN "siteName" SET DEFAULT 'Whispers of the Heart';
 
 -- AlterTable
-ALTER TABLE "public"."tags" DROP COLUMN "deletedAt";
+ALTER TABLE "public"."tags" DROP COLUMN IF EXISTS "deletedAt";
 
 -- AlterTable
-ALTER TABLE "public"."users" DROP COLUMN "deletedAt",
-DROP COLUMN "isActive",
-DROP COLUMN "role",
+ALTER TABLE "public"."users" DROP COLUMN IF EXISTS "deletedAt",
+DROP COLUMN IF EXISTS "isActive",
+DROP COLUMN IF EXISTS "role",
 ADD COLUMN     "isAdmin" BOOLEAN NOT NULL DEFAULT false,
 ADD COLUMN     "theme" TEXT DEFAULT 'system';
 
 -- DropTable
-DROP TABLE "public"."categories";
+DROP TABLE IF EXISTS "public"."categories";
 
 -- DropTable
-DROP TABLE "public"."files";
+DROP TABLE IF EXISTS "public"."files";
 
 -- DropTable
-DROP TABLE "public"."folders";
+DROP TABLE IF EXISTS "public"."folders";
 
 -- DropEnum
-DROP TYPE "public"."PostStatus";
+DROP TYPE IF EXISTS "public"."PostStatus";
 
 -- DropEnum
-DROP TYPE "public"."UserRole";
+DROP TYPE IF EXISTS "public"."UserRole";
 
 -- CreateTable
 CREATE TABLE "public"."media_usages" (
