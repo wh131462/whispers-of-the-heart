@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { Button } from '../components/ui/button'
-import { Input } from '../components/ui/input'
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
 import {
   Search,
   Calendar,
@@ -12,59 +12,62 @@ import {
   Feather,
   X,
   Archive,
-  ArrowUp
-} from 'lucide-react'
-import { api } from '@whispers/utils'
+  ArrowUp,
+} from 'lucide-react';
+import { api } from '@whispers/utils';
 
 interface Post {
-  id: string
-  title: string
-  content: string
-  excerpt: string | null
-  slug: string
-  published: boolean
-  coverImage?: string | null
-  category: string | null
-  views: number
-  likes: number
-  comments: number
-  createdAt: string
-  updatedAt: string
+  id: string;
+  title: string;
+  content: string;
+  excerpt: string | null;
+  slug: string;
+  published: boolean;
+  coverImage?: string | null;
+  category: string | null;
+  views: number;
+  likes: number;
+  comments: number;
+  createdAt: string;
+  updatedAt: string;
   author: {
-    id: string
-    username: string
-    avatar?: string
-  }
+    id: string;
+    username: string;
+    avatar?: string;
+  };
   postTags: Array<{
-    id: string
-    postId: string
-    tagId: string
+    id: string;
+    postId: string;
+    tagId: string;
     tag: {
-      id: string
-      name: string
-      slug: string
-      color?: string | null
-    }
-  }>
+      id: string;
+      name: string;
+      slug: string;
+      color?: string | null;
+    };
+  }>;
   _count?: {
-    postComments: number
-    postLikes: number
-  }
+    postComments: number;
+    postLikes: number;
+  };
 }
 
 interface TagWithCount {
-  id: string
-  name: string
-  slug: string
-  postCount: number
+  id: string;
+  name: string;
+  slug: string;
+  postCount: number;
 }
 
-const PAGE_SIZE = 12
+const PAGE_SIZE = 12;
 
 // 时间线文章项
 const TimelinePost: React.FC<{ post: Post }> = ({ post }) => {
-  const date = new Date(post.createdAt)
-  const monthDay = date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+  const date = new Date(post.createdAt);
+  const monthDay = date.toLocaleDateString('zh-CN', {
+    month: 'short',
+    day: 'numeric',
+  });
 
   return (
     <article className="group relative pl-8 pb-6 last:pb-0">
@@ -86,7 +89,9 @@ const TimelinePost: React.FC<{ post: Post }> = ({ post }) => {
         </h3>
 
         <p className="text-sm text-muted-foreground leading-relaxed line-clamp-2 mb-2">
-          {post.excerpt || post.content.replace(/<[^>]*>/g, '').substring(0, 100)}...
+          {post.excerpt ||
+            post.content.replace(/<[^>]*>/g, '').substring(0, 100)}
+          ...
         </p>
 
         {/* 元信息 */}
@@ -108,242 +113,265 @@ const TimelinePost: React.FC<{ post: Post }> = ({ post }) => {
         </div>
       </Link>
     </article>
-  )
-}
+  );
+};
 
 const PostsPage: React.FC = () => {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const [posts, setPosts] = useState<Post[]>([])
-  const [tags, setTags] = useState<TagWithCount[]>([])
-  const [isInitialLoad, setIsInitialLoad] = useState(true)
-  const [isSearching, setIsSearching] = useState(false)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [hasMore, setHasMore] = useState(true)
-  const [page, setPage] = useState(1)
-  const [total, setTotal] = useState(0)
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [tags, setTags] = useState<TagWithCount[]>([]);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isSearching, setIsSearching] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
   // 输入框的值（即时更新，不触发重新渲染）
-  const [inputValue, setInputValue] = useState(searchParams.get('search') || '')
+  const [inputValue, setInputValue] = useState(
+    searchParams.get('search') || ''
+  );
   // 实际用于 API 请求的搜索词
-  const [debouncedSearch, setDebouncedSearch] = useState(searchParams.get('search') || '')
-  const [activeTag, setActiveTag] = useState(searchParams.get('tag') || '')
-  const [showBackTop, setShowBackTop] = useState(false)
-  const observerRef = useRef<IntersectionObserver | null>(null)
-  const loadMoreRef = useRef<HTMLDivElement>(null)
-  const searchInputRef = useRef<HTMLInputElement>(null)
+  const [debouncedSearch, setDebouncedSearch] = useState(
+    searchParams.get('search') || ''
+  );
+  const [activeTag, setActiveTag] = useState(searchParams.get('tag') || '');
+  const [showBackTop, setShowBackTop] = useState(false);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   // 用于跟踪输入法组合状态（拼音输入）
-  const isComposingRef = useRef(false)
+  const isComposingRef = useRef(false);
   // 用于存储最新的筛选参数
-  const filtersRef = useRef({ search: searchParams.get('search') || '', tag: searchParams.get('tag') || '' })
+  const filtersRef = useRef({
+    search: searchParams.get('search') || '',
+    tag: searchParams.get('tag') || '',
+  });
 
   // 获取标签列表
   useEffect(() => {
     const fetchTags = async () => {
       try {
-        const response = await api.get('/blog/tags')
+        const response = await api.get('/blog/tags');
         if (response.data?.success && response.data?.data) {
-          setTags(response.data.data)
+          setTags(response.data.data);
         }
       } catch (error) {
-        console.error('Failed to fetch tags:', error)
+        // eslint-disable-next-line no-console
+        console.error('Failed to fetch tags:', error);
       }
-    }
-    fetchTags()
-  }, [])
+    };
+    fetchTags();
+  }, []);
 
   // 获取文章列表 - 不依赖搜索词状态，使用 ref
-  const fetchPosts = useCallback(async (pageNum: number, isInitial = false, search?: string, tag?: string) => {
-    // 使用传入的参数或 ref 中的值
-    const currentSearch = search ?? filtersRef.current.search
-    const currentTag = tag ?? filtersRef.current.tag
+  const fetchPosts = useCallback(
+    async (
+      pageNum: number,
+      isInitial = false,
+      search?: string,
+      tag?: string
+    ) => {
+      // 使用传入的参数或 ref 中的值
+      const currentSearch = search ?? filtersRef.current.search;
+      const currentTag = tag ?? filtersRef.current.tag;
 
-    try {
-      if (isInitial) {
-        setIsSearching(true)
-      } else {
-        setLoadingMore(true)
-      }
-
-      const params: Record<string, unknown> = {
-        page: pageNum,
-        limit: PAGE_SIZE,
-        sortBy: 'createdAt',
-        sortOrder: 'desc'
-      }
-
-      // 如果有搜索词或标签筛选，使用 search 端点
-      const hasFilters = currentSearch || currentTag
-      if (currentSearch) {
-        params.q = currentSearch
-      }
-
-      if (currentTag) {
-        params.tag = currentTag
-      }
-
-      // 使用搜索端点支持标签筛选
-      const endpoint = hasFilters ? '/blog/search' : '/blog'
-      const response = await api.get(endpoint, { params })
-
-      if (response.data?.success && response.data?.data) {
-        const { items, totalPages, total: totalCount } = response.data.data
-
+      try {
         if (isInitial) {
-          setPosts(items || [])
+          setIsSearching(true);
         } else {
-          setPosts(prev => [...prev, ...(items || [])])
+          setLoadingMore(true);
         }
 
-        setTotal(totalCount || 0)
-        setHasMore(pageNum < totalPages)
+        const params: Record<string, unknown> = {
+          page: pageNum,
+          limit: PAGE_SIZE,
+          sortBy: 'createdAt',
+          sortOrder: 'desc',
+        };
+
+        // 如果有搜索词或标签筛选，使用 search 端点
+        const hasFilters = currentSearch || currentTag;
+        if (currentSearch) {
+          params.q = currentSearch;
+        }
+
+        if (currentTag) {
+          params.tag = currentTag;
+        }
+
+        // 使用搜索端点支持标签筛选
+        const endpoint = hasFilters ? '/blog/search' : '/blog';
+        const response = await api.get(endpoint, { params });
+
+        if (response.data?.success && response.data?.data) {
+          const { items, totalPages, total: totalCount } = response.data.data;
+
+          if (isInitial) {
+            setPosts(items || []);
+          } else {
+            setPosts(prev => [...prev, ...(items || [])]);
+          }
+
+          setTotal(totalCount || 0);
+          setHasMore(pageNum < totalPages);
+        }
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to fetch posts:', error);
+      } finally {
+        setIsInitialLoad(false);
+        setIsSearching(false);
+        setLoadingMore(false);
       }
-    } catch (error) {
-      console.error('Failed to fetch posts:', error)
-    } finally {
-      setIsInitialLoad(false)
-      setIsSearching(false)
-      setLoadingMore(false)
-    }
-  }, [])
+    },
+    []
+  );
 
   // 初始加载 - 只在组件挂载时执行一次
   useEffect(() => {
-    fetchPosts(1, true)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    fetchPosts(1, true);
+  }, [fetchPosts]);
 
   // 搜索词或标签变化时重新加载
   useEffect(() => {
     // 更新 ref
-    filtersRef.current = { search: debouncedSearch, tag: activeTag }
+    filtersRef.current = { search: debouncedSearch, tag: activeTag };
     // 重置页码并重新加载
-    setPage(1)
-    fetchPosts(1, true, debouncedSearch, activeTag)
-  }, [debouncedSearch, activeTag, fetchPosts])
+    setPage(1);
+    fetchPosts(1, true, debouncedSearch, activeTag);
+  }, [debouncedSearch, activeTag, fetchPosts]);
 
   // 无限滚动
   useEffect(() => {
-    if (isInitialLoad) return
+    if (isInitialLoad) return;
 
     const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMore && !isSearching) {
-          setPage(prev => prev + 1)
+      entries => {
+        if (
+          entries[0].isIntersecting &&
+          hasMore &&
+          !loadingMore &&
+          !isSearching
+        ) {
+          setPage(prev => prev + 1);
         }
       },
       { threshold: 0.1 }
-    )
+    );
 
-    observerRef.current = observer
+    observerRef.current = observer;
 
     if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current)
+      observer.observe(loadMoreRef.current);
     }
 
     return () => {
       if (observerRef.current) {
-        observerRef.current.disconnect()
+        observerRef.current.disconnect();
       }
-    }
-  }, [isInitialLoad, hasMore, loadingMore, isSearching])
+    };
+  }, [isInitialLoad, hasMore, loadingMore, isSearching]);
 
   // 加载更多
   useEffect(() => {
     if (page > 1) {
-      fetchPosts(page)
+      fetchPosts(page);
     }
-  }, [page, fetchPosts])
+  }, [page, fetchPosts]);
 
   // 滚动监听
   useEffect(() => {
     const handleScroll = () => {
-      setShowBackTop(window.scrollY > 400)
-    }
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+      setShowBackTop(window.scrollY > 400);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // 防抖搜索 - 输入值变化后 300ms 触发搜索
   useEffect(() => {
     // 如果正在输入拼音，不触发搜索
     if (isComposingRef.current) {
-      return
+      return;
     }
 
     const timer = setTimeout(() => {
-      setDebouncedSearch(inputValue)
+      setDebouncedSearch(inputValue);
       // 更新 URL 参数（不触发页面刷新，只是同步状态）
-      const newParams = new URLSearchParams()
-      if (inputValue) newParams.set('search', inputValue)
-      if (activeTag) newParams.set('tag', activeTag)
-      setSearchParams(newParams, { replace: true })
-    }, 300)
+      const newParams = new URLSearchParams();
+      if (inputValue) newParams.set('search', inputValue);
+      if (activeTag) newParams.set('tag', activeTag);
+      setSearchParams(newParams, { replace: true });
+    }, 300);
 
-    return () => clearTimeout(timer)
-  }, [inputValue, activeTag, setSearchParams])
+    return () => clearTimeout(timer);
+  }, [inputValue, activeTag, setSearchParams]);
 
   // 搜索输入处理
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputValue(e.target.value)
-  }
+    setInputValue(e.target.value);
+  };
 
   // 输入法组合开始（拼音输入开始）
   const handleCompositionStart = () => {
-    isComposingRef.current = true
-  }
+    isComposingRef.current = true;
+  };
 
   // 输入法组合结束（拼音输入结束）
   const handleCompositionEnd = () => {
-    isComposingRef.current = false
-  }
+    isComposingRef.current = false;
+  };
 
   // 标签筛选
   const handleTagClick = (tagSlug: string) => {
     if (activeTag === tagSlug) {
-      setActiveTag('')
+      setActiveTag('');
     } else {
-      setActiveTag(tagSlug)
+      setActiveTag(tagSlug);
     }
-  }
+  };
 
   // 清除筛选
   const handleClearFilters = () => {
-    setInputValue('')
-    setDebouncedSearch('')
-    setActiveTag('')
-    setSearchParams({}, { replace: true })
-  }
+    setInputValue('');
+    setDebouncedSearch('');
+    setActiveTag('');
+    setSearchParams({}, { replace: true });
+  };
 
   // 返回顶部
   const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' })
-  }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   // 按年份分组文章
   const groupPostsByYear = (posts: Post[]) => {
-    const groups: { [year: string]: Post[] } = {}
+    const groups: { [year: string]: Post[] } = {};
     posts.forEach(post => {
-      const year = new Date(post.createdAt).getFullYear().toString()
+      const year = new Date(post.createdAt).getFullYear().toString();
       if (!groups[year]) {
-        groups[year] = []
+        groups[year] = [];
       }
-      groups[year].push(post)
-    })
-    return groups
-  }
+      groups[year].push(post);
+    });
+    return groups;
+  };
 
   // 计算归档统计
   const getArchiveStats = () => {
-    const stats: { [year: string]: number } = {}
+    const stats: { [year: string]: number } = {};
     posts.forEach(post => {
-      const year = new Date(post.createdAt).getFullYear().toString()
-      stats[year] = (stats[year] || 0) + 1
-    })
-    return Object.entries(stats).sort((a, b) => Number(b[0]) - Number(a[0]))
-  }
+      const year = new Date(post.createdAt).getFullYear().toString();
+      stats[year] = (stats[year] || 0) + 1;
+    });
+    return Object.entries(stats).sort((a, b) => Number(b[0]) - Number(a[0]));
+  };
 
-  const hasFilters = debouncedSearch || activeTag
-  const groupedPosts = groupPostsByYear(posts)
-  const years = Object.keys(groupedPosts).sort((a, b) => Number(b) - Number(a))
+  const hasFilters = debouncedSearch || activeTag;
+  const groupedPosts = groupPostsByYear(posts);
+  const years = Object.keys(groupedPosts).sort((a, b) => Number(b) - Number(a));
+  const archiveStats = getArchiveStats();
+  const showSidebar = archiveStats.length > 0 || tags.length > 0;
 
   // 只在初次加载时显示全页加载状态
   if (isInitialLoad) {
@@ -354,7 +382,7 @@ const PostsPage: React.FC = () => {
           <span className="text-muted-foreground">加载中...</span>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -364,9 +392,7 @@ const PostsPage: React.FC = () => {
         <h1 className="text-3xl font-serif font-bold text-foreground mb-3">
           文章归档
         </h1>
-        <p className="text-muted-foreground">
-          共 {total} 篇文章，记录点滴思考
-        </p>
+        <p className="text-muted-foreground">共 {total} 篇文章，记录点滴思考</p>
       </header>
 
       {/* 搜索栏 */}
@@ -385,11 +411,11 @@ const PostsPage: React.FC = () => {
           {inputValue && (
             <button
               onClick={() => {
-                setInputValue('')
-                setDebouncedSearch('')
-                const newParams = new URLSearchParams()
-                if (activeTag) newParams.set('tag', activeTag)
-                setSearchParams(newParams, { replace: true })
+                setInputValue('');
+                setDebouncedSearch('');
+                const newParams = new URLSearchParams();
+                if (activeTag) newParams.set('tag', activeTag);
+                setSearchParams(newParams, { replace: true });
               }}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
@@ -403,7 +429,7 @@ const PostsPage: React.FC = () => {
       {tags.length > 0 && (
         <div className="mb-8">
           <div className="flex flex-wrap justify-center gap-2">
-            {tags.slice(0, 15).map((tag) => (
+            {tags.slice(0, 15).map(tag => (
               <button
                 key={tag.id}
                 onClick={() => handleTagClick(tag.slug)}
@@ -414,7 +440,9 @@ const PostsPage: React.FC = () => {
                 }`}
               >
                 {tag.name}
-                <span className="ml-1 text-xs opacity-70">({tag.postCount})</span>
+                <span className="ml-1 text-xs opacity-70">
+                  ({tag.postCount})
+                </span>
               </button>
             ))}
           </div>
@@ -455,7 +483,9 @@ const PostsPage: React.FC = () => {
                   {/* 年份标题 */}
                   <div className="flex items-center gap-3 mb-5">
                     <Calendar className="h-4 w-4 text-primary" />
-                    <span className="text-xl font-bold text-primary font-mono">{year}</span>
+                    <span className="text-xl font-bold text-primary font-mono">
+                      {year}
+                    </span>
                     <div className="flex-1 h-px bg-border" />
                     <span className="text-xs text-muted-foreground">
                       {groupedPosts[year].length} 篇
@@ -464,7 +494,7 @@ const PostsPage: React.FC = () => {
 
                   {/* 文章列表 */}
                   <div className="ml-2">
-                    {groupedPosts[year].map((post) => (
+                    {groupedPosts[year].map(post => (
                       <TimelinePost key={post.id} post={post} />
                     ))}
                   </div>
@@ -480,7 +510,9 @@ const PostsPage: React.FC = () => {
                   </div>
                 )}
                 {!hasMore && posts.length > 0 && (
-                  <p className="text-muted-foreground text-sm">— 已经到底了 —</p>
+                  <p className="text-muted-foreground text-sm">
+                    — 已经到底了 —
+                  </p>
                 )}
               </div>
             </div>
@@ -500,53 +532,55 @@ const PostsPage: React.FC = () => {
         </main>
 
         {/* 右侧：侧边栏 */}
-        <aside className="w-full lg:w-56 flex-shrink-0 space-y-8">
-          {/* 归档统计 */}
-          {getArchiveStats().length > 0 && (
-            <div>
-              <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
-                <Archive className="h-4 w-4" />
-                归档
-              </h3>
-              <div className="space-y-2">
-                {getArchiveStats().map(([year, count]) => (
-                  <div
-                    key={year}
-                    className="flex items-center justify-between text-sm text-muted-foreground"
-                  >
-                    <span className="font-mono">{year} 年</span>
-                    <span>{count} 篇</span>
-                  </div>
-                ))}
+        {showSidebar && (
+          <aside className="w-full lg:w-56 flex-shrink-0 space-y-8">
+            {/* 归档统计 */}
+            {archiveStats.length > 0 && (
+              <div>
+                <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
+                  <Archive className="h-4 w-4" />
+                  归档
+                </h3>
+                <div className="space-y-2">
+                  {archiveStats.map(([year, count]) => (
+                    <div
+                      key={year}
+                      className="flex items-center justify-between text-sm text-muted-foreground"
+                    >
+                      <span className="font-mono">{year} 年</span>
+                      <span>{count} 篇</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* 标签云 */}
-          {tags.length > 0 && (
-            <div>
-              <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
-                <Tag className="h-4 w-4" />
-                标签
-              </h3>
-              <div className="flex flex-wrap gap-1.5">
-                {tags.slice(0, 20).map((tag) => (
-                  <button
-                    key={tag.id}
-                    onClick={() => handleTagClick(tag.slug)}
-                    className={`px-2 py-0.5 text-xs rounded transition-colors ${
-                      activeTag === tag.slug
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted hover:bg-primary/10 hover:text-primary'
-                    }`}
-                  >
-                    {tag.name}
-                  </button>
-                ))}
+            {/* 标签云 */}
+            {tags.length > 0 && (
+              <div>
+                <h3 className="text-sm font-bold text-foreground mb-4 flex items-center gap-2">
+                  <Tag className="h-4 w-4" />
+                  标签
+                </h3>
+                <div className="flex flex-wrap gap-1.5">
+                  {tags.slice(0, 20).map(tag => (
+                    <button
+                      key={tag.id}
+                      onClick={() => handleTagClick(tag.slug)}
+                      className={`px-2 py-0.5 text-xs rounded transition-colors ${
+                        activeTag === tag.slug
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted hover:bg-primary/10 hover:text-primary'
+                      }`}
+                    >
+                      {tag.name}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
-        </aside>
+            )}
+          </aside>
+        )}
       </div>
 
       {/* 返回顶部 */}
@@ -560,7 +594,7 @@ const PostsPage: React.FC = () => {
         </button>
       )}
     </div>
-  )
-}
+  );
+};
 
-export default PostsPage
+export default PostsPage;
