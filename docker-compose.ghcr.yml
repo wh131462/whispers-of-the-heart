@@ -134,6 +134,37 @@ services:
       timeout: 10s
       retries: 3
 
+  # ============================================
+  # Backup - PostgreSQL 定时备份
+  # 每天 03:17 跑一次 pg_dump，写入宿主机 ./backups
+  # 双重保留策略：14 天 + 最多 14 份
+  # ============================================
+  backup:
+    image: postgres:15-alpine
+    container_name: whispers-backup
+    restart: always
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USERNAME}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DATABASE:-whispers_db}
+      BACKUP_DIR: /backups
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-14}
+      BACKUP_MAX_COUNT: ${BACKUP_MAX_COUNT:-14}
+      BACKUP_CRON: ${BACKUP_CRON:-17 3 * * *}
+      TZ: Asia/Shanghai
+    volumes:
+      - ./backups:/backups
+      - ./infra/backup/backup.sh:/usr/local/bin/backup.sh:ro
+      - ./infra/backup/entrypoint.sh:/entrypoint.sh:ro
+    networks:
+      - whispers-internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "/entrypoint.sh"]
+
 volumes:
   postgres_data:
     name: whispers_postgres_data

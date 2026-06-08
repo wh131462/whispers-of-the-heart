@@ -198,7 +198,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
-          source: "docker-compose.ghcr.yml,infra/nginx/,api-image.tar.gz,web-image.tar.gz,configs/env.production"
+          source: "docker-compose.ghcr.yml,infra/nginx/,infra/backup/,api-image.tar.gz,web-image.tar.gz,configs/env.production"
           target: ${{ secrets.DEPLOY_PATH || '/workspace/deploy/whispers' }}
 
       - name: Deploy to server via SSH
