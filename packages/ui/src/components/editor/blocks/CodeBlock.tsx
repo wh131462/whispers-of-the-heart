@@ -646,7 +646,7 @@ const CodeBlockComponent = memo(function CodeBlockComponent({
 });
 
 // 代码块导出 HTML 组件 (用于 markdown 转换)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 const CodeBlockExternalHTML: React.FC<
   ReactCustomBlockRenderProps<any, any, any>
 > = ({ block }) => {
@@ -705,25 +705,26 @@ const createCustomCodeBlock = createReactBlockSpec(
     },
     toExternalHTML: CodeBlockExternalHTML,
     parse: (element: HTMLElement) => {
-      if (element.tagName === 'PRE') {
-        const codeEl = element.querySelector('code');
-        if (codeEl) {
-          const className = codeEl.className || '';
-          // 排除 markmap 代码块，由 MindMapBlock 处理
-          if (className.includes('language-markmap')) {
-            return undefined;
-          }
-          const langMatch = className.match(/language-(\w+)/);
-          const language = langMatch ? langMatch[1] : 'javascript';
-          const code = codeEl.textContent || '';
-          return { language, code };
-        }
+      if (element.tagName !== 'PRE') return undefined;
+      const codeEl = element.querySelector('code');
+      if (!codeEl) {
         return {
           language: 'javascript',
           code: element.textContent || '',
         };
       }
-      return undefined;
+      const className = codeEl.className || '';
+      // 排除 markmap 代码块，由 MindMapBlock 处理
+      if (className.includes('language-markmap')) {
+        return undefined;
+      }
+      // 优先 data-language（BlockNote markdownToHTML 使用此属性），
+      // fallback 到 class 上的 language-xxx（与社区/MarkdownRenderer 兼容）
+      const dataLang = codeEl.getAttribute('data-language');
+      const classLang = className.match(/language-([\w+-]+)/)?.[1];
+      const language = (dataLang || classLang || 'javascript').toLowerCase();
+      const code = codeEl.textContent || '';
+      return { language, code };
     },
   }
 );

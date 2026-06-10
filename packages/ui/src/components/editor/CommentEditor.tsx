@@ -88,6 +88,7 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
     // 保存最新的 authToken 和 uploadEndpoint
     const authTokenRef = useRef(authToken);
     const uploadEndpointRef = useRef(uploadEndpoint);
+    const wrapperRef = useRef<HTMLDivElement>(null);
 
     // 更新 refs
     useEffect(() => {
@@ -269,57 +270,96 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
       }, 200);
     }, [editor, onChange]);
 
-    // 粘贴图片上传功能
+    // 粘贴处理：图片上传 + Markdown 文本解析
     useEffect(() => {
-      if (disabled || !editor.uploadFile) return;
+      if (disabled) return;
+      const wrapperEl = wrapperRef.current;
+      if (!wrapperEl) return;
 
       const uploadFn = editor.uploadFile;
 
       const handlePaste = async (e: ClipboardEvent) => {
-        const items = e.clipboardData?.items;
-        if (!items) return;
+        const cd = e.clipboardData;
+        if (!cd) return;
 
-        for (const item of Array.from(items)) {
-          if (item.type.startsWith('image/')) {
-            const file = item.getAsFile();
-            if (!file) continue;
+        // 1) 图片粘贴：保留现有上传链路
+        if (uploadFn) {
+          for (const item of Array.from(cd.items)) {
+            if (item.type.startsWith('image/')) {
+              const file = item.getAsFile();
+              if (!file) continue;
 
-            e.preventDefault();
+              e.preventDefault();
 
-            try {
-              const result = await uploadFn(file);
-              const url = typeof result === 'string' ? result : null;
-              if (url) {
-                const currentBlock = editor.getTextCursorPosition().block;
-                editor.insertBlocks(
-                  [
-                    {
-                      type: 'customImage' as const,
-                      props: { url, caption: '' },
-                    },
-                  ],
-                  currentBlock,
-                  'after'
-                );
-                handleChange();
+              try {
+                const result = await uploadFn(file);
+                const url = typeof result === 'string' ? result : null;
+                if (url) {
+                  const currentBlock = editor.getTextCursorPosition().block;
+                  editor.insertBlocks(
+                    [
+                      {
+                        type: 'customImage' as const,
+                        props: { url, caption: '' },
+                      },
+                    ],
+                    currentBlock,
+                    'after'
+                  );
+                  handleChange();
+                  // eslint-disable-next-line no-console
+                  console.log(
+                    '[CommentEditor] Image pasted and uploaded:',
+                    url
+                  );
+                }
+              } catch (error) {
                 // eslint-disable-next-line no-console
-                console.log('[CommentEditor] Image pasted and uploaded:', url);
+                console.error(
+                  '[CommentEditor] Failed to upload pasted image:',
+                  error
+                );
               }
-            } catch (error) {
-              // eslint-disable-next-line no-console
-              console.error(
-                '[CommentEditor] Failed to upload pasted image:',
-                error
-              );
+              return;
             }
-            break;
           }
+        }
+
+        // 2) 光标在代码块内：放行,让用户原样粘贴
+        const cursorBlock = editor.getTextCursorPosition().block;
+        if (cursorBlock?.type === 'codeBlock') return;
+
+        // 3) 拿纯文本,按 Markdown 解析
+        const text = cd.getData('text/plain');
+        if (!text || !text.trim()) return;
+
+        e.preventDefault();
+        try {
+          const blocks = await editor.tryParseMarkdownToBlocks(text);
+          if (!blocks || blocks.length === 0) return;
+
+          const isEmptyParagraph =
+            cursorBlock?.type === 'paragraph' &&
+            (cursorBlock.content?.length ?? 0) === 0;
+
+          if (isEmptyParagraph) {
+            editor.replaceBlocks([cursorBlock.id], blocks);
+          } else {
+            editor.insertBlocks(blocks, cursorBlock, 'after');
+          }
+          handleChange();
+        } catch (error) {
+          // eslint-disable-next-line no-console
+          console.error(
+            '[CommentEditor] Failed to parse pasted markdown:',
+            error
+          );
         }
       };
 
-      document.addEventListener('paste', handlePaste);
+      wrapperEl.addEventListener('paste', handlePaste);
       return () => {
-        document.removeEventListener('paste', handlePaste);
+        wrapperEl.removeEventListener('paste', handlePaste);
       };
     }, [editor, disabled, handleChange]);
 
@@ -596,6 +636,7 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
 
     return (
       <div
+        ref={wrapperRef}
         className={`comment-editor-wrapper ${className}`}
         onKeyDown={handleKeyDown}
       >

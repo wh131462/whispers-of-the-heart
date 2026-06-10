@@ -206,6 +206,7 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
   const authTokenRef = useRef(authToken);
   const uploadEndpointRef = useRef(uploadEndpoint);
   const isUpdatingFromPropRef = useRef(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
   const [_mediaPickerRequest, setMediaPickerRequest] =
     useState<MediaPickerRequest | null>(null);
@@ -323,51 +324,94 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
     };
   }, []);
 
-  // 粘贴图片上传
+  // 粘贴处理：图片上传 + Markdown 文本解析
   useEffect(() => {
-    if (!editable || !editor.uploadFile) return;
+    if (!editable) return;
+    const wrapperEl = wrapperRef.current;
+    if (!wrapperEl) return;
 
     const uploadFn = editor.uploadFile;
 
     const handlePaste = async (e: ClipboardEvent) => {
-      const items = e.clipboardData?.items;
-      if (!items) return;
+      const cd = e.clipboardData;
+      if (!cd) return;
 
-      for (const item of Array.from(items)) {
-        if (item.type.startsWith('image/')) {
-          const file = item.getAsFile();
-          if (!file) continue;
+      // 1) 图片粘贴：保留现有上传链路
+      if (uploadFn) {
+        for (const item of Array.from(cd.items)) {
+          if (item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (!file) continue;
 
-          e.preventDefault();
+            e.preventDefault();
 
-          try {
-            const result = await uploadFn(file);
-            const url = typeof result === 'string' ? result : null;
-            if (url) {
-              const currentBlock = editor.getTextCursorPosition().block;
-              editor.insertBlocks(
-                [{ type: 'customImage' as const, props: { url, caption: '' } }],
-                currentBlock,
-                'after'
-              );
+            try {
+              const result = await uploadFn(file);
+              const url = typeof result === 'string' ? result : null;
+              if (url) {
+                const currentBlock = editor.getTextCursorPosition().block;
+                editor.insertBlocks(
+                  [
+                    {
+                      type: 'customImage' as const,
+                      props: { url, caption: '' },
+                    },
+                  ],
+                  currentBlock,
+                  'after'
+                );
+                // eslint-disable-next-line no-console
+                console.log(
+                  '[BlockNoteEditor] Image pasted and uploaded:',
+                  url
+                );
+              }
+            } catch (error) {
               // eslint-disable-next-line no-console
-              console.log('[BlockNoteEditor] Image pasted and uploaded:', url);
+              console.error(
+                '[BlockNoteEditor] Failed to upload pasted image:',
+                error
+              );
             }
-          } catch (error) {
-            // eslint-disable-next-line no-console
-            console.error(
-              '[BlockNoteEditor] Failed to upload pasted image:',
-              error
-            );
+            return;
           }
-          break;
         }
+      }
+
+      // 2) 光标在代码块内：放行,让用户原样粘贴
+      const cursorBlock = editor.getTextCursorPosition().block;
+      if (cursorBlock?.type === 'codeBlock') return;
+
+      // 3) 拿纯文本,按 Markdown 解析
+      const text = cd.getData('text/plain');
+      if (!text || !text.trim()) return;
+
+      e.preventDefault();
+      try {
+        const blocks = await editor.tryParseMarkdownToBlocks(text);
+        if (!blocks || blocks.length === 0) return;
+
+        const isEmptyParagraph =
+          cursorBlock?.type === 'paragraph' &&
+          (cursorBlock.content?.length ?? 0) === 0;
+
+        if (isEmptyParagraph) {
+          editor.replaceBlocks([cursorBlock.id], blocks);
+        } else {
+          editor.insertBlocks(blocks, cursorBlock, 'after');
+        }
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error(
+          '[BlockNoteEditor] Failed to parse pasted markdown:',
+          error
+        );
       }
     };
 
-    document.addEventListener('paste', handlePaste);
+    wrapperEl.addEventListener('paste', handlePaste);
     return () => {
-      document.removeEventListener('paste', handlePaste);
+      wrapperEl.removeEventListener('paste', handlePaste);
     };
   }, [editor, editable]);
 
@@ -595,7 +639,7 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
   }, [editor]);
 
   return (
-    <div className={`blocknote-wrapper ${className}`}>
+    <div ref={wrapperRef} className={`blocknote-wrapper ${className}`}>
       <BlockNoteView
         editor={editor}
         editable={editable}
