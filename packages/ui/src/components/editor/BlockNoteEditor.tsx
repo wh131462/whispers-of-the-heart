@@ -344,6 +344,8 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
             if (!file) continue;
 
             e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
 
             try {
               const result = await uploadFn(file);
@@ -387,6 +389,8 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
       if (!text || !text.trim()) return;
 
       e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
       try {
         const blocks = await editor.tryParseMarkdownToBlocks(text);
         if (!blocks || blocks.length === 0) return;
@@ -409,9 +413,9 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
       }
     };
 
-    wrapperEl.addEventListener('paste', handlePaste);
+    wrapperEl.addEventListener('paste', handlePaste, true);
     return () => {
-      wrapperEl.removeEventListener('paste', handlePaste);
+      wrapperEl.removeEventListener('paste', handlePaste, true);
     };
   }, [editor, editable]);
 
