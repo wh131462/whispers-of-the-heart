@@ -60,12 +60,35 @@ interface Post {
   };
 }
 
+// 清洗 markdown 中不应计入字数的内容（base64、URL、HTML、代码块等）
+const stripContent = (content: string): string => {
+  return (
+    content
+      // 代码块
+      .replace(/```[\s\S]*?```/g, '')
+      // 行内代码
+      .replace(/`[^`]*`/g, '')
+      // 图片：![alt](url) —— alt 也丢弃，避免 base64 / 文件名计数
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
+      // 链接：[text](url) —— 保留可见文字，丢弃 URL
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+      // HTML 标签
+      .replace(/<[^>]+>/g, '')
+      // data: URI（兜底，处理被 HTML/属性包裹的 base64）
+      .replace(/data:[^\s)"']+/gi, '')
+      // 裸 URL
+      .replace(/https?:\/\/\S+/gi, '')
+      // markdown 标记符号
+      .replace(/[#>*_~`|-]+/g, ' ')
+  );
+};
+
 // 统计字数（中文字符 + 英文单词）
 const getWordCount = (content: string): string => {
-  const chineseChars = (content.match(/[\u4e00-\u9fff]/g) || []).length;
-  const englishWords = (
-    content.replace(/[\u4e00-\u9fff]/g, '').match(/[a-zA-Z]+/g) || []
-  ).length;
+  const text = stripContent(content);
+  const chineseChars = (text.match(/[一-鿿]/g) || []).length;
+  const englishWords = (text.replace(/[一-鿿]/g, '').match(/[a-zA-Z]+/g) || [])
+    .length;
   const total = chineseChars + englishWords;
   if (total >= 10000) {
     return `${(total / 10000).toFixed(1)}w`;
@@ -75,12 +98,12 @@ const getWordCount = (content: string): string => {
 
 // 计算阅读时间（分钟）
 const getReadingTime = (content: string): number => {
+  const text = stripContent(content);
   // 中文字符数
-  const chineseChars = (content.match(/[\u4e00-\u9fff]/g) || []).length;
+  const chineseChars = (text.match(/[一-鿿]/g) || []).length;
   // 英文单词数
-  const englishWords = (
-    content.replace(/[\u4e00-\u9fff]/g, '').match(/[a-zA-Z]+/g) || []
-  ).length;
+  const englishWords = (text.replace(/[一-鿿]/g, '').match(/[a-zA-Z]+/g) || [])
+    .length;
   // 中文 400 字/分钟，英文 200 词/分钟
   const minutes = chineseChars / 400 + englishWords / 200;
   return Math.max(1, Math.ceil(minutes));
