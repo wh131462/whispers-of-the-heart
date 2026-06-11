@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { appRegistry, APP_CATEGORIES, type AppCategory } from '../../apps';
 import * as Icons from 'lucide-react';
@@ -114,6 +114,20 @@ function AppCard({ app }: { app: (typeof appRegistry)[0] }) {
 
 export default function AppsPage() {
   const [activeCategory, setActiveCategory] = useState<AppCategory>('全部');
+  const [columnCount, setColumnCount] = useState(3);
+
+  // 根据视口宽度切换列数：<640 -> 1，<1024 -> 2，否则 3
+  useEffect(() => {
+    const compute = () => {
+      const w = window.innerWidth;
+      if (w < 640) setColumnCount(1);
+      else if (w < 1024) setColumnCount(2);
+      else setColumnCount(3);
+    };
+    compute();
+    window.addEventListener('resize', compute);
+    return () => window.removeEventListener('resize', compute);
+  }, []);
 
   // 根据分类筛选应用
   const filteredApps = useMemo(() => {
@@ -122,6 +136,18 @@ export default function AppsPage() {
     }
     return appRegistry.filter(app => app.tags?.includes(activeCategory));
   }, [activeCategory]);
+
+  // 轮询分配到各列：保证视觉上 从左到右、再换行
+  const columns = useMemo(() => {
+    const cols: (typeof filteredApps)[] = Array.from(
+      { length: columnCount },
+      () => []
+    );
+    filteredApps.forEach((app, i) => {
+      cols[i % columnCount].push(app);
+    });
+    return cols;
+  }, [filteredApps, columnCount]);
 
   return (
     <div className="min-h-[calc(100vh-200px)]">
@@ -139,10 +165,12 @@ export default function AppsPage() {
 
       {/* App Masonry */}
       {filteredApps.length > 0 ? (
-        <div className="columns-1 sm:columns-2 lg:columns-3 gap-6 [column-fill:_balance]">
-          {filteredApps.map(app => (
-            <div key={app.id} className="mb-6 break-inside-avoid">
-              <AppCard app={app} />
+        <div className="flex gap-6 items-start">
+          {columns.map((colApps, colIdx) => (
+            <div key={colIdx} className="flex-1 flex flex-col gap-6 min-w-0">
+              {colApps.map(app => (
+                <AppCard key={app.id} app={app} />
+              ))}
             </div>
           ))}
         </div>
