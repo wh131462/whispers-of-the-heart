@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Copy, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Color } from '../types';
 import { getContrastingColor } from '../utils/contrast';
@@ -13,7 +12,6 @@ interface PaletteDisplayProps {
     tetradic: Color[];
     monochromatic: Color[];
   };
-  onSelectColor: (color: Color) => void;
 }
 
 const paletteLabels: Record<string, string> = {
@@ -25,10 +23,7 @@ const paletteLabels: Record<string, string> = {
   monochromatic: '单色调',
 };
 
-export function PaletteDisplay({
-  palettes,
-  onSelectColor,
-}: PaletteDisplayProps) {
+export function PaletteDisplay({ palettes }: PaletteDisplayProps) {
   const [copiedHex, setCopiedHex] = useState<string | null>(null);
 
   const copyHex = async (hex: string) => {
@@ -49,75 +44,41 @@ export function PaletteDisplay({
         <div key={key} className="flex flex-col gap-2">
           <span className="text-xs text-zinc-500">{paletteLabels[key]}</span>
           <div className="flex gap-1">
-            {colors.map((color, index) => (
-              <div
-                key={`${color.hex}-${index}`}
-                className="group relative flex-1"
-              >
-                <button
-                  onClick={() => onSelectColor(color)}
-                  className={cn(
-                    'w-full h-10 rounded transition-transform',
-                    'hover:scale-105 hover:z-10',
-                    'focus:outline-none focus:ring-2 focus:ring-emerald-500'
-                  )}
-                  style={{ backgroundColor: color.hex }}
-                />
+            {colors.map((color, index) => {
+              const fgColor =
+                getContrastingColor(color.rgb) === 'white' ? 'white' : 'black';
+              const isCopied = copiedHex === color.hex;
+              return (
                 <div
-                  className={cn(
-                    'absolute inset-0 flex items-center justify-center',
-                    'opacity-0 group-hover:opacity-100 transition-opacity',
-                    'pointer-events-none'
-                  )}
+                  key={`${color.hex}-${index}`}
+                  className="group relative flex-1"
                 >
                   <button
-                    onClick={e => {
-                      e.stopPropagation();
-                      copyHex(color.hex);
-                    }}
-                    className="pointer-events-auto p-1 rounded bg-black/50"
-                  >
-                    {copiedHex === color.hex ? (
-                      <Check
-                        className="w-3 h-3"
-                        style={{
-                          color:
-                            getContrastingColor(color.rgb) === 'white'
-                              ? 'white'
-                              : 'black',
-                        }}
-                      />
-                    ) : (
-                      <Copy
-                        className="w-3 h-3"
-                        style={{
-                          color:
-                            getContrastingColor(color.rgb) === 'white'
-                              ? 'white'
-                              : 'black',
-                        }}
-                      />
+                    onClick={() => copyHex(color.hex)}
+                    title={`点击复制 ${color.hex.toUpperCase()}`}
+                    className={cn(
+                      'w-full h-10 rounded transition-transform cursor-pointer',
+                      'hover:scale-105 hover:z-10',
+                      'focus:outline-none focus:ring-2 focus:ring-emerald-500'
                     )}
-                  </button>
+                    style={{ backgroundColor: color.hex }}
+                  />
+                  <span
+                    className={cn(
+                      'absolute bottom-0 left-0 right-0 text-center',
+                      'text-[10px] font-mono py-0.5',
+                      'transition-opacity pointer-events-none',
+                      isCopied
+                        ? 'opacity-100 bg-black/60'
+                        : 'opacity-0 group-hover:opacity-100 bg-black/50'
+                    )}
+                    style={{ color: fgColor }}
+                  >
+                    {isCopied ? '已复制' : color.hex.toUpperCase()}
+                  </span>
                 </div>
-                <span
-                  className={cn(
-                    'absolute bottom-0 left-0 right-0 text-center',
-                    'text-[10px] font-mono py-0.5',
-                    'opacity-0 group-hover:opacity-100 transition-opacity',
-                    'bg-black/50'
-                  )}
-                  style={{
-                    color:
-                      getContrastingColor(color.rgb) === 'white'
-                        ? 'white'
-                        : 'black',
-                  }}
-                >
-                  {color.hex.toUpperCase()}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       ))}

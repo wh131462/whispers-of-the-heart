@@ -127,11 +127,6 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
     handleHueInteraction,
   ]);
 
-  // 计算指示器位置
-  const markerX = (hsv.s / 100) * 200;
-  const markerY = (1 - hsv.v / 100) * 150;
-  const hueMarkerX = (hsv.h / 360) * 200;
-
   return (
     <div className="flex flex-col gap-3">
       {/* 颜色面板 */}
@@ -153,8 +148,9 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
         <div
           className="absolute w-4 h-4 border-2 border-white rounded-full shadow-lg pointer-events-none"
           style={{
-            left: markerX - 8,
-            top: markerY - 8,
+            left: `${hsv.s}%`,
+            top: `${100 - hsv.v}%`,
+            transform: 'translate(-50%, -50%)',
             backgroundColor: color.hex,
           }}
         />
@@ -179,7 +175,8 @@ export function ColorPicker({ color, onChange }: ColorPickerProps) {
         <div
           className="absolute top-0 w-1 h-4 bg-white border border-neutral-400 rounded-sm pointer-events-none"
           style={{
-            left: hueMarkerX - 2,
+            left: `${(hsv.h / 360) * 100}%`,
+            transform: 'translateX(-50%)',
           }}
         />
       </div>

@@ -115,7 +115,7 @@ export default function ColorPalette() {
         <div className="h-px bg-zinc-200" />
 
         {/* 配色方案 */}
-        <PaletteDisplay palettes={palettes} onSelectColor={setMainColor} />
+        <PaletteDisplay palettes={palettes} />
       </div>
     </div>
   );
