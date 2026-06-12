@@ -1,25 +1,36 @@
-import React, { useEffect, useState, useRef } from 'react'
-import { Globe, Share2, Save, Upload, User, X, MessageSquare, Plus, Shield } from 'lucide-react'
-import { Button, Input } from '@whispers/ui'
-import { api } from '@whispers/utils'
-import logoImg from '../../assets/logo.png'
+import React, { useEffect, useState, useRef } from 'react';
+import {
+  Globe,
+  Share2,
+  Save,
+  Upload,
+  User,
+  X,
+  MessageSquare,
+  Plus,
+  Shield,
+} from 'lucide-react';
+import { Button, Input } from '@whispers/ui';
+import { api } from '@whispers/utils';
+import logoImg from '../../assets/logo.png';
+import FriendLinksSection from './FriendLinksSection';
 
 interface SiteConfig {
-  siteName: string
-  siteDescription: string
-  siteLogo: string
-  ownerName: string
-  ownerAvatar: string
-  contactEmail: string
+  siteName: string;
+  siteDescription: string;
+  siteLogo: string;
+  ownerName: string;
+  ownerAvatar: string;
+  contactEmail: string;
   socialLinks: {
-    github: string
-    twitter: string
-    linkedin: string
-  }
+    github: string;
+    twitter: string;
+    linkedin: string;
+  };
   commentSettings: {
-    autoModeration: boolean
-    bannedWords: string[]
-  }
+    autoModeration: boolean;
+    bannedWords: string[];
+  };
 }
 
 const defaultConfig: SiteConfig = {
@@ -38,30 +49,30 @@ const defaultConfig: SiteConfig = {
     autoModeration: true,
     bannedWords: [],
   },
-}
+};
 
 const SettingsPage: React.FC = () => {
-  const [config, setConfig] = useState<SiteConfig>(defaultConfig)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
-  const [uploadingOwnerAvatar, setUploadingOwnerAvatar] = useState(false)
-  const [newBannedWord, setNewBannedWord] = useState('')
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const ownerAvatarInputRef = useRef<HTMLInputElement>(null)
+  const [config, setConfig] = useState<SiteConfig>(defaultConfig);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [uploadingOwnerAvatar, setUploadingOwnerAvatar] = useState(false);
+  const [newBannedWord, setNewBannedWord] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const ownerAvatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetchConfig()
-  }, [])
+    fetchConfig();
+  }, []);
 
   const fetchConfig = async () => {
     try {
-      setLoading(true)
-      const response = await api.get('/site-config')
+      setLoading(true);
+      const response = await api.get('/site-config');
       if (response.data?.success && response.data?.data) {
-        const configData = response.data.data
+        const configData = response.data.data;
         setConfig({
           ...defaultConfig,
           ...configData,
@@ -73,189 +84,191 @@ const SettingsPage: React.FC = () => {
             ...defaultConfig.commentSettings,
             ...(configData.commentSettings || {}),
           },
-        })
+        });
       }
     } catch (err) {
-      console.error('Failed to fetch site config:', err)
-      setError('获取站点配置失败')
+      console.error('Failed to fetch site config:', err);
+      setError('获取站点配置失败');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleSave = async () => {
     try {
-      setSaving(true)
-      setError(null)
-      setSuccess(null)
-      await api.put('/admin/site-config', config)
-      setSuccess('保存成功')
-      setTimeout(() => setSuccess(null), 3000)
+      setSaving(true);
+      setError(null);
+      setSuccess(null);
+      await api.put('/admin/site-config', config);
+      setSuccess('保存成功');
+      setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
-      console.error('Failed to save site config:', err)
-      setError('保存配置失败')
+      console.error('Failed to save site config:', err);
+      setError('保存配置失败');
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   const updateConfig = (field: string, value: string) => {
-    setConfig((prev) => ({
+    setConfig(prev => ({
       ...prev,
       [field]: value,
-    }))
-  }
+    }));
+  };
 
   const updateSocialLink = (platform: string, value: string) => {
-    setConfig((prev) => ({
+    setConfig(prev => ({
       ...prev,
       socialLinks: {
         ...prev.socialLinks,
         [platform]: value,
       },
-    }))
-  }
+    }));
+  };
 
   const toggleAutoModeration = () => {
-    setConfig((prev) => ({
+    setConfig(prev => ({
       ...prev,
       commentSettings: {
         ...prev.commentSettings,
         autoModeration: !prev.commentSettings.autoModeration,
       },
-    }))
-  }
+    }));
+  };
 
   const addBannedWord = () => {
-    const word = newBannedWord.trim()
-    if (!word) return
+    const word = newBannedWord.trim();
+    if (!word) return;
     if (config.commentSettings.bannedWords.includes(word)) {
-      setError('该违禁词已存在')
-      setTimeout(() => setError(null), 2000)
-      return
+      setError('该违禁词已存在');
+      setTimeout(() => setError(null), 2000);
+      return;
     }
-    setConfig((prev) => ({
+    setConfig(prev => ({
       ...prev,
       commentSettings: {
         ...prev.commentSettings,
         bannedWords: [...prev.commentSettings.bannedWords, word],
       },
-    }))
-    setNewBannedWord('')
-  }
+    }));
+    setNewBannedWord('');
+  };
 
   const removeBannedWord = (word: string) => {
-    setConfig((prev) => ({
+    setConfig(prev => ({
       ...prev,
       commentSettings: {
         ...prev.commentSettings,
-        bannedWords: prev.commentSettings.bannedWords.filter((w) => w !== word),
+        bannedWords: prev.commentSettings.bannedWords.filter(w => w !== word),
       },
-    }))
-  }
+    }));
+  };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+    const file = e.target.files?.[0];
+    if (!file) return;
 
     // 验证文件类型
     if (!file.type.startsWith('image/')) {
-      setError('请选择图片文件')
-      return
+      setError('请选择图片文件');
+      return;
     }
 
     // 验证文件大小 (最大 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      setError('图片大小不能超过 5MB')
-      return
+      setError('图片大小不能超过 5MB');
+      return;
     }
 
     try {
-      setUploading(true)
-      setError(null)
+      setUploading(true);
+      setError(null);
 
-      const formData = new FormData()
-      formData.append('file', file)
+      const formData = new FormData();
+      formData.append('file', file);
 
       const response = await api.post('/media/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-      })
+      });
 
       if (response.data?.success && response.data?.data?.url) {
-        setConfig((prev) => ({ ...prev, siteLogo: response.data.data.url }))
-        setSuccess('头像上传成功')
-        setTimeout(() => setSuccess(null), 3000)
+        setConfig(prev => ({ ...prev, siteLogo: response.data.data.url }));
+        setSuccess('头像上传成功');
+        setTimeout(() => setSuccess(null), 3000);
       } else {
-        setError('上传失败')
+        setError('上传失败');
       }
     } catch (err) {
-      console.error('Failed to upload avatar:', err)
-      setError('上传头像失败')
+      console.error('Failed to upload avatar:', err);
+      setError('上传头像失败');
     } finally {
-      setUploading(false)
+      setUploading(false);
       // 清空 input 以便可以再次选择同一文件
       if (fileInputRef.current) {
-        fileInputRef.current.value = ''
+        fileInputRef.current.value = '';
       }
     }
-  }
+  };
 
-  const handleOwnerAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+  const handleOwnerAvatarUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
     // 验证文件类型
     if (!file.type.startsWith('image/')) {
-      setError('请选择图片文件')
-      return
+      setError('请选择图片文件');
+      return;
     }
 
     // 验证文件大小 (最大 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      setError('图片大小不能超过 5MB')
-      return
+      setError('图片大小不能超过 5MB');
+      return;
     }
 
     try {
-      setUploadingOwnerAvatar(true)
-      setError(null)
+      setUploadingOwnerAvatar(true);
+      setError(null);
 
-      const formData = new FormData()
-      formData.append('file', file)
+      const formData = new FormData();
+      formData.append('file', file);
 
       const response = await api.post('/media/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
-      })
+      });
 
       if (response.data?.success && response.data?.data?.url) {
-        setConfig((prev) => ({ ...prev, ownerAvatar: response.data.data.url }))
-        setSuccess('博主头像上传成功')
-        setTimeout(() => setSuccess(null), 3000)
+        setConfig(prev => ({ ...prev, ownerAvatar: response.data.data.url }));
+        setSuccess('博主头像上传成功');
+        setTimeout(() => setSuccess(null), 3000);
       } else {
-        setError('上传失败')
+        setError('上传失败');
       }
     } catch (err) {
-      console.error('Failed to upload owner avatar:', err)
-      setError('上传博主头像失败')
+      console.error('Failed to upload owner avatar:', err);
+      setError('上传博主头像失败');
     } finally {
-      setUploadingOwnerAvatar(false)
+      setUploadingOwnerAvatar(false);
       // 清空 input 以便可以再次选择同一文件
       if (ownerAvatarInputRef.current) {
-        ownerAvatarInputRef.current.value = ''
+        ownerAvatarInputRef.current.value = '';
       }
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
-    )
+    );
   }
 
   return (
@@ -273,11 +286,15 @@ const SettingsPage: React.FC = () => {
       </div>
 
       {error && (
-        <div className="bg-destructive/10 text-destructive p-4 rounded-lg">{error}</div>
+        <div className="bg-destructive/10 text-destructive p-4 rounded-lg">
+          {error}
+        </div>
       )}
 
       {success && (
-        <div className="bg-green-100 text-green-700 p-4 rounded-lg">{success}</div>
+        <div className="bg-green-100 text-green-700 p-4 rounded-lg">
+          {success}
+        </div>
       )}
 
       {/* 基本信息 */}
@@ -293,7 +310,7 @@ const SettingsPage: React.FC = () => {
             </label>
             <Input
               value={config.siteName}
-              onChange={(e) => updateConfig('siteName', e.target.value)}
+              onChange={e => updateConfig('siteName', e.target.value)}
               placeholder="我的博客"
             />
           </div>
@@ -303,7 +320,7 @@ const SettingsPage: React.FC = () => {
             </label>
             <Input
               value={config.siteDescription}
-              onChange={(e) => updateConfig('siteDescription', e.target.value)}
+              onChange={e => updateConfig('siteDescription', e.target.value)}
               placeholder="记录生活的点滴..."
             />
           </div>
@@ -320,8 +337,8 @@ const SettingsPage: React.FC = () => {
                   src={config.siteLogo || logoImg}
                   alt="网站 Logo"
                   className="h-20 w-20 rounded-full object-cover border-2 border-border"
-                  onError={(e) => {
-                    e.currentTarget.src = logoImg
+                  onError={e => {
+                    e.currentTarget.src = logoImg;
                   }}
                 />
                 {uploading && (
@@ -332,7 +349,9 @@ const SettingsPage: React.FC = () => {
                 {config.siteLogo && (
                   <button
                     type="button"
-                    onClick={() => setConfig((prev) => ({ ...prev, siteLogo: '' }))}
+                    onClick={() =>
+                      setConfig(prev => ({ ...prev, siteLogo: '' }))
+                    }
                     className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center hover:bg-destructive/90 transition-colors"
                     title="清除 Logo"
                   >
@@ -383,7 +402,7 @@ const SettingsPage: React.FC = () => {
             </label>
             <Input
               value={config.ownerName}
-              onChange={(e) => updateConfig('ownerName', e.target.value)}
+              onChange={e => updateConfig('ownerName', e.target.value)}
               placeholder="你的名字或昵称"
             />
           </div>
@@ -402,7 +421,9 @@ const SettingsPage: React.FC = () => {
                     />
                     <button
                       type="button"
-                      onClick={() => setConfig((prev) => ({ ...prev, ownerAvatar: '' }))}
+                      onClick={() =>
+                        setConfig(prev => ({ ...prev, ownerAvatar: '' }))
+                      }
                       className="absolute -top-1 -right-1 h-6 w-6 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center hover:bg-destructive/90 transition-colors"
                       title="清除头像"
                     >
@@ -460,7 +481,7 @@ const SettingsPage: React.FC = () => {
             </label>
             <Input
               value={config.socialLinks.github}
-              onChange={(e) => updateSocialLink('github', e.target.value)}
+              onChange={e => updateSocialLink('github', e.target.value)}
               placeholder="https://github.com/username"
             />
           </div>
@@ -470,7 +491,7 @@ const SettingsPage: React.FC = () => {
             </label>
             <Input
               value={config.socialLinks.twitter}
-              onChange={(e) => updateSocialLink('twitter', e.target.value)}
+              onChange={e => updateSocialLink('twitter', e.target.value)}
               placeholder="https://twitter.com/username"
             />
           </div>
@@ -481,7 +502,7 @@ const SettingsPage: React.FC = () => {
             <Input
               type="email"
               value={config.contactEmail}
-              onChange={(e) => updateConfig('contactEmail', e.target.value)}
+              onChange={e => updateConfig('contactEmail', e.target.value)}
               placeholder="your@email.com"
             />
           </div>
@@ -512,12 +533,16 @@ const SettingsPage: React.FC = () => {
               type="button"
               onClick={toggleAutoModeration}
               className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 ${
-                config.commentSettings.autoModeration ? 'bg-primary' : 'bg-muted'
+                config.commentSettings.autoModeration
+                  ? 'bg-primary'
+                  : 'bg-muted'
               }`}
             >
               <span
                 className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                  config.commentSettings.autoModeration ? 'translate-x-5' : 'translate-x-0'
+                  config.commentSettings.autoModeration
+                    ? 'translate-x-5'
+                    : 'translate-x-0'
                 }`}
               />
             </button>
@@ -534,12 +559,12 @@ const SettingsPage: React.FC = () => {
             <div className="flex gap-2 mb-3">
               <Input
                 value={newBannedWord}
-                onChange={(e) => setNewBannedWord(e.target.value)}
+                onChange={e => setNewBannedWord(e.target.value)}
                 placeholder="输入违禁词..."
-                onKeyDown={(e) => {
+                onKeyDown={e => {
                   if (e.key === 'Enter') {
-                    e.preventDefault()
-                    addBannedWord()
+                    e.preventDefault();
+                    addBannedWord();
                   }
                 }}
               />
@@ -555,7 +580,7 @@ const SettingsPage: React.FC = () => {
             </div>
             {config.commentSettings.bannedWords.length > 0 ? (
               <div className="flex flex-wrap gap-2">
-                {config.commentSettings.bannedWords.map((word) => (
+                {config.commentSettings.bannedWords.map(word => (
                   <span
                     key={word}
                     className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-muted text-sm"
@@ -579,8 +604,19 @@ const SettingsPage: React.FC = () => {
           </div>
         </div>
       </div>
+      {/* 友链管理 */}
+      <FriendLinksSection
+        onError={msg => {
+          setError(msg);
+          setTimeout(() => setError(null), 3000);
+        }}
+        onSuccess={msg => {
+          setSuccess(msg);
+          setTimeout(() => setSuccess(null), 3000);
+        }}
+      />
     </div>
-  )
-}
+  );
+};
 
-export default SettingsPage
+export default SettingsPage;

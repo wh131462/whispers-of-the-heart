@@ -16,6 +16,7 @@ import {
   Moon,
   LayoutGrid,
   Rss,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useAuthStore } from '../stores/useAuthStore';
@@ -322,6 +323,7 @@ const MainLayout: React.FC = () => {
                   );
                 })}
               </nav>
+
               {/* 应用中心入口 - 移动端隐藏 */}
               <Link to="/apps" className="hidden sm:!flex">
                 <Button
@@ -335,6 +337,24 @@ const MainLayout: React.FC = () => {
                   title="应用中心"
                 >
                   <LayoutGrid className="h-4 w-4" />
+                </Button>
+              </Link>
+
+              {/* AI 对话入口 - 移动端隐藏 */}
+              <Link to="/chat" className="hidden sm:!flex">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={
+                    location.pathname.startsWith('/chat')
+                      ? 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground'
+                      : isHomePage && !isScrolled
+                        ? 'text-foreground hover:bg-foreground/10'
+                        : ''
+                  }
+                  title="AI 对话"
+                >
+                  <Sparkles className="h-4 w-4" />
                 </Button>
               </Link>
 
@@ -508,6 +528,20 @@ const MainLayout: React.FC = () => {
 
                 {/* 分隔线 */}
                 <div className="my-2 border-t" />
+
+                {/* AI 对话 */}
+                <Link
+                  to="/chat"
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    location.pathname.startsWith('/chat')
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                  }`}
+                  onClick={() => setShowMobileMenu(false)}
+                >
+                  <Sparkles className="h-4 w-4" />
+                  <span>AI 对话</span>
+                </Link>
 
                 {/* 应用中心 */}
                 <Link

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import {
@@ -11,6 +12,7 @@ import {
   Globe,
   MessageCircle,
   Code2,
+  Users,
 } from 'lucide-react';
 import { api } from '@whispers/utils';
 import GithubIcon from '@/assets/github.svg';
@@ -34,6 +36,14 @@ interface SiteStats {
   totalComments: number;
   totalViews: number;
   totalLikes: number;
+}
+
+interface FriendLinkSummary {
+  id: string;
+  name: string;
+  url: string;
+  avatar: string | null;
+  description: string | null;
 }
 
 // GitHub 用户名
@@ -86,16 +96,19 @@ const techStacks = [
 const AboutPage: React.FC = () => {
   const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null);
   const [stats, setStats] = useState<SiteStats | null>(null);
+  const [friendLinks, setFriendLinks] = useState<FriendLinkSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [configResponse, statsResponse] = await Promise.all([
-          api.get('/site-config'),
-          api.get('/blog/stats').catch(() => ({ data: null })),
-        ]);
+        const [configResponse, statsResponse, friendsResponse] =
+          await Promise.all([
+            api.get('/site-config'),
+            api.get('/blog/stats').catch(() => ({ data: null })),
+            api.get('/friend-links?limit=8').catch(() => ({ data: null })),
+          ]);
 
         if (configResponse.data?.success && configResponse.data?.data) {
           setSiteConfig(configResponse.data.data);
@@ -109,6 +122,15 @@ const AboutPage: React.FC = () => {
           setStats(statsResponse.data.data);
         } else if (statsResponse.data?.data) {
           setStats(statsResponse.data.data);
+        }
+
+        if (
+          friendsResponse.data?.success &&
+          Array.isArray(friendsResponse.data.data)
+        ) {
+          setFriendLinks(friendsResponse.data.data);
+        } else if (Array.isArray(friendsResponse.data?.data)) {
+          setFriendLinks(friendsResponse.data.data);
         }
       } catch (error) {
         console.error('Failed to fetch data:', error);
@@ -339,6 +361,77 @@ const AboutPage: React.FC = () => {
           </CardContent>
         </Card>
       </section>
+      {/* 友链摘要 */}
+      {friendLinks.length > 0 && (
+        <section>
+          <Card>
+            <CardContent className="p-8">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  友情链接
+                </h2>
+                <Link
+                  to="/friends"
+                  className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+                >
+                  查看全部
+                  <span aria-hidden>→</span>
+                </Link>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                {friendLinks.map(link => {
+                  let avatarSrc = link.avatar;
+                  if (!avatarSrc) {
+                    try {
+                      avatarSrc = `${new URL(link.url).origin}/favicon.ico`;
+                    } catch {
+                      avatarSrc = null;
+                    }
+                  }
+                  return (
+                    <a
+                      key={link.id}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group flex items-center gap-3 p-3 rounded-lg border border-transparent hover:border-border hover:bg-muted/40 transition-all"
+                      title={link.description || link.name}
+                    >
+                      <div className="relative flex-shrink-0">
+                        {avatarSrc ? (
+                          <img
+                            src={avatarSrc}
+                            alt={link.name}
+                            className="w-10 h-10 rounded-full object-cover ring-1 ring-border group-hover:ring-primary/30 transition-all bg-background"
+                            onError={e => {
+                              e.currentTarget.style.display = 'none';
+                              (
+                                e.currentTarget
+                                  .nextElementSibling as HTMLElement
+                              )?.classList.remove('hidden');
+                            }}
+                          />
+                        ) : null}
+                        <div
+                          className={`w-10 h-10 rounded-full bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center ring-1 ring-border ${avatarSrc ? 'hidden' : ''}`}
+                        >
+                          <span className="text-sm font-bold text-primary/60">
+                            {link.name.charAt(0)}
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors truncate">
+                        {link.name}
+                      </span>
+                    </a>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+      )}
     </div>
   );
 };
