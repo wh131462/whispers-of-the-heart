@@ -16,7 +16,7 @@ import {
   Moon,
   LayoutGrid,
   Rss,
-  Sparkles,
+  MessageCircle,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useAuthStore } from '../stores/useAuthStore';
@@ -354,7 +354,7 @@ const MainLayout: React.FC = () => {
                   }
                   title="AI 对话"
                 >
-                  <Sparkles className="h-4 w-4" />
+                  <MessageCircle className="h-4 w-4" />
                 </Button>
               </Link>
 
@@ -539,7 +539,7 @@ const MainLayout: React.FC = () => {
                   }`}
                   onClick={() => setShowMobileMenu(false)}
                 >
-                  <Sparkles className="h-4 w-4" />
+                  <MessageCircle className="h-4 w-4" />
                   <span>AI 对话</span>
                 </Link>
 

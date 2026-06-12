@@ -65,7 +65,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
       <div className={cn('flex-1 min-w-0', isUser ? 'text-right' : '')}>
         <div
           className={cn(
-            'inline-block rounded-2xl px-4 py-2 text-left',
+            'inline-block rounded-2xl px-4 py-2.5 text-left text-sm leading-6',
             isUser
               ? 'bg-primary text-white'
               : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100',
@@ -105,16 +105,21 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
           ) : (
             <>
               {message.content.length === 0 && message.isStreaming ? (
-                <div className="flex items-center gap-1 text-gray-500">
+                <div className="flex items-center gap-1 text-gray-500 py-1">
                   <span className="w-2 h-2 rounded-full bg-current animate-pulse" />
                   <span className="w-2 h-2 rounded-full bg-current animate-pulse [animation-delay:0.15s]" />
                   <span className="w-2 h-2 rounded-full bg-current animate-pulse [animation-delay:0.3s]" />
                 </div>
-              ) : (
+              ) : message.content.length > 0 ? (
                 <Markdown content={message.content} />
-              )}
+              ) : null}
               {message.sources && message.sources.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-gray-200/60 dark:border-gray-700/60 text-xs text-gray-500 dark:text-gray-400">
+                <div
+                  className={cn(
+                    'pt-2 border-t border-gray-200/60 dark:border-gray-700/60 text-xs text-gray-500 dark:text-gray-400',
+                    message.content.length > 0 && 'mt-2'
+                  )}
+                >
                   <span className="font-medium">参考来源：</span>
                   {message.sources.map((s, i) => (
                     <span key={s.slug}>
@@ -130,9 +135,17 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
                 </div>
               )}
               {message.error && (
-                <div className="mt-2 flex items-start gap-1 text-xs text-red-500">
+                <div
+                  className={cn(
+                    'flex items-start gap-1.5 text-xs text-red-600 dark:text-red-400',
+                    'px-2.5 py-1.5 rounded-md bg-red-50/80 dark:bg-red-900/20 border border-red-100 dark:border-red-900/40',
+                    (message.content.length > 0 ||
+                      (message.sources && message.sources.length > 0)) &&
+                      'mt-2'
+                  )}
+                >
                   <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                  <span>{message.error}</span>
+                  <span className="leading-5">{message.error}</span>
                 </div>
               )}
             </>
