@@ -8,6 +8,50 @@
 
 ## 📝 会话日志
 
+### 2026-06-12 - 新增 AI 对话界面 + 服务器默认配置 + 博客知识库(add-ai-chat-interface)
+
+**任务概览**:
+新增独立 `/chat` 对话页面，前端可配置多套 Provider（OpenAI / Anthropic 协议），默认提供一份「博主服务器默认」配置（限登录用户、按用户 5 小时 token 配额），博客文章作为知识库注入到 system prompt。走 OpenSpec `add-ai-chat-interface` 落地。
+
+**关键决策**:
+
+1. **协议适配放在前端**：`packages/utils/src/ai-chat/` 新增 `OpenAIAdapter` / `AnthropicAdapter` + `parseSSE`；后端 `ai-proxy` 仅做透传与 Key 注入。
+2. **默认配置不进 persist**：`BUILTIN_PROVIDERS` 由代码常量提供（`apps/web/src/stores/aiChatBuiltins.ts`），`useAiChatStore` 的 `partialize` 只持久化 `userProviders / activeProviderId / conversations / activeConversationId / knowledgeEnabled`。博主升级服务端默认即时生效。
+3. **服务器默认端点强制登录**：`POST /api/v1/ai-chat/completions` 加 `JwtAuthGuard`；按 IP 60 次/分钟限流 + 按用户 5 小时 50000 tokens 滑动窗口配额（内存 Map，可由 env 调整）；超额返回 429 + `data.resetAt`。
+4. **知识库首版关键词检索**：`POST /ai-chat/knowledge/search` 基于 Prisma `Post` 表（published=true）做 OR contains + 简单评分；命中片段做 ±200 字符截取。注入时用 `<context>...</context>` 包裹 + 固定隔离指令防 prompt 注入。
+5. **`ai-proxy` 支持客户端 Key**：原本只用服务器 `AI_API_KEY`，扩展为优先使用前端 `x-provider-api-key` 头（Anthropic 域名走 `x-api-key` + `anthropic-version` 头，其它走 `Authorization: Bearer`）。
+6. **不引入新依赖**：流式用原生 `fetch` + `ReadableStream`；Markdown 渲染复用已存在的 `react-markdown` + `rehype-highlight` + `remark-gfm`。
+7. **packages/utils 加 `@whispers/types` peer 依赖**：之前缺该依赖，tsup dts 阶段报错；补到 `devDependencies` + `peerDependencies` 后构建通过。
+
+**修改文件**（主要）:
+
+- 后端新增 `apps/api/src/ai-chat/{ai-chat.module,controller,service}.ts` + `dto/{knowledge-search,completions}.dto.ts`，在 `app.module.ts` 注册
+- 后端 `apps/api/src/ai-proxy/ai-proxy.service.ts` + `ai-proxy.controller.ts` 支持 `x-provider-api-key`
+- 共享 `packages/types/src/ai-chat.ts`（+ index 导出）
+- 共享 `packages/utils/src/ai-chat/{sse,adapters,index}.ts`（+ index 导出，package.json 加 types peer 依赖）
+- 前端 store `apps/web/src/stores/{useAiChatStore.ts, aiChatBuiltins.ts}`
+- 前端页面 `apps/web/src/pages/chat/ChatPage.tsx` + `components/{ConversationList,MessageList,MessageItem,Composer,ProviderSettingsDialog,Markdown}.tsx`
+- 前端路由 `App.tsx` 注册 `/chat`；导航 `MainLayout.tsx` 加「AI 对话」入口
+- `configs/env.development` + `configs/env.example` 增加 `AI_DEFAULT_BASE_URL` / `AI_DEFAULT_MODEL` / `AI_DEFAULT_RATE_LIMIT_PER_MINUTE` / `AI_DEFAULT_USER_TOKEN_LIMIT_PER_5H`
+- `.ai/1-PROJECT-CONTEXT.md` 模块表追加「AI 对话」行
+
+**验证**:
+
+- `pnpm --filter @whispers/types build` 通过
+- `pnpm --filter @whispers/utils build` 通过
+- `pnpm --filter web type-check` 通过
+- `pnpm --filter api type-check` 仅余原 spec.ts 缺 @types/jest 的预存错误，ai-chat 模块 0 错误
+- 待用户启动后端 + 前端，登录后在 `/chat` 进行端到端验证（默认配置 / OpenAI 自定义 / Anthropic 自定义 / 知识库开关 / 停止生成 / 刷新保留）
+
+**OpenSpec change**: `openspec/changes/add-ai-chat-interface/`（已完成 proposal/design/specs/tasks 与实施，等用户手测后可归档）
+
+**已知待办**:
+
+- 7.6 `4-PATTERNS.md` 暂未沉淀 Adapter / SSE 模式（首次出现，未达 3 次复用阈值）
+- 1.9 后端启动手测、7.2 浏览器手测需要用户实际跑
+
+---
+
 ### 2026-06-12 - 新增 sitemap.xml + 静态 OG meta(add-sitemap-and-og-meta)
 
 **任务概览**:

@@ -53,18 +53,20 @@ whispers-of-the-heart/
 
 ## 核心功能模块
 
-| 模块     | 描述                        | 关键文件                    |
-| -------- | --------------------------- | --------------------------- |
-| 用户认证 | 登录/注册/JWT刷新/邮箱验证  | `apps/api/src/auth/`        |
-| 博客文章 | CRUD/标签/点赞/收藏/搜索    | `apps/api/src/blog/`        |
-| 评论系统 | 嵌套评论/点赞/举报          | `apps/api/src/comment/`     |
-| 媒体管理 | MinIO存储/图片视频/使用追踪 | `apps/api/src/media/`       |
-| 用户管理 | 个人资料/头像/通知设置      | `apps/api/src/user/`        |
-| 站点配置 | Logo/社交链接/评论设置      | `apps/api/src/site-config/` |
-| 管理后台 | 文章/评论/用户/媒体管理     | `apps/web/src/pages/admin/` |
-| 应用中心 | 独立小工具/键盘检测器等     | `apps/web/src/apps/`        |
-| RSS 订阅 | RSS 2.0 feed 输出           | `apps/api/src/rss/`         |
-| Sitemap  | sitemap.xml 输出 / 静态 OG  | `apps/api/src/sitemap/`     |
+| 模块     | 描述                                         | 关键文件                                                      |
+| -------- | -------------------------------------------- | ------------------------------------------------------------- |
+| 用户认证 | 登录/注册/JWT刷新/邮箱验证                   | `apps/api/src/auth/`                                          |
+| 博客文章 | CRUD/标签/点赞/收藏/搜索                     | `apps/api/src/blog/`                                          |
+| 评论系统 | 嵌套评论/点赞/举报                           | `apps/api/src/comment/`                                       |
+| 媒体管理 | MinIO存储/图片视频/使用追踪                  | `apps/api/src/media/`                                         |
+| 用户管理 | 个人资料/头像/通知设置                       | `apps/api/src/user/`                                          |
+| 站点配置 | Logo/社交链接/评论设置                       | `apps/api/src/site-config/`                                   |
+| 管理后台 | 文章/评论/用户/媒体管理                      | `apps/web/src/pages/admin/`                                   |
+| 应用中心 | 独立小工具/键盘检测器等                      | `apps/web/src/apps/`                                          |
+| RSS 订阅 | RSS 2.0 feed 输出                            | `apps/api/src/rss/`                                           |
+| Sitemap  | sitemap.xml 输出 / 静态 OG                   | `apps/api/src/sitemap/`                                       |
+| 友链     | 友链 CRUD / 展示 / 后台管理                  | `apps/api/src/friend-link/`                                   |
+| AI 对话  | 独立对话页 + 服务器默认配置 + 博客知识库 RAG | 前端 `apps/web/src/pages/chat/`，后端 `apps/api/src/ai-chat/` |
 
 ## 端口配置
 
