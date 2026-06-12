@@ -15,6 +15,7 @@ import {
   Sun,
   Moon,
   LayoutGrid,
+  Rss,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useAuthStore } from '../stores/useAuthStore';
@@ -156,6 +157,14 @@ const MainLayout: React.FC = () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showUserMenu]);
+
+  const rssUrl = (() => {
+    const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
+    const base = (apiUrl || 'https://api.131462.wang')
+      .replace(/\/+$/, '')
+      .replace(/\/api\/v1$/, '');
+    return `${base}/rss.xml`;
+  })();
 
   const fetchSiteConfig = async () => {
     try {
@@ -565,6 +574,18 @@ const MainLayout: React.FC = () => {
               >
                 Feedback
               </button>
+              <span className="mx-2">|</span>
+              <a
+                href={rssUrl}
+                target="_blank"
+                rel="noopener"
+                aria-label="RSS"
+                title="RSS 订阅"
+                className="inline-flex items-center gap-1 hover:text-foreground transition-colors align-middle"
+              >
+                <Rss className="h-3.5 w-3.5" />
+                <span>RSS</span>
+              </a>
             </p>
           </div>
         </div>
