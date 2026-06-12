@@ -234,6 +234,9 @@ importers:
       '@whispers/hooks':
         specifier: workspace:*
         version: link:../../packages/hooks
+      '@whispers/types':
+        specifier: workspace:*
+        version: link:../../packages/types
       '@whispers/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -552,6 +555,9 @@ importers:
 
   packages/utils:
     devDependencies:
+      '@whispers/types':
+        specifier: workspace:*
+        version: link:../types
       tsup:
         specifier: ^8.0.0
         version: 8.5.1(jiti@2.6.1)(postcss@8.5.15)(typescript@5.8.3)(yaml@2.8.2)

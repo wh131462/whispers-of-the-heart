@@ -23,6 +23,10 @@
   },
   "devDependencies": {
     "typescript": "^5.0.0",
-    "tsup": "^8.0.0"
+    "tsup": "^8.0.0",
+    "@whispers/types": "workspace:*"
+  },
+  "peerDependencies": {
+    "@whispers/types": "workspace:*"
   }
 }

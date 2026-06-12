@@ -21,6 +21,7 @@
     "@floating-ui/react": "^0.27.16",
     "@types/react-router-dom": "^5.3.3",
     "@whispers/hooks": "workspace:*",
+    "@whispers/types": "workspace:*",
     "@whispers/ui": "workspace:*",
     "@whispers/utils": "workspace:*",
     "antd": "^6.1.4",
