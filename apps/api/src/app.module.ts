@@ -23,8 +23,10 @@ import { NotificationModule } from './notification/notification.module';
 import { FeedbackModule } from './feedback/feedback.module';
 import { SignalingModule } from './signaling/signaling.module';
 import { AiProxyModule } from './ai-proxy/ai-proxy.module';
+import { AiChatModule } from './ai-chat/ai-chat.module';
 import { RssModule } from './rss/rss.module';
 import { SitemapModule } from './sitemap/sitemap.module';
+import { FriendLinkModule } from './friend-link/friend-link.module';
 
 // 查找项目根目录的 configs 文件夹
 function findConfigsDir(): string {
@@ -75,8 +77,10 @@ const configsDir = findConfigsDir();
     FeedbackModule,
     SignalingModule,
     AiProxyModule,
+    AiChatModule,
     RssModule,
     SitemapModule,
+    FriendLinkModule,
   ],
   controllers: [AppController, HitokotoController],
   providers: [AppService],
