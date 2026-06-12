@@ -25,6 +25,7 @@ import { useAuthStore } from './stores/useAuthStore';
 import './i18n/config';
 import './index.css';
 import AboutPage from './pages/AboutPage';
+import FriendsPage from './pages/FriendsPage';
 import AppsPage from './pages/apps/AppsPage';
 import AppDetailPage from './pages/apps/AppDetailPage';
 
@@ -41,6 +42,9 @@ const AdminUsersPage = lazy(() => import('./pages/admin/UsersPage'));
 const AdminFeedbackPage = lazy(() => import('./pages/admin/FeedbackPage'));
 const AdminSettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
 const AdminMailPage = lazy(() => import('./pages/admin/MailPage'));
+
+// AI 对话页面（懒加载）
+const ChatPage = lazy(() => import('./pages/chat/ChatPage'));
 
 // Loading component for lazy-loaded pages
 const PageLoader = () => (
@@ -196,8 +200,19 @@ function App() {
             <Route path="search" element={<SearchPage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="about" element={<AboutPage />} />
+            <Route path="friends" element={<FriendsPage />} />
+
             <Route path="apps" element={<AppsPage />} />
+
             <Route path="apps/:appId" element={<AppDetailPage />} />
+            <Route
+              path="chat"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <ChatPage />
+                </Suspense>
+              }
+            />
           </Route>
         </Routes>
       </Router>
