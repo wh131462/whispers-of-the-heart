@@ -38,6 +38,8 @@ interface SelectContextType {
   triggerRef: React.RefObject<HTMLButtonElement | null>;
   selectedLabel?: string;
   setSelectedLabel: (label: string) => void;
+  registerItem: (value: string, label: string) => void;
+  unregisterItem: (value: string) => void;
 }
 
 const SelectContext = React.createContext<SelectContextType | null>(null);
@@ -67,6 +69,31 @@ const Select: React.FC<SelectProps> = ({
   const [open, setOpen] = React.useState(false);
   const [selectedLabel, setSelectedLabel] = React.useState('');
   const triggerRef = React.useRef<HTMLButtonElement | null>(null);
+  const itemsRef = React.useRef<Map<string, string>>(new Map());
+
+  const registerItem = React.useCallback(
+    (itemValue: string, label: string) => {
+      itemsRef.current.set(itemValue, label);
+      // 受控 value 与本项匹配时，立即同步 label
+      if (value === itemValue) {
+        setSelectedLabel(label);
+      }
+    },
+    [value]
+  );
+
+  const unregisterItem = React.useCallback((itemValue: string) => {
+    itemsRef.current.delete(itemValue);
+  }, []);
+
+  // value 受外部变化时，从注册表回查 label
+  React.useEffect(() => {
+    if (value && itemsRef.current.has(value)) {
+      setSelectedLabel(itemsRef.current.get(value) || '');
+    } else if (!value) {
+      setSelectedLabel('');
+    }
+  }, [value]);
 
   const contextValue: SelectContextType = {
     value,
@@ -77,6 +104,8 @@ const Select: React.FC<SelectProps> = ({
     triggerRef,
     selectedLabel,
     setSelectedLabel,
+    registerItem,
+    unregisterItem,
   };
 
   return (
@@ -250,25 +279,38 @@ const SelectContent: React.FC<SelectContentProps> = ({
     }
   }, [open, calculatePosition]);
 
-  if (!open || !position) return null;
+  // 始终渲染一个隐藏容器，让 SelectItem 能完成 value→label 注册
+  // 否则未打开下拉时 trigger 显示 fallback 到 raw value
+  const hiddenRegistrar = (
+    <div aria-hidden style={{ display: 'none' }}>
+      {children}
+    </div>
+  );
 
-  return createPortal(
-    <div
-      ref={contentRef}
-      className={cn(
-        'fixed z-[10000000] max-h-96 min-w-[8rem] overflow-hidden rounded-md border bg-white text-gray-900 shadow-lg',
-        'animate-in fade-in-0 zoom-in-95 duration-200',
-        className
+  if (!open || !position) return hiddenRegistrar;
+
+  return (
+    <>
+      {hiddenRegistrar}
+      {createPortal(
+        <div
+          ref={contentRef}
+          className={cn(
+            'fixed z-[10000000] max-h-96 min-w-[8rem] overflow-hidden rounded-md border bg-white text-gray-900 shadow-lg',
+            'animate-in fade-in-0 zoom-in-95 duration-200',
+            className
+          )}
+          style={{
+            top: `${position.top}px`,
+            left: `${position.left}px`,
+            zIndex: 10000000,
+          }}
+        >
+          <div className="p-1">{children}</div>
+        </div>,
+        document.body
       )}
-      style={{
-        top: `${position.top}px`,
-        left: `${position.left}px`,
-        zIndex: 10000000,
-      }}
-    >
-      <div className="p-1">{children}</div>
-    </div>,
-    document.body
+    </>
   );
 };
 
@@ -305,8 +347,20 @@ const SelectItem: React.FC<SelectItemProps> = ({
     onValueChange,
     onOpenChange,
     setSelectedLabel,
+    registerItem,
+    unregisterItem,
   } = useSelectContext();
   const isSelected = selectedValue === value;
+
+  // 挂载时注册 value→label 映射
+  React.useEffect(() => {
+    if (typeof children === 'string') {
+      registerItem(value, children);
+    }
+    return () => {
+      unregisterItem(value);
+    };
+  }, [value, children, registerItem, unregisterItem]);
 
   const handleClick = () => {
     if (!disabled) {
