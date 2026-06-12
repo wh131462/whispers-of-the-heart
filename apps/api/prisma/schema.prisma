@@ -378,6 +378,29 @@ model MailLog {
   @@map("mail_logs")
 }
 
+// 友链状态枚举
+enum FriendLinkStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// 友链模型
+model FriendLink {
+  id          String           @id @default(cuid())
+  name        String
+  url         String
+  avatar      String?
+  description String?
+  sortOrder   Int              @default(0)
+  status      FriendLinkStatus @default(ACTIVE)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([status])
+  @@index([sortOrder])
+  @@map("friend_links")
+}
+
 // 用户反馈模型
 model Feedback {
   id        String   @id @default(cuid())
