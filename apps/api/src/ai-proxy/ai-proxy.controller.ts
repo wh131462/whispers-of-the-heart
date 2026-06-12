@@ -28,10 +28,13 @@ export class AiProxyController {
     @Res() res: Response,
   ): Promise<void> {
     try {
+      const clientApiKey =
+        (req.headers['x-provider-api-key'] as string | undefined) || undefined;
       const result = await this.aiProxyService.proxyRequest(
         targetUrl,
         req.body,
         req.headers['content-type'],
+        clientApiKey,
       );
 
       res.status(result.status);

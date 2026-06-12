@@ -42,27 +42,39 @@ export class AiProxyService {
 
   /**
    * 转发请求到 AI 提供商
+   *
+   * - 若 `clientApiKey` 非空（来自前端自带配置），优先使用该 Key
+   * - 否则回退到服务器 `AI_API_KEY`
    */
   async proxyRequest(
     targetUrl: string,
     body: unknown,
     contentType?: string,
+    clientApiKey?: string,
   ): Promise<{
     status: number;
     headers: Record<string, string>;
     stream: Readable;
   }> {
     const url = this.validateTargetUrl(targetUrl);
-    const apiKey = this.configService.get<string>('AI_API_KEY');
+    const serverKey = this.configService.get<string>('AI_API_KEY');
+    const apiKey = clientApiKey?.trim() || serverKey;
 
     if (!apiKey) {
-      throw new BadRequestException('AI API key not configured on server');
+      throw new BadRequestException('AI API key not configured');
     }
 
     const headers: Record<string, string> = {
-      Authorization: `Bearer ${apiKey}`,
       'Content-Type': contentType || 'application/json',
     };
+
+    // Anthropic 使用 x-api-key，其它（OpenAI 兼容）使用 Authorization
+    if (url.hostname.includes('anthropic')) {
+      headers['x-api-key'] = apiKey;
+      headers['anthropic-version'] = '2023-06-01';
+    } else {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
 
     this.logger.debug(`Proxying AI request to: ${url.toString()}`);
 
