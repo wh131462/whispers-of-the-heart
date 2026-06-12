@@ -87,14 +87,13 @@
 
 > 当 `openspec/specs/` 下新增规格时,在此处补充链接
 
-(暂无;首批提案归档后,以下两项会从"进行中"迁入此节)
-
-预计首批沉淀:
-
-| Spec                    | 描述                             | 对应 change(进行中)               |
-| ----------------------- | -------------------------------- | --------------------------------- |
-| `rest-resource-api`     | NestJS REST 资源端点统一行为契约 | `formalize-rest-resource-api`     |
-| `persistent-auth-state` | 前端持久化认证状态的生命周期契约 | `formalize-persistent-auth-state` |
+| Spec                    | 描述                                       | 来源 change                                    |
+| ----------------------- | ------------------------------------------ | ---------------------------------------------- |
+| `screen-detector`       | 屏幕检测器小工具的能力契约                 | `comprehensive-screen-detector`(已归档)        |
+| `ui-background-pattern` | 前端落叶背景动画的视觉与性能约束           | `optimize-falling-pattern-performance`(已归档) |
+| `rss-feed`              | `/rss.xml` 端点的内容、缓存与 URL 解析契约 | `add-rss-feed`(已归档)                         |
+| `sitemap-feed`          | `/sitemap.xml` 端点的 URL 集合与生成契约   | `add-sitemap-and-og-meta`(已归档)              |
+| `static-og-meta`        | 站点级静态 OG / Twitter Card meta 契约     | `add-sitemap-and-og-meta`(已归档)              |
 
 ## 进行中的 Changes
 
@@ -102,11 +101,10 @@
 
 | 变更名                            | 状态   | 目标 spec                                |
 | --------------------------------- | ------ | ---------------------------------------- |
-| `comprehensive-screen-detector`   | 进行中 | `screen-detector` (新增能力)             |
 | `formalize-rest-resource-api`     | 进行中 | `rest-resource-api` (形式化已有实践)     |
 | `formalize-persistent-auth-state` | 进行中 | `persistent-auth-state` (形式化已有实践) |
 
 ---
 
-**最后更新**: 2026-06-05
+**最后更新**: 2026-06-12
 **维护者**: AI + wh131462

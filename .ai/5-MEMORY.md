@@ -8,6 +8,77 @@
 
 ## 📝 会话日志
 
+### 2026-06-12 - 新增 sitemap.xml + 静态 OG meta(add-sitemap-and-og-meta)
+
+**任务概览**:
+RSS 之后补齐 SEO/社交分享的最小公倍数:后端动态生成 `/sitemap.xml`,前端 [index.html](apps/web/index.html) 注入站点级 OpenGraph / Twitter Card meta。走 OpenSpec `add-sitemap-and-og-meta` change 落地。
+
+**关键决策**:
+
+1. **URL 选取仅纳入真实存在的前端路由**:从 [App.tsx](apps/web/src/App.tsx) 确认公开路由是 `/`、`/posts`、`/posts/:slug`、`/about`、`/apps`、`/favorites`、`/search`。**没有** `/tags/:slug` 或 `/categories/:slug` 路由,且 Prisma schema 也**没有 Category 模型**,所以 sitemap 中不输出标签/分类聚合页 URL,避免 404 拉低 SEO 评分。
+2. **文章 URL 用 `post.slug`**:Prisma `Post` schema 上 `slug @unique`,前端路由是 `/posts/:slug`,sitemap 输出 `${siteUrl}/posts/${post.slug}`。**注意:上轮 RSS 实现用了 `/blog/${post.id}`,与前端实际路由不一致,是个 bug,本次不动**。
+3. **沿用 RSS 风格,不引第三方 sitemap 库**:复制 `escapeXml`(同 5 实体替换)与 `buildSiteUrl`(`VITE_WEB_URL` + 回退 `https://131462.wang`)到 sitemap service,实现 < 130 行;若第三处用同类工具再抽到 `packages/utils`。
+4. **`<lastmod>` 用 ISO 8601**(`Date.toISOString()`),与 RSS 的 RFC 822 不同;sitemap protocol 0.9 要求 W3C Datetime。
+5. **`/` 与 `/posts` 的 lastmod 取最新文章 updatedAt**,其它静态条目取当前时间;每条文章条目用自己的 `updatedAt`。
+6. **缓存**:`Cache-Control: public, max-age=3600`(1 小时),比 RSS 长(搜索引擎抓取频次远低于阅读器)。
+7. **OG / Twitter Card 全部静态 + 站点级**:写死生产 URL,SPA 限制下不做按文章动态 OG(留作后续 change);`og:image` / `twitter:image` 复用现有 `public/logo.png`(spec 用 SHOULD 而非 MUST 限定 1200x630),避免凭空创建占位资产。
+8. **Content-Type**:`application/xml; charset=utf-8`(sitemap 协议官方 MIME),[main.ts](apps/api/src/main.ts) 那段强制 JSON 的中间件只匹配 `/api/v1`,`/sitemap.xml` 天然绕过。
+
+**修改文件**:
+
+- 新增 [apps/api/src/sitemap/sitemap.module.ts](apps/api/src/sitemap/sitemap.module.ts) — imports `BlogModule`(ConfigModule 已全局)
+- 新增 [apps/api/src/sitemap/sitemap.controller.ts](apps/api/src/sitemap/sitemap.controller.ts) — `@Header` 设 Content-Type / Cache-Control
+- 新增 [apps/api/src/sitemap/sitemap.service.ts](apps/api/src/sitemap/sitemap.service.ts) — `escapeXml`、`toW3cDatetime`、`buildSiteUrl`、`buildUrlEntry`、`generateSitemap`
+- 修改 [apps/api/src/app.module.ts](apps/api/src/app.module.ts) — 注册 `SitemapModule`
+- 修改 [apps/api/src/main.ts](apps/api/src/main.ts) — `setGlobalPrefix` 的 `exclude` 列表追加 `sitemap.xml`
+- 修改 [apps/web/index.html](apps/web/index.html) — 注入 description / canonical / OG / Twitter Card meta(共 13 条 meta)
+- 修改 [.ai/1-PROJECT-CONTEXT.md](.ai/1-PROJECT-CONTEXT.md) — 核心模块表追加 Sitemap 行
+
+**验证**:
+
+- `pnpm --filter api type-check` 通过(spec 文件预存错误与本次无关);新增模块 0 错误
+- `pnpm --filter api lint`、`pnpm --filter web lint` 新增/修改代码 0 错误 0 警告
+- 待用户在本地用 `curl http://localhost:7777/sitemap.xml | xmllint --noout -`、xml-sitemaps.com 在线验证器、Facebook Sharing Debugger、Twitter Card Validator 实测
+
+**OpenSpec change**: `openspec/changes/add-sitemap-and-og-meta/`(已完成 proposal/design/specs/tasks,已完成实施,待归档)
+
+---
+
+### 2026-06-12 - 新增 RSS 订阅功能(add-rss-feed)
+
+**任务概览**:
+为站点新增 RSS 2.0 订阅源，让 Feedly / Reeder / NetNewsWire / Inoreader 等阅读器能直接订阅最新文章。走 OpenSpec `add-rss-feed` change 落地。
+
+**关键决策**:
+
+1. **路径放在站点根 `/rss.xml`**：在 [main.ts](apps/api/src/main.ts) 用 `setGlobalPrefix('api/v1', { exclude: [{ path: 'rss.xml', method: RequestMethod.GET }] })` 排除全局前缀。访问路径变为 `https://api.131462.wang/rss.xml`，符合阅读器与 `<link rel="alternate">` 的行业惯例。
+2. **不引第三方 RSS 库**：手写 XML 字符串拼接。`escapeXml`（按 `&` → `<` → `>` → `"` → `'` 顺序）+ `wrapCdata`（处理 `]]>` 嵌套）+ `toRfc822`（用 `Date.toUTCString()`）即可覆盖。
+3. **数据来源**：复用 `BlogService.findAllPosts(1, 20, undefined, true)` 拿最新 20 篇已发布文章；站点元信息从 `SiteConfigService.findOne()` 取。env 变量 `VITE_WEB_URL` / `VITE_API_URL` 用于拼链接，不动 DB schema。
+4. **`<description>` 用 CDATA 包裹 excerpt**：避免 BlockNote / Markdown 残留字符破坏 XML；excerpt 为空时用 `stripContent(post.content)` 截断到 200 字符并尾部追加"[阅读全文](link)"。
+5. **缓存**：响应头 `Cache-Control: public, max-age=600`，首版不做 ETag。
+6. **前端入口**：[index.html](apps/web/index.html) 加 `<link rel="alternate" type="application/rss+xml">`；Footer 在 Feedback 旁加 `<a>` + `lucide-react` 的 `Rss` 图标，链接通过 `import.meta.env.VITE_API_URL.replace(/\/api\/v1$/, '') + '/rss.xml'` 推导，回退到 `https://api.131462.wang/rss.xml`。
+
+**修改文件**:
+
+- 新增 [apps/api/src/rss/rss.module.ts](apps/api/src/rss/rss.module.ts)
+- 新增 [apps/api/src/rss/rss.controller.ts](apps/api/src/rss/rss.controller.ts) — 用 `@Header` 设置 `Content-Type: application/rss+xml; charset=utf-8` + `Cache-Control`
+- 新增 [apps/api/src/rss/rss.service.ts](apps/api/src/rss/rss.service.ts) — 核心 XML 生成、转义、提取摘要
+- 修改 [apps/api/src/app.module.ts](apps/api/src/app.module.ts) — 注册 `RssModule`
+- 修改 [apps/api/src/main.ts](apps/api/src/main.ts) — `setGlobalPrefix` 加 `exclude`，导入 `RequestMethod`
+- 修改 [apps/web/index.html](apps/web/index.html) — 加 `<link rel="alternate">`
+- 修改 [apps/web/src/layouts/MainLayout.tsx](apps/web/src/layouts/MainLayout.tsx) — Footer 加 RSS 入口
+
+**验证**:
+
+- 后端 `pnpm --filter api type-check` 通过（无新增错误，原有 spec 文件错误不在范围）
+- 后端 `pnpm --filter api lint` 新增模块 0 错误
+- 前端 `pnpm --filter web type-check` 通过；`pnpm --filter web lint` 新增改动 0 错误
+- 待用户在本地启动 API 后用 `curl http://localhost:7777/rss.xml | xmllint --noout -` 与 Feedly / NetNewsWire 实测
+
+**OpenSpec change**: `openspec/changes/add-rss-feed/`（已完成 proposal/design/specs/tasks，已完成实施，待归档）
+
+---
+
 ### 2026-06-05 - FallingPattern 性能优化（跨设备 60fps）
 
 **任务概览**:
@@ -665,7 +736,17 @@ Response: {
 
 ## 🎯 当前上下文（最近3次会话）
 
-### 会话 #3: 2026-01-09
+### 会话 #3: 2026-06-12
+
+**主题**: 新增 RSS 订阅功能（add-rss-feed）
+**关键文件**:
+
+- `apps/api/src/rss/` (新建模块)
+- `apps/api/src/main.ts`、`apps/api/src/app.module.ts`
+- `apps/web/index.html`、`apps/web/src/layouts/MainLayout.tsx`
+  **状态**: 实施完成，待归档
+
+### 会话 #2: 2026-01-09
 
 **主题**: BlockNote FormattingToolbar 自定义与 MarkdownRenderer 图片预览
 **关键文件**:
@@ -675,7 +756,7 @@ Response: {
 - `apps/web/src/pages/PostDetailPage.tsx`
   **状态**: 已完成
 
-### 会话 #2: 2026-01-07
+### 会话 #1: 2026-01-07
 
 **主题**: 应用中心模块开发
 **关键文件**:
@@ -683,16 +764,6 @@ Response: {
 - `apps/web/src/apps/` (新建目录)
 - `apps/web/src/pages/apps/` (新建目录)
 - `apps/web/src/layouts/MainLayout.tsx`
-  **状态**: 已完成
-
-### 会话 #1: 2025-12-26
-
-**主题**: BlockNote编辑器优化与功能扩展
-**关键文件**:
-
-- `packages/ui/src/components/editor/`
-- `packages/ui/src/components/VideoPlayer.tsx`
-- `packages/ui/src/components/MindMapRenderer.tsx`
   **状态**: 已完成
 
 ---
@@ -831,5 +902,5 @@ Response: {
 
 ---
 
-**最后更新**: 2026-01-09
+**最后更新**: 2026-06-12
 **自动维护**: 由AI在每次会话结束时更新

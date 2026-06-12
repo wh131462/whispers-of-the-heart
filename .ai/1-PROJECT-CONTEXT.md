@@ -63,6 +63,8 @@ whispers-of-the-heart/
 | 站点配置 | Logo/社交链接/评论设置      | `apps/api/src/site-config/` |
 | 管理后台 | 文章/评论/用户/媒体管理     | `apps/web/src/pages/admin/` |
 | 应用中心 | 独立小工具/键盘检测器等     | `apps/web/src/apps/`        |
+| RSS 订阅 | RSS 2.0 feed 输出           | `apps/api/src/rss/`         |
+| Sitemap  | sitemap.xml 输出 / 静态 OG  | `apps/api/src/sitemap/`     |
 
 ## 端口配置
 
