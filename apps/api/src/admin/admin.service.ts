@@ -22,7 +22,7 @@ export class AdminService {
         monthlyStats,
         tagStats,
         userGrowth,
-        postGrowth
+        postGrowth,
       ] = await Promise.all([
         // 总用户数
         this.prisma.user.count(),
@@ -40,13 +40,17 @@ export class AdminService {
         this.prisma.comment.count({ where: { deletedAt: null } }),
 
         // 待审核评论数
-        this.prisma.comment.count({ where: { isApproved: false, deletedAt: null } }),
+        this.prisma.comment.count({
+          where: { isApproved: false, deletedAt: null },
+        }),
 
         // 总媒体数
         this.prisma.media.count(),
 
         // 总浏览量
-        this.prisma.post.aggregate({ _sum: { views: true } }).then(r => r._sum.views || 0),
+        this.prisma.post
+          .aggregate({ _sum: { views: true } })
+          .then((r) => r._sum.views || 0),
 
         // 总标签数
         this.prisma.tag.count(),
@@ -64,10 +68,10 @@ export class AdminService {
             _count: {
               select: {
                 postComments: true,
-                postLikes: true
-              }
-            }
-          }
+                postLikes: true,
+              },
+            },
+          },
         }),
 
         // 最近评论
@@ -80,15 +84,15 @@ export class AdminService {
             createdAt: true,
             author: {
               select: {
-                username: true
-              }
+                username: true,
+              },
             },
             post: {
               select: {
-                title: true
-              }
-            }
-          }
+                title: true,
+              },
+            },
+          },
         }),
 
         // 月度统计
@@ -101,7 +105,7 @@ export class AdminService {
         this.getUserGrowthStats(),
 
         // 文章增长趋势
-        this.getPostGrowthStats()
+        this.getPostGrowthStats(),
       ]);
 
       return {
@@ -118,28 +122,28 @@ export class AdminService {
         userGrowth: userGrowth > 0 ? `+${userGrowth}%` : `${userGrowth}%`,
         postGrowth: postGrowth > 0 ? `+${postGrowth}%` : `${postGrowth}%`,
 
-        recentPosts: recentPosts.map(post => ({
+        recentPosts: recentPosts.map((post) => ({
           id: post.id,
           title: post.title,
           views: post.views,
           likes: post._count.postLikes,
           comments: post._count.postComments,
           published: post.published,
-          createdAt: post.createdAt.toISOString().split('T')[0]
+          createdAt: post.createdAt.toISOString().split('T')[0],
         })),
 
-        recentComments: recentComments.map(comment => ({
+        recentComments: recentComments.map((comment) => ({
           id: comment.id,
           content: comment.content,
           author: comment.author.username,
           postTitle: comment.post.title,
-          createdAt: comment.createdAt.toISOString()
+          createdAt: comment.createdAt.toISOString(),
         })),
 
         monthlyStats,
         tagStats,
 
-        lastUpdated: new Date().toISOString()
+        lastUpdated: new Date().toISOString(),
       };
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
@@ -154,12 +158,12 @@ export class AdminService {
     const posts = await this.prisma.post.findMany({
       where: {
         createdAt: {
-          gte: sixMonthsAgo
-        }
+          gte: sixMonthsAgo,
+        },
       },
       select: {
-        createdAt: true
-      }
+        createdAt: true,
+      },
     });
 
     // 处理月度数据
@@ -169,14 +173,15 @@ export class AdminService {
       date.setMonth(date.getMonth() - i);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
 
-      const count = posts.filter(p =>
-        p.createdAt.getFullYear() === date.getFullYear() &&
-        p.createdAt.getMonth() === date.getMonth()
+      const count = posts.filter(
+        (p) =>
+          p.createdAt.getFullYear() === date.getFullYear() &&
+          p.createdAt.getMonth() === date.getMonth(),
       ).length;
 
       months.push({
         month: monthKey,
-        posts: count
+        posts: count,
       });
     }
 
@@ -188,21 +193,21 @@ export class AdminService {
       include: {
         _count: {
           select: {
-            postTags: true
-          }
-        }
+            postTags: true,
+          },
+        },
       },
       orderBy: {
         postTags: {
-          _count: 'desc'
-        }
+          _count: 'desc',
+        },
       },
-      take: 10
+      take: 10,
     });
 
-    return tags.map(tag => ({
+    return tags.map((tag) => ({
       name: tag.name,
-      count: tag._count.postTags
+      count: tag._count.postTags,
     }));
   }
 
@@ -217,18 +222,18 @@ export class AdminService {
       this.prisma.user.count({
         where: {
           createdAt: {
-            gte: thirtyDaysAgo
-          }
-        }
+            gte: thirtyDaysAgo,
+          },
+        },
       }),
       this.prisma.user.count({
         where: {
           createdAt: {
             gte: sixtyDaysAgo,
-            lt: thirtyDaysAgo
-          }
-        }
-      })
+            lt: thirtyDaysAgo,
+          },
+        },
+      }),
     ]);
 
     if (previousUsers === 0) return recentUsers > 0 ? 100 : 0;
@@ -246,18 +251,18 @@ export class AdminService {
       this.prisma.post.count({
         where: {
           createdAt: {
-            gte: thirtyDaysAgo
-          }
-        }
+            gte: thirtyDaysAgo,
+          },
+        },
       }),
       this.prisma.post.count({
         where: {
           createdAt: {
             gte: sixtyDaysAgo,
-            lt: thirtyDaysAgo
-          }
-        }
-      })
+            lt: thirtyDaysAgo,
+          },
+        },
+      }),
     ]);
 
     if (previousPosts === 0) return recentPosts > 0 ? 100 : 0;

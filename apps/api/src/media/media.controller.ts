@@ -83,7 +83,7 @@ const storage = diskStorage({
 });
 
 // File filter for allowed types
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+
 const fileFilter = (_req: any, file: Express.Multer.File, callback: any) => {
   const allowedMimes = [
     'image/jpeg',

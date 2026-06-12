@@ -76,7 +76,9 @@ export class AppController {
 
     return {
       success: result,
-      message: result ? '测试邮件发送成功，请检查收件箱' : '邮件发送失败，请检查日志',
+      message: result
+        ? '测试邮件发送成功，请检查收件箱'
+        : '邮件发送失败，请检查日志',
     };
   }
 }

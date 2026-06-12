@@ -29,11 +29,13 @@ export function fixFilenameEncoding(filename: string): string {
     const encodings = ['utf8', 'gbk', 'gb2312'];
     for (const encoding of encodings) {
       try {
-        const decoded = Buffer.from(filename, 'latin1').toString(encoding as BufferEncoding);
+        const decoded = Buffer.from(filename, 'latin1').toString(
+          encoding as BufferEncoding,
+        );
         if (decoded !== filename && containsChinese(decoded)) {
           return decoded;
         }
-      } catch (e) {
+      } catch {
         // 忽略编码错误，继续尝试下一个
         continue;
       }
@@ -80,19 +82,23 @@ export function sanitizeFilename(filename: string): string {
  * @param timestamp 时间戳（可选）
  * @returns 唯一的文件名
  */
-export function generateUniqueFilename(originalName: string, timestamp?: number): string {
+export function generateUniqueFilename(
+  originalName: string,
+  timestamp?: number,
+): string {
   const fixed = fixFilenameEncoding(originalName);
   const ext = getFileExtension(fixed);
   const nameWithoutExt = getFilenameWithoutExtension(fixed);
-  const uniqueSuffix = (timestamp || Date.now()) + '-' + Math.round(Math.random() * 1E9);
-  
+  const uniqueSuffix =
+    (timestamp || Date.now()) + '-' + Math.round(Math.random() * 1e9);
+
   // 安全化文件名，移除特殊字符但保留中文
   const safeName = nameWithoutExt
     .replace(/[<>:"/\\|?*]/g, '_') // 替换不安全字符
     .replace(/\s+/g, '_') // 替换空格
     .replace(/_{2,}/g, '_') // 合并多个下划线
     .replace(/^_+|_+$/g, ''); // 移除开头和结尾的下划线
-  
+
   return `${uniqueSuffix}-${safeName}${ext}`;
 }
 
@@ -123,14 +129,15 @@ export function getFilenameWithoutExtension(filename: string): string {
  */
 export function isValidFilename(filename: string): boolean {
   if (!filename || filename.trim().length === 0) return false;
-  
+
   // 检查是否包含不允许的字符
+  // eslint-disable-next-line no-control-regex
   const invalidChars = /[<>:"/\\|?*\x00-\x1f]/;
   if (invalidChars.test(filename)) return false;
-  
+
   // 检查是否是保留名称（Windows）
   const reservedNames = /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.|$)/i;
   if (reservedNames.test(filename)) return false;
-  
+
   return true;
 }

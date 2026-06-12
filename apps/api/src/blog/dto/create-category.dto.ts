@@ -21,4 +21,3 @@ export class CreateCategoryDto {
   @Min(0)
   order?: number;
 }
-

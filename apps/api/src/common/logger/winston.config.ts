@@ -1,6 +1,6 @@
-import * as winston from 'winston'
-import * as path from 'path'
-import { utilities as nestWinstonModuleUtilities } from 'nest-winston'
+import * as winston from 'winston';
+import * as path from 'path';
+import { utilities as nestWinstonModuleUtilities } from 'nest-winston';
 
 // 日志级别
 const levels = {
@@ -9,7 +9,7 @@ const levels = {
   info: 2,
   http: 3,
   debug: 4,
-}
+};
 
 // 日志颜色
 const colors = {
@@ -18,17 +18,17 @@ const colors = {
   info: 'green',
   http: 'magenta',
   debug: 'blue',
-}
+};
 
-winston.addColors(colors)
+winston.addColors(colors);
 
 // 日志格式
 const format = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   winston.format.errors({ stack: true }),
   winston.format.splat(),
-  winston.format.json()
-)
+  winston.format.json(),
+);
 
 // 控制台日志格式
 const consoleFormat = winston.format.combine(
@@ -37,11 +37,11 @@ const consoleFormat = winston.format.combine(
   nestWinstonModuleUtilities.format.nestLike('WhispersAPI', {
     colors: true,
     prettyPrint: true,
-  })
-)
+  }),
+);
 
 // 日志目录
-const logDir = path.join(process.cwd(), 'logs')
+const logDir = path.join(process.cwd(), 'logs');
 
 // 创建 Winston 配置
 export const winstonConfig = {
@@ -53,7 +53,7 @@ export const winstonConfig = {
       format: consoleFormat,
       level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
     }),
-    
+
     // 错误日志文件
     new winston.transports.File({
       filename: path.join(logDir, 'error.log'),
@@ -62,10 +62,10 @@ export const winstonConfig = {
       maxFiles: 5,
       format: winston.format.combine(
         winston.format.timestamp(),
-        winston.format.json()
+        winston.format.json(),
       ),
     }),
-    
+
     // 组合日志文件
     new winston.transports.File({
       filename: path.join(logDir, 'combined.log'),
@@ -73,10 +73,10 @@ export const winstonConfig = {
       maxFiles: 5,
       format: winston.format.combine(
         winston.format.timestamp(),
-        winston.format.json()
+        winston.format.json(),
       ),
     }),
-    
+
     // HTTP 请求日志
     new winston.transports.File({
       filename: path.join(logDir, 'http.log'),
@@ -85,7 +85,7 @@ export const winstonConfig = {
       maxFiles: 5,
       format: winston.format.combine(
         winston.format.timestamp(),
-        winston.format.json()
+        winston.format.json(),
       ),
     }),
   ],
@@ -99,8 +99,7 @@ export const winstonConfig = {
       filename: path.join(logDir, 'rejections.log'),
     }),
   ],
-}
+};
 
 // 创建 logger 实例
-export const logger = winston.createLogger(winstonConfig)
-
+export const logger = winston.createLogger(winstonConfig);

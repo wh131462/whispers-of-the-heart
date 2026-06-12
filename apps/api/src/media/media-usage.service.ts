@@ -2,7 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
 
 export type EntityType = 'post' | 'user' | 'site_config';
-export type FieldName = 'avatar' | 'siteLogo' | 'ownerAvatar' | 'coverImage' | 'content';
+export type FieldName =
+  | 'avatar'
+  | 'siteLogo'
+  | 'ownerAvatar'
+  | 'coverImage'
+  | 'content';
 
 export interface MediaUsageInfo {
   entityType: EntityType;
@@ -146,21 +151,23 @@ export class MediaUsageService {
 
       // 根据实体类型获取名称
       switch (usage.entityType) {
-        case 'post':
+        case 'post': {
           const post = await this.prisma.post.findUnique({
             where: { id: usage.entityId },
             select: { title: true },
           });
           entityName = post?.title || '未知文章';
           break;
+        }
 
-        case 'user':
+        case 'user': {
           const user = await this.prisma.user.findUnique({
             where: { id: usage.entityId },
             select: { username: true },
           });
           entityName = user?.username || '未知用户';
           break;
+        }
 
         case 'site_config':
           entityName = '站点配置';
@@ -172,7 +179,8 @@ export class MediaUsageService {
         entityId: usage.entityId,
         entityName,
         fieldName: usage.fieldName as FieldName,
-        fieldLabel: FIELD_LABELS[usage.fieldName as FieldName] || usage.fieldName,
+        fieldLabel:
+          FIELD_LABELS[usage.fieldName as FieldName] || usage.fieldName,
       });
     }
 

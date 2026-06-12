@@ -1,6 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { CreateSiteConfigDto, UpdateSiteConfigDto } from './dto/site-config.dto';
+import {
+  CreateSiteConfigDto,
+  UpdateSiteConfigDto,
+} from './dto/site-config.dto';
 import { MediaUsageService } from '../media/media-usage.service';
 
 @Injectable()
@@ -8,7 +11,7 @@ export class SiteConfigService {
   constructor(
     private prisma: PrismaService,
     private mediaUsageService: MediaUsageService,
-  ) { }
+  ) {}
 
   async create(createSiteConfigDto: CreateSiteConfigDto) {
     // 使用 upsert 确保只有一条配置记录
@@ -69,7 +72,10 @@ export class SiteConfigService {
   /**
    * 获取评论审核设置
    */
-  async getCommentSettings(): Promise<{ autoModeration: boolean; bannedWords: string[] }> {
+  async getCommentSettings(): Promise<{
+    autoModeration: boolean;
+    bannedWords: string[];
+  }> {
     const config = await this.findOne();
     const settings = (config as any).commentSettings || {};
     return {
@@ -125,7 +131,11 @@ export class SiteConfigService {
     const result = { ...target };
 
     for (const key in source) {
-      if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+      if (
+        source[key] &&
+        typeof source[key] === 'object' &&
+        !Array.isArray(source[key])
+      ) {
         result[key] = this.deepMerge(target[key] || {}, source[key]);
       } else if (source[key] !== undefined) {
         result[key] = source[key];
@@ -136,15 +146,28 @@ export class SiteConfigService {
   }
 
   // 私有方法：同步站点配置的媒体使用记录
-  private async syncSiteConfigMediaUsage(configId: string, dto: Partial<CreateSiteConfigDto | UpdateSiteConfigDto>) {
+  private async syncSiteConfigMediaUsage(
+    configId: string,
+    dto: Partial<CreateSiteConfigDto | UpdateSiteConfigDto>,
+  ) {
     // 同步 siteLogo
     if ('siteLogo' in dto) {
-      await this.mediaUsageService.syncDirectUsage('site_config', configId, 'siteLogo', dto.siteLogo);
+      await this.mediaUsageService.syncDirectUsage(
+        'site_config',
+        configId,
+        'siteLogo',
+        dto.siteLogo,
+      );
     }
 
     // 同步 ownerAvatar
     if ('ownerAvatar' in dto) {
-      await this.mediaUsageService.syncDirectUsage('site_config', configId, 'ownerAvatar', dto.ownerAvatar);
+      await this.mediaUsageService.syncDirectUsage(
+        'site_config',
+        configId,
+        'ownerAvatar',
+        dto.ownerAvatar,
+      );
     }
   }
 }

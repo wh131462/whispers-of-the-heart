@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common';
+import { RequestMethod, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { json, urlencoded } from 'express';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -87,7 +87,12 @@ async function bootstrap() {
   });
 
   // 设置全局前缀 - 静态文件服务不受此影响
-  app.setGlobalPrefix('api/v1');
+  app.setGlobalPrefix('api/v1', {
+    exclude: [
+      { path: 'rss.xml', method: RequestMethod.GET },
+      { path: 'sitemap.xml', method: RequestMethod.GET },
+    ],
+  });
 
   // 全局验证管道 - 启用严格验证
   app.useGlobalPipes(

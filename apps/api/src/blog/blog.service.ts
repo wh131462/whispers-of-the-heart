@@ -1,6 +1,16 @@
-import { Injectable, NotFoundException, ConflictException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { CreatePostDto, UpdatePostDto, CreateTagDto, UpdateTagDto } from './dto/blog.dto';
+import {
+  CreatePostDto,
+  UpdatePostDto,
+  CreateTagDto,
+  UpdateTagDto,
+} from './dto/blog.dto';
 import { MediaUsageService } from '../media/media-usage.service';
 
 @Injectable()
@@ -17,7 +27,7 @@ export class BlogService {
     // 验证作者是否存在
     const author = await this.prisma.user.findUnique({
       where: { id: authorId },
-      select: { id: true, username: true, isAdmin: true }
+      select: { id: true, username: true, isAdmin: true },
     });
 
     if (!author) {
@@ -59,16 +69,31 @@ export class BlogService {
 
     // 同步媒体使用记录
     if (postData.coverImage) {
-      await this.mediaUsageService.syncDirectUsage('post', post.id, 'coverImage', postData.coverImage);
+      await this.mediaUsageService.syncDirectUsage(
+        'post',
+        post.id,
+        'coverImage',
+        postData.coverImage,
+      );
     }
     if (postData.content) {
-      await this.mediaUsageService.syncContentUsage('post', post.id, 'content', postData.content);
+      await this.mediaUsageService.syncContentUsage(
+        'post',
+        post.id,
+        'content',
+        postData.content,
+      );
     }
 
     return this.findOnePost(post.id);
   }
 
-  async findAllPosts(page = 1, limit = 10, search?: string, published?: boolean) {
+  async findAllPosts(
+    page = 1,
+    limit = 10,
+    search?: string,
+    published?: boolean,
+  ) {
     try {
       const pageNum = Number(page) || 1;
       const limitNum = Number(limit) || 10;
@@ -149,7 +174,7 @@ export class BlogService {
         limit = 20,
         tag,
         sortBy = 'createdAt',
-        sortOrder = 'desc'
+        sortOrder = 'desc',
       } = options;
 
       const pageNum = Number(page) || 1;
@@ -174,13 +199,9 @@ export class BlogService {
         where.postTags = {
           some: {
             tag: {
-              OR: [
-                { id: tag },
-                { slug: tag },
-                { name: tag }
-              ]
-            }
-          }
+              OR: [{ id: tag }, { slug: tag }, { name: tag }],
+            },
+          },
         };
       }
 
@@ -388,10 +409,20 @@ export class BlogService {
 
     // 同步媒体使用记录
     if ('coverImage' in updateData) {
-      await this.mediaUsageService.syncDirectUsage('post', id, 'coverImage', updateData.coverImage);
+      await this.mediaUsageService.syncDirectUsage(
+        'post',
+        id,
+        'coverImage',
+        updateData.coverImage,
+      );
     }
     if ('content' in updateData) {
-      await this.mediaUsageService.syncContentUsage('post', id, 'content', updateData.content);
+      await this.mediaUsageService.syncContentUsage(
+        'post',
+        id,
+        'content',
+        updateData.content,
+      );
     }
 
     return this.findOnePost(id, false);
@@ -472,7 +503,7 @@ export class BlogService {
       orderBy: { name: 'asc' },
     });
 
-    return tags.map(tag => ({
+    return tags.map((tag) => ({
       id: tag.id,
       name: tag.name,
       slug: tag.slug,
@@ -558,9 +589,9 @@ export class BlogService {
       },
     });
 
-    const processedPosts = posts.map(post => ({
+    const processedPosts = posts.map((post) => ({
       ...post,
-      tags: post.postTags.map(pt => pt.tag.name),
+      tags: post.postTags.map((pt) => pt.tag.name),
     }));
 
     return {
@@ -713,7 +744,7 @@ export class BlogService {
         }
 
         return tag;
-      })
+      }),
     );
 
     // 创建标签关联
@@ -724,8 +755,8 @@ export class BlogService {
             postId,
             tagId: tag.id,
           },
-        })
-      )
+        }),
+      ),
     );
   }
 
@@ -891,7 +922,7 @@ export class BlogService {
     ]);
 
     return {
-      items: favorites.map(fav => fav.post),
+      items: favorites.map((fav) => fav.post),
       total,
       page,
       limit,
@@ -903,15 +934,18 @@ export class BlogService {
 
   // 站点统计方法
   async getSiteStats() {
-    const [totalPosts, totalComments, totalLikes, viewsResult] = await Promise.all([
-      this.prisma.post.count({ where: { published: true } }),
-      this.prisma.comment.count({ where: { isApproved: true, deletedAt: null } }),
-      this.prisma.like.count(),
-      this.prisma.post.aggregate({
-        _sum: { views: true },
-        where: { published: true },
-      }),
-    ]);
+    const [totalPosts, totalComments, totalLikes, viewsResult] =
+      await Promise.all([
+        this.prisma.post.count({ where: { published: true } }),
+        this.prisma.comment.count({
+          where: { isApproved: true, deletedAt: null },
+        }),
+        this.prisma.like.count(),
+        this.prisma.post.aggregate({
+          _sum: { views: true },
+          where: { published: true },
+        }),
+      ]);
 
     return {
       totalPosts,

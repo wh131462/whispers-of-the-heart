@@ -1,9 +1,22 @@
-import { Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  ConflictException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { UserService } from '../user/user.service';
 import { MailService } from '../mail/mail.service';
-import { LoginDto, RegisterDto, RefreshTokenDto, ForgotPasswordDto, ResetPasswordDto, SendRegisterCodeDto, RegisterWithCodeDto } from './dto/auth.dto';
+import {
+  LoginDto,
+  RegisterDto,
+  RefreshTokenDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+  SendRegisterCodeDto,
+  RegisterWithCodeDto,
+} from './dto/auth.dto';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import type { StringValue } from 'ms';
@@ -26,15 +39,12 @@ export class AuthService {
     // 支持邮箱或用户名登录
     const user = await this.prisma.user.findFirst({
       where: {
-        OR: [
-          { email: identifier },
-          { username: identifier }
-        ]
+        OR: [{ email: identifier }, { username: identifier }],
       },
     });
 
     if (user && (await bcrypt.compare(password, user.password))) {
-      const { password, ...result } = user;
+      const { password: _password, ...result } = user;
       return result;
     }
 
@@ -125,7 +135,7 @@ export class AuthService {
 
     try {
       // 验证刷新令牌
-      const payload = this.jwtService.verify(refreshToken, {
+      this.jwtService.verify(refreshToken, {
         secret: process.env.REFRESH_TOKEN_SECRET,
       });
 
@@ -164,7 +174,7 @@ export class AuthService {
         },
         ...tokens,
       };
-    } catch (error) {
+    } catch (_error) {
       throw new UnauthorizedException('刷新令牌无效');
     }
   }
@@ -178,7 +188,11 @@ export class AuthService {
     return { message: '退出登录成功' };
   }
 
-  private async generateTokens(userId: string, email: string, isAdmin: boolean) {
+  private async generateTokens(
+    userId: string,
+    email: string,
+    isAdmin: boolean,
+  ) {
     const payload = { sub: userId, email, isAdmin };
 
     const [accessToken, refreshToken] = await Promise.all([
@@ -188,7 +202,8 @@ export class AuthService {
       }),
       this.jwtService.signAsync(payload, {
         secret: process.env.REFRESH_TOKEN_SECRET,
-        expiresIn: (process.env.REFRESH_TOKEN_EXPIRATION_TIME || '7d') as StringValue,
+        expiresIn: (process.env.REFRESH_TOKEN_EXPIRATION_TIME ||
+          '7d') as StringValue,
       }),
     ]);
 

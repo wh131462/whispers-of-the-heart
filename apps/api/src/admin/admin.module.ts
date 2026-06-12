@@ -17,10 +17,7 @@ import { PrismaModule } from '../common/prisma/prisma.module';
     SiteConfigModule,
   ],
   controllers: [AdminController],
-  providers: [
-    AdminService,
-    ContentModerationService,
-  ],
+  providers: [AdminService, ContentModerationService],
   exports: [AdminService],
 })
 export class AdminModule {}

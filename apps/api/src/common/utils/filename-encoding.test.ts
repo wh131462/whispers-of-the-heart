@@ -3,12 +3,12 @@
  * 用于验证中文文件名编码修复是否有效
  */
 
-import { 
-  fixFilenameEncoding, 
-  containsChinese, 
-  sanitizeFilename, 
+import {
+  fixFilenameEncoding,
+  containsChinese,
+  sanitizeFilename,
   generateUniqueFilename,
-  isValidFilename 
+  isValidFilename,
 } from './filename-encoding.util';
 
 // 测试用例
@@ -16,28 +16,28 @@ const testCases = [
   {
     name: '正常中文文件名',
     input: '测试文档.pdf',
-    expected: '测试文档.pdf'
+    expected: '测试文档.pdf',
   },
   {
     name: '错误编码的中文文件名 (latin1)',
     input: Buffer.from('测试文档.pdf', 'utf8').toString('latin1'),
-    expected: '测试文档.pdf'
+    expected: '测试文档.pdf',
   },
   {
     name: '包含替换字符的文件名',
     input: '����.pdf',
-    expected: '测试文档.pdf' // 这取决于原始数据
+    expected: '测试文档.pdf', // 这取决于原始数据
   },
   {
     name: '英文文件名',
     input: 'document.pdf',
-    expected: 'document.pdf'
+    expected: 'document.pdf',
   },
   {
     name: '中英文混合',
     input: 'My测试Document.docx',
-    expected: 'My测试Document.docx'
-  }
+    expected: 'My测试Document.docx',
+  },
 ];
 
 // 运行测试
@@ -48,13 +48,13 @@ export function runTests() {
     console.log(`测试 ${index + 1}: ${testCase.name}`);
     console.log(`输入: "${testCase.input}"`);
     console.log(`输入编码: ${Buffer.from(testCase.input).toString('hex')}`);
-    
+
     const result = fixFilenameEncoding(testCase.input);
     console.log(`输出: "${result}"`);
     console.log(`输出编码: ${Buffer.from(result).toString('hex')}`);
     console.log(`包含中文: ${containsChinese(result)}`);
     console.log(`是否有效: ${isValidFilename(result)}`);
-    
+
     if (result === testCase.expected) {
       console.log('✅ 测试通过\n');
     } else {
@@ -81,7 +81,7 @@ export function runTests() {
   ];
 
   console.log('\n=== 无效文件名测试 ===\n');
-  invalidFilenames.forEach(filename => {
+  invalidFilenames.forEach((filename) => {
     console.log(`"${filename}" 有效性: ${isValidFilename(filename)}`);
   });
 }

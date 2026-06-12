@@ -24,10 +24,10 @@ function initIP2Region(): void {
 }
 
 export interface IPLocation {
-  country: string;   // 国家
-  province: string;  // 省份
-  city: string;      // 城市
-  isp: string;       // 运营商
+  country: string; // 国家
+  province: string; // 省份
+  city: string; // 城市
+  isp: string; // 运营商
   formatted: string; // 格式化输出，如 "北京" 或 "广东广州"
 }
 
@@ -36,7 +36,9 @@ export interface IPLocation {
  * @param ip IP 地址
  * @returns 归属地信息，解析失败返回 null
  */
-export function parseIPLocation(ip: string | null | undefined): IPLocation | null {
+export function parseIPLocation(
+  ip: string | null | undefined,
+): IPLocation | null {
   if (!ip || ip === 'unknown' || ip === '::1' || ip === '127.0.0.1') {
     return null;
   }
@@ -92,7 +94,11 @@ export function parseIPLocation(ip: string | null | undefined): IPLocation | nul
 /**
  * 格式化地理位置显示
  */
-function formatLocation(country: string, province: string, city: string): string {
+function formatLocation(
+  country: string,
+  province: string,
+  city: string,
+): string {
   // 清理 "0" 占位符
   province = province === '0' ? '' : province;
   city = city === '0' ? '' : city;
@@ -104,7 +110,7 @@ function formatLocation(country: string, province: string, city: string): string
 
   // 直辖市：北京、上海、天津、重庆
   const municipalities = ['北京', '上海', '天津', '重庆'];
-  if (municipalities.some(m => province?.includes(m))) {
+  if (municipalities.some((m) => province?.includes(m))) {
     return province.replace('市', '');
   }
 
@@ -115,7 +121,12 @@ function formatLocation(country: string, province: string, city: string): string
       return city.replace('市', '');
     }
     // 简化显示：省份简称 + 城市
-    const shortProvince = province.replace('省', '').replace('自治区', '').replace('壮族', '').replace('回族', '').replace('维吾尔', '');
+    const shortProvince = province
+      .replace('省', '')
+      .replace('自治区', '')
+      .replace('壮族', '')
+      .replace('回族', '')
+      .replace('维吾尔', '');
     const shortCity = city.replace('市', '');
     return `${shortProvince}${shortCity}`;
   }

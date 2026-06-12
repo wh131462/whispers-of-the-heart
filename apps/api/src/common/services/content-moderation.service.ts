@@ -13,9 +13,18 @@ export class ContentModerationService {
 
   // 默认敏感词列表
   private readonly defaultSensitiveWords = [
-    '垃圾', '废物', '傻逼', '白痴', '智障',
-    'fuck', 'shit', 'damn', 'bitch',
-    '政治敏感词', '色情', '暴力'
+    '垃圾',
+    '废物',
+    '傻逼',
+    '白痴',
+    '智障',
+    'fuck',
+    'shit',
+    'damn',
+    'bitch',
+    '政治敏感词',
+    '色情',
+    '暴力',
   ];
 
   /**
@@ -24,7 +33,10 @@ export class ContentModerationService {
    * @param content 要检测的内容
    * @param additionalBannedWords 额外的违禁词列表（来自站点配置）
    */
-  async moderateContent(content: string, additionalBannedWords: string[] = []): Promise<ModerationResult> {
+  async moderateContent(
+    content: string,
+    additionalBannedWords: string[] = [],
+  ): Promise<ModerationResult> {
     const reasons: string[] = [];
     let confidence = 1.0;
 
@@ -77,10 +89,13 @@ export class ContentModerationService {
     }
 
     // 合并默认敏感词和自定义违禁词
-    const allBannedWords = [...this.defaultSensitiveWords, ...additionalBannedWords];
+    const allBannedWords = [
+      ...this.defaultSensitiveWords,
+      ...additionalBannedWords,
+    ];
 
-    const hasSensitiveWords = allBannedWords.some(word =>
-      word && content.toLowerCase().includes(word.toLowerCase())
+    const hasSensitiveWords = allBannedWords.some(
+      (word) => word && content.toLowerCase().includes(word.toLowerCase()),
     );
 
     if (hasSensitiveWords) {
@@ -95,7 +110,9 @@ export class ContentModerationService {
       /[^\w\s\u4e00-\u9fff]{10,}/, // 特殊字符过多
     ];
 
-    const hasSpamPatterns = spamPatterns.some(pattern => pattern.test(content));
+    const hasSpamPatterns = spamPatterns.some((pattern) =>
+      pattern.test(content),
+    );
     if (hasSpamPatterns) {
       reasons.push('疑似垃圾信息');
       confidence -= 0.5;
@@ -125,13 +142,13 @@ export class ContentModerationService {
   private extractMeaningfulContent(content: string): string {
     // 移除HTML标签
     let cleanContent = content.replace(/<[^>]*>/g, '');
-    
+
     // 移除多余空格
     cleanContent = cleanContent.replace(/\s+/g, ' ').trim();
-    
+
     // 移除特殊字符
     cleanContent = cleanContent.replace(/[^\w\s\u4e00-\u9fff]/g, '');
-    
+
     return cleanContent;
   }
 
@@ -140,31 +157,31 @@ export class ContentModerationService {
    */
   private generateSuggestions(reasons: string[]): string[] {
     const suggestions: string[] = [];
-    
+
     if (reasons.includes('内容过短')) {
       suggestions.push('请提供更详细的评论内容');
     }
-    
+
     if (reasons.includes('包含过多重复字符')) {
       suggestions.push('请避免使用重复字符');
     }
-    
+
     if (reasons.includes('全大写内容')) {
       suggestions.push('请使用正常的大小写格式');
     }
-    
+
     if (reasons.includes('包含过多链接')) {
       suggestions.push('请减少链接数量');
     }
-    
+
     if (reasons.includes('包含敏感词汇')) {
       suggestions.push('请使用文明用语');
     }
-    
+
     if (reasons.includes('疑似垃圾信息')) {
       suggestions.push('请提供有意义的评论内容');
     }
-    
+
     return suggestions;
   }
 
@@ -191,7 +208,7 @@ export class ContentModerationService {
         reasons: result.labels || [],
       };
       */
-      
+
       // 暂时返回基础检测结果
       return this.moderateContent(content);
     } catch (error) {

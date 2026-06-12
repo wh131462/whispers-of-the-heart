@@ -1,6 +1,16 @@
-import { Injectable, ConflictException, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
-import { CreateUserDto, UpdateUserDto, SendEmailChangeCodeDto, ChangeEmailDto } from './dto/user.dto';
+import {
+  CreateUserDto,
+  UpdateUserDto,
+  SendEmailChangeCodeDto,
+  ChangeEmailDto,
+} from './dto/user.dto';
 import { MediaUsageService } from '../media/media-usage.service';
 import { MailService } from '../mail/mail.service';
 import * as bcrypt from 'bcrypt';
@@ -63,7 +73,12 @@ export class UserService {
 
     // 同步头像媒体使用记录
     if (userData.avatar) {
-      await this.mediaUsageService.syncDirectUsage('user', user.id, 'avatar', userData.avatar);
+      await this.mediaUsageService.syncDirectUsage(
+        'user',
+        user.id,
+        'avatar',
+        userData.avatar,
+      );
     }
 
     return user;
@@ -166,7 +181,10 @@ export class UserService {
   }
 
   // 检查用户名是否可用
-  async checkUsernameAvailable(username: string, excludeUserId?: string): Promise<{ available: boolean; message?: string }> {
+  async checkUsernameAvailable(
+    username: string,
+    excludeUserId?: string,
+  ): Promise<{ available: boolean; message?: string }> {
     if (!username || username.trim().length === 0) {
       return { available: false, message: '用户名不能为空' };
     }
@@ -192,7 +210,10 @@ export class UserService {
   }
 
   // 更新当前用户资料
-  async updateProfile(userId: string, data: { username?: string; bio?: string; avatar?: string }) {
+  async updateProfile(
+    userId: string,
+    data: { username?: string; bio?: string; avatar?: string },
+  ) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
@@ -203,7 +224,10 @@ export class UserService {
 
     // 如果更新用户名，检查是否与其他用户冲突
     if (data.username && data.username !== user.username) {
-      const checkResult = await this.checkUsernameAvailable(data.username, userId);
+      const checkResult = await this.checkUsernameAvailable(
+        data.username,
+        userId,
+      );
       if (!checkResult.available) {
         throw new ConflictException(checkResult.message);
       }
@@ -227,7 +251,12 @@ export class UserService {
 
     // 同步头像媒体使用记录
     if ('avatar' in data) {
-      await this.mediaUsageService.syncDirectUsage('user', userId, 'avatar', data.avatar);
+      await this.mediaUsageService.syncDirectUsage(
+        'user',
+        userId,
+        'avatar',
+        data.avatar,
+      );
     }
 
     return updatedUser;
@@ -291,7 +320,12 @@ export class UserService {
 
     // 同步头像媒体使用记录（如果头像字段有更新）
     if ('avatar' in updateData) {
-      await this.mediaUsageService.syncDirectUsage('user', id, 'avatar', updateData.avatar);
+      await this.mediaUsageService.syncDirectUsage(
+        'user',
+        id,
+        'avatar',
+        updateData.avatar,
+      );
     }
 
     return user;
@@ -341,7 +375,10 @@ export class UserService {
   }
 
   // 发送邮箱更换验证码
-  async sendEmailChangeCode(userId: string, sendEmailChangeCodeDto: SendEmailChangeCodeDto) {
+  async sendEmailChangeCode(
+    userId: string,
+    sendEmailChangeCodeDto: SendEmailChangeCodeDto,
+  ) {
     const { newEmail } = sendEmailChangeCodeDto;
 
     // 获取当前用户
@@ -388,7 +425,11 @@ export class UserService {
     });
 
     // 发送验证码邮件到新邮箱
-    await this.mailService.sendEmailChangeVerificationCode(newEmail, user.username, code);
+    await this.mailService.sendEmailChangeVerificationCode(
+      newEmail,
+      user.username,
+      code,
+    );
 
     return { message: '验证码已发送到新邮箱' };
   }

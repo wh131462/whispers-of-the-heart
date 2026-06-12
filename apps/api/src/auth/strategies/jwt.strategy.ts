@@ -8,7 +8,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(private configService: ConfigService) {
     const jwtSecret = configService.get<string>('JWT_SECRET');
     if (!jwtSecret) {
-      throw new Error('JWT_SECRET environment variable is not set. Please configure it in your .env file.');
+      throw new Error(
+        'JWT_SECRET environment variable is not set. Please configure it in your .env file.',
+      );
     }
 
     super({
@@ -29,7 +31,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     return {
-      id: userId,  // 统一使用id字段
+      id: userId, // 统一使用id字段
       sub: userId, // 保持向后兼容
       email: payload.email,
       isAdmin: payload.isAdmin === true, // 从JWT payload读取isAdmin

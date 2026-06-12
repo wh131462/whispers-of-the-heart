@@ -1,16 +1,18 @@
 import { UAParser, IResult } from 'ua-parser-js';
 
 export interface DeviceInfo {
-  device: string;      // 设备类型，如 "iPhone", "Android", "Desktop"
-  os: string;          // 操作系统，如 "iOS 17", "Windows 11"
-  browser: string;     // 浏览器，如 "Chrome 120"
-  formatted: string;   // 格式化输出，如 "iPhone · iOS"
+  device: string; // 设备类型，如 "iPhone", "Android", "Desktop"
+  os: string; // 操作系统，如 "iOS 17", "Windows 11"
+  browser: string; // 浏览器，如 "Chrome 120"
+  formatted: string; // 格式化输出，如 "iPhone · iOS"
 }
 
 /**
  * 解析 User-Agent 获取设备信息
  */
-export function parseUserAgent(userAgent: string | null | undefined): DeviceInfo | null {
+export function parseUserAgent(
+  userAgent: string | null | undefined,
+): DeviceInfo | null {
   if (!userAgent || userAgent === 'unknown') {
     return null;
   }

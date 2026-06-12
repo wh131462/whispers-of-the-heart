@@ -11,7 +11,7 @@ export interface SendMailOptions {
   to: string;
   subject: string;
   template?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   context?: Record<string, any>;
   html?: string;
   text?: string;
@@ -69,7 +69,7 @@ export class MailService implements OnModuleInit {
 
     try {
       // 获取 nodemailer transporter 并验证连接
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       const transporter = (this.mailerService as any).transporter;
       if (transporter && typeof transporter.verify === 'function') {
         await transporter.verify();
@@ -80,7 +80,6 @@ export class MailService implements OnModuleInit {
         this.logger.warn('无法获取 transporter，跳过连接验证');
         return false;
       }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       this.isConnected = false;
       this.logger.error('❌ SMTP 连接验证失败');
@@ -180,7 +179,6 @@ export class MailService implements OnModuleInit {
       });
 
       return true;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       // 详细的错误日志
       this.logger.error(`邮件发送失败: ${to} - ${subject}`);
@@ -622,7 +620,7 @@ export class MailService implements OnModuleInit {
    */
   renderTemplatePreview(
     templateName: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
     context: Record<string, any>,
   ): string {
     const templateDir = this.getTemplateDir();
