@@ -52,6 +52,8 @@
 | 名称               | 说明                                             | 默认值                        |
 | ------------------ | ------------------------------------------------ | ----------------------------- |
 | `VITE_API_URL`     | 前端调用的后端 API 地址                          | `https://api.131462.wang`     |
+| `VITE_WEB_URL`     | 前端网站地址                                     | `https://131462.wang`         |
+| `VITE_WEB_PORT`    | 前端端口号                                       | `8888`                        |
 | `VITE_AI_PROVIDER` | AI 提供商（openai / deepseek / claude / custom） | `deepseek`                    |
 | `VITE_AI_MODEL`    | AI 模型名称                                      | `deepseek-chat`               |
 | `VITE_AI_BASE_URL` | AI API 基础地址                                  | `https://api.deepseek.com/v1` |
@@ -59,16 +61,23 @@
 
 ### 后端部署变量
 
-| 名称             | 说明                       | 默认值                                        |
-| ---------------- | -------------------------- | --------------------------------------------- |
-| `WEB_URL`        | 网站域名                   | `https://131462.wang`                         |
-| `MAIL_HOST`      | SMTP 服务器地址            | `smtp.exmail.qq.com`                          |
-| `MAIL_PORT`      | SMTP 端口                  | `465`                                         |
-| `MAIL_USERNAME`  | SMTP 发件人账号            | `no-reply@131462.wang`                        |
-| `MAIL_FROM`      | 发件人地址                 | `no-reply@131462.wang`                        |
-| `ADMIN_EMAIL`    | 管理员邮箱                 | `admin@131462.wang`                           |
-| `ADMIN_USERNAME` | 管理员用户名               | `admin`                                       |
-| `CORS_ORIGINS`   | 允许的跨域来源（逗号分隔） | `https://131462.wang,https://www.131462.wang` |
+| 名称                                 | 说明                             | 默认值                                        |
+| ------------------------------------ | -------------------------------- | --------------------------------------------- |
+| `WEB_URL`                            | 网站域名                         | `https://131462.wang`                         |
+| `MAIL_HOST`                          | SMTP 服务器地址                  | `smtp.exmail.qq.com`                          |
+| `MAIL_PORT`                          | SMTP 端口                        | `465`                                         |
+| `MAIL_USERNAME`                      | SMTP 发件人账号                  | `no-reply@131462.wang`                        |
+| `MAIL_FROM`                          | 发件人地址                       | `no-reply@131462.wang`                        |
+| `ADMIN_EMAIL`                        | 管理员邮箱                       | `admin@131462.wang`                           |
+| `ADMIN_USERNAME`                     | 管理员用户名                     | `admin`                                       |
+| `CORS_ORIGINS`                       | 允许的跨域来源（逗号分隔）       | `https://131462.wang,https://www.131462.wang` |
+| `LOG_LEVEL`                          | 日志级别                         | `info`                                        |
+| `AI_DEFAULT_BASE_URL`                | AI 对话服务器默认上游 base URL   | 空（使用前端配置）                            |
+| `AI_DEFAULT_MODEL`                   | AI 对话服务器默认模型名          | 空（使用前端配置）                            |
+| `AI_DEFAULT_RATE_LIMIT_PER_MINUTE`   | AI 接口按 IP 频率限流（次/分钟） | `60`                                          |
+| `AI_DEFAULT_USER_TOKEN_LIMIT_PER_5H` | AI 每用户 5 小时 token 配额      | `50000`                                       |
+| `GOOGLE_ANALYTICS_ID`                | Google Analytics ID（可选）      | 空                                            |
+| `SENTRY_DSN`                         | Sentry DSN（可选）               | 空                                            |
 
 ---
 
@@ -89,6 +98,7 @@
 
 ```
 NODE_ENV=production
+DATABASE_URL=postgresql://${POSTGRES_USERNAME}:${POSTGRES_PASSWORD}@postgres:5432/whispers_db
 POSTGRES_HOST=postgres
 POSTGRES_PORT=5432
 POSTGRES_DATABASE=whispers_db
@@ -100,9 +110,20 @@ MINIO_ENDPOINT=minio
 MINIO_PORT=9000
 MINIO_BUCKET=whispers-storage
 MINIO_USE_SSL=false
+UPLOAD_PATH=./uploads
+MAX_FILE_SIZE=52428800
+ALLOWED_IMAGE_TYPES=jpg,jpeg,png,gif,webp
+ALLOWED_VIDEO_TYPES=mp4,webm,avi,mov
+ALLOWED_AUDIO_TYPES=mp3,wav,ogg,m4a
+APP_NAME="Whispers of the Heart"
 API_PORT=7777
 WEB_PORT=8888
+LOG_FILE=logs/app.log
 BCRYPT_ROUNDS=12
+ENABLE_REGISTRATION=true
+ENABLE_COMMENTS=true
+ENABLE_LIKES=true
+ENABLE_EMAIL_VERIFICATION=true
 ```
 
 ---

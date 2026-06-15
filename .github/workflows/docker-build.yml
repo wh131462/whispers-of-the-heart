@@ -108,6 +108,8 @@ jobs:
           # cache-to: type=gha,mode=max,scope=web
           build-args: |
             VITE_API_URL=${{ vars.VITE_API_URL || 'https://api.131462.wang' }}
+            VITE_WEB_URL=${{ vars.VITE_WEB_URL || 'https://131462.wang' }}
+            VITE_WEB_PORT=${{ vars.VITE_WEB_PORT || '8888' }}
             VITE_AI_PROVIDER=${{ vars.VITE_AI_PROVIDER || 'deepseek' }}
             VITE_AI_MODEL=${{ vars.VITE_AI_MODEL || 'deepseek-chat' }}
             VITE_AI_BASE_URL=${{ vars.VITE_AI_BASE_URL || 'https://api.deepseek.com/v1' }}
@@ -189,6 +191,12 @@ jobs:
           ENABLE_LIKES=true
           ENABLE_EMAIL_VERIFICATION=true
           AI_API_KEY=${{ secrets.AI_API_KEY }}
+          AI_DEFAULT_BASE_URL=${{ vars.AI_DEFAULT_BASE_URL || '' }}
+          AI_DEFAULT_MODEL=${{ vars.AI_DEFAULT_MODEL || '' }}
+          AI_DEFAULT_RATE_LIMIT_PER_MINUTE=${{ vars.AI_DEFAULT_RATE_LIMIT_PER_MINUTE || '60' }}
+          AI_DEFAULT_USER_TOKEN_LIMIT_PER_5H=${{ vars.AI_DEFAULT_USER_TOKEN_LIMIT_PER_5H || '50000' }}
+          GOOGLE_ANALYTICS_ID=${{ vars.GOOGLE_ANALYTICS_ID || '' }}
+          SENTRY_DSN=${{ vars.SENTRY_DSN || '' }}
           EOF
 
       - name: Copy files to server
