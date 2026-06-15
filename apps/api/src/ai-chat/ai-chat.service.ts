@@ -63,6 +63,24 @@ const SEARCH_BLOG_TOOL = {
   },
 };
 
+const LIST_RECENT_POSTS_TOOL = {
+  type: 'function' as const,
+  function: {
+    name: 'list_recent_posts',
+    description:
+      'List recent blog posts in reverse chronological order. Use when the user asks "what articles are there", "show me recent posts", "list the blog posts", or wants to browse the blog without a specific topic.',
+    parameters: {
+      type: 'object',
+      properties: {
+        limit: {
+          type: 'number',
+          description: 'Number of posts to return (1-20, default 10)',
+        },
+      },
+    },
+  },
+};
+
 @Injectable()
 export class AiChatService {
   private readonly logger = new Logger(AiChatService.name);
@@ -139,6 +157,38 @@ export class AiChatService {
       .filter((h) => h.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, cappedLimit);
+  }
+
+  async listRecentPosts(limit = 10): Promise<KnowledgeHit[]> {
+    const cappedLimit = Math.min(Math.max(limit, 1), 20);
+
+    const posts = await this.prisma.post.findMany({
+      where: { published: true },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        excerpt: true,
+        content: true,
+      },
+      orderBy: { publishedAt: 'desc' },
+      take: cappedLimit,
+    });
+
+    return posts.map((post) => {
+      const plainText = stripMarkdown(post.content);
+      const snippet =
+        post.excerpt ||
+        (plainText.length > 150 ? `${plainText.slice(0, 150)}…` : plainText);
+      return {
+        postId: post.id,
+        title: post.title,
+        slug: post.slug,
+        excerpt: post.excerpt ?? null,
+        snippet,
+        score: 0,
+      };
+    });
   }
 
   checkIpRateLimit(ip: string): void {
@@ -317,7 +367,7 @@ export class AiChatService {
     const body = {
       model,
       messages,
-      tools: [SEARCH_BLOG_TOOL],
+      tools: [SEARCH_BLOG_TOOL, LIST_RECENT_POSTS_TOOL],
       tool_choice: 'auto',
       stream: false,
       temperature: dto.temperature ?? 0.7,
@@ -340,16 +390,27 @@ export class AiChatService {
     if (choice?.finish_reason === 'tool_calls' || choice?.message?.tool_calls) {
       const toolCalls = choice.message?.tool_calls ?? [];
       for (const tc of toolCalls) {
-        if (tc.function?.name === 'search_blog') {
-          try {
-            const args = JSON.parse(tc.function.arguments);
-            const query = args.query ?? '';
-            if (query) {
-              return await this.searchKnowledge(query, 5);
+        const name = tc.function?.name;
+        try {
+          const args = tc.function?.arguments
+            ? JSON.parse(tc.function.arguments)
+            : {};
+          if (name === 'search_blog' && args.query) {
+            const hits = await this.searchKnowledge(args.query, 5);
+            // 关键词搜不到时降级为最新列表
+            if (hits.length === 0) {
+              this.logger.debug(
+                `search_blog returned 0 for "${args.query}", falling back to recent posts`,
+              );
+              return await this.listRecentPosts(10);
             }
-          } catch {
-            this.logger.warn('Failed to parse tool_call arguments');
+            return hits;
           }
+          if (name === 'list_recent_posts') {
+            return await this.listRecentPosts(args.limit ?? 10);
+          }
+        } catch {
+          this.logger.warn(`Failed to parse tool_call arguments for ${name}`);
         }
       }
     }

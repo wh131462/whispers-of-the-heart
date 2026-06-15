@@ -328,13 +328,13 @@ export const ProviderSettingsDialog: React.FC<ProviderSettingsDialogProps> = ({
           </section>
 
           <section>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
                 {editingId ? '编辑 Provider' : '新增 Provider'}
               </h3>
               {!editingId && (
-                <div className="text-xs text-gray-500 flex items-center gap-2">
-                  <span>从预设复制：</span>
+                <div className="text-xs text-gray-500 flex items-center gap-2 whitespace-nowrap">
+                  <span>从预设复制</span>
                   <Select
                     value=""
                     onValueChange={value => {
@@ -345,7 +345,7 @@ export const ProviderSettingsDialog: React.FC<ProviderSettingsDialogProps> = ({
                       if (preset) handleStartFromPreset(preset);
                     }}
                   >
-                    <SelectTrigger className="h-8 w-44 text-xs">
+                    <SelectTrigger className="!h-8 w-36 text-xs px-2 py-1">
                       <SelectValue placeholder="选择预设" />
                     </SelectTrigger>
                     <SelectContent>
@@ -379,7 +379,7 @@ export const ProviderSettingsDialog: React.FC<ProviderSettingsDialogProps> = ({
                     setForm({ ...form, protocol: value as AiProtocol })
                   }
                 >
-                  <SelectTrigger className={inputCls}>
+                  <SelectTrigger className={cn(inputCls, '!h-auto')}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

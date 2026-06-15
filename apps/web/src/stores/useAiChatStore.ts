@@ -8,12 +8,12 @@ import type {
   AiSource,
 } from '@whispers/types';
 import { SERVER_DEFAULT_PROVIDER_ID } from '@whispers/types';
-import { getAdapter, parseSSE } from '@whispers/utils';
+import { getAdapter, parseSSE, getApiBaseUrl } from '@whispers/utils';
 import { BUILTIN_PROVIDERS, getAllProviders } from './aiChatBuiltins';
 import { useAuthStore } from './useAuthStore';
 
 const STORAGE_KEY = 'ai-chat-storage';
-const API_BASE = '/api/v1';
+const API_BASE = `${getApiBaseUrl()}/api/v1`;
 
 interface AiChatPersistedState {
   userProviders: AiProvider[];

@@ -82,7 +82,7 @@ function getEnv(): EnvConfig {
 }
 
 // 获取API基础URL
-function getApiBaseUrl(): string {
+export function getApiBaseUrl(): string {
   const env = getEnv();
 
   // 生产环境使用环境变量配置的 API URL
