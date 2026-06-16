@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import type { AiProvider, AiProtocol } from '@whispers/types';
 import { SERVER_DEFAULT_PROVIDER_ID } from '@whispers/types';
+import { getApiBaseUrl } from '@whispers/utils';
 import { cn } from '@/lib/utils';
 import { useAiChatStore } from '@/stores/useAiChatStore';
 import { getAllProviders } from '@/stores/aiChatBuiltins';
@@ -189,7 +190,7 @@ export const ProviderSettingsDialog: React.FC<ProviderSettingsDialogProps> = ({
       if (form.apiKey) headers['x-provider-api-key'] = form.apiKey;
 
       const res = await fetch(
-        `/api/v1/ai-proxy/proxy?url=${encodeURIComponent(targetUrl)}`,
+        `${getApiBaseUrl()}/api/v1/ai-proxy/proxy?url=${encodeURIComponent(targetUrl)}`,
         { method: 'POST', headers, body: JSON.stringify(body) }
       );
 
