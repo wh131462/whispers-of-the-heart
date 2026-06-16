@@ -53,6 +53,7 @@ async function bootstrap() {
         'Accept',
         'Origin',
         'X-Requested-With',
+        'x-provider-api-key',
       ],
       maxAge: 86400,
     });
@@ -62,7 +63,12 @@ async function bootstrap() {
       origin: true,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+      allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'Accept',
+        'x-provider-api-key',
+      ],
     });
   }
 
