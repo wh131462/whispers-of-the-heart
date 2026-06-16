@@ -180,8 +180,8 @@ const useAuthStore = create<AuthStore>()(
           const response = await api.get('/auth/me');
 
           if (response.data?.success) {
-            // 更新用户信息
-            set({ user: response.data.data });
+            // 更新用户信息和认证状态
+            set({ user: response.data.data, isAuthenticated: true });
             return true;
           }
           return false;

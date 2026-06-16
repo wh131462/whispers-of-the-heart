@@ -56,6 +56,9 @@ const PageLoader = () => (
 function App() {
   const setError = useGlobalStore(state => state.setError);
   const _hasHydrated = useAuthStore(state => state._hasHydrated);
+  const accessToken = useAuthStore(state => state.accessToken);
+  const validateToken = useAuthStore(state => state.validateToken);
+  const logout = useAuthStore(state => state.logout);
 
   // 初始化 API 客户端 - 等待 hydration 完成后再初始化
   useEffect(() => {
@@ -72,6 +75,27 @@ function App() {
       apiUtils.initialize('auth_token');
     }
   }, [_hasHydrated]);
+
+  // 全局 token 验证 - 应用启动时验证一次
+  useEffect(() => {
+    if (!_hasHydrated) return;
+    if (!accessToken) return;
+
+    const verifyToken = async () => {
+      try {
+        const isValid = await validateToken();
+        if (!isValid) {
+          console.log('[App] Token invalid, logging out');
+          logout();
+        }
+      } catch (error) {
+        console.error('[App] Token validation failed:', error);
+        logout();
+      }
+    };
+
+    verifyToken();
+  }, [_hasHydrated, accessToken, validateToken, logout]);
 
   return (
     <ToastProvider>
