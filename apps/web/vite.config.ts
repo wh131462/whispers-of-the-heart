@@ -23,6 +23,11 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    worker: {
+      // @jsquash/avif 的多线程 worker 使用了代码拆分（动态 import），
+      // IIFE/UMD 格式不支持代码拆分，必须使用 ES 格式
+      format: 'es',
+    },
     server: {
       port: parseInt(env.VITE_WEB_PORT || '8888'),
       host: true, // 允许外部访问
