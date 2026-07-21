@@ -52,5 +52,6 @@ export class CompletionsDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(8192)
   maxTokens?: number;
 }

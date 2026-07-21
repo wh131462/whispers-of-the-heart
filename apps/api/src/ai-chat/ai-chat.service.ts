@@ -2,6 +2,8 @@ import {
   Injectable,
   BadRequestException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Logger,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -17,11 +19,6 @@ export interface KnowledgeHit {
   excerpt: string | null;
   snippet: string;
   score: number;
-}
-
-interface UserUsageWindow {
-  windowStart: number;
-  usedTokens: number;
 }
 
 interface IpRateWindow {
@@ -118,8 +115,6 @@ export class AiChatService {
   private readonly logger = new Logger(AiChatService.name);
 
   private readonly ipWindows = new Map<string, IpRateWindow>();
-  private readonly userWindows = new Map<string, UserUsageWindow>();
-
   private readonly ipRateLimit: number;
   private readonly userTokenLimitPer5h: number;
 
@@ -267,37 +262,50 @@ export class AiChatService {
     }
   }
 
-  checkUserQuota(userId: string): { used: number; resetAt: Date } {
-    const now = Date.now();
-    const win = this.userWindows.get(userId);
-    if (!win || now - win.windowStart >= FIVE_HOURS_MS) {
-      this.userWindows.set(userId, { windowStart: now, usedTokens: 0 });
-      return { used: 0, resetAt: new Date(now + FIVE_HOURS_MS) };
-    }
-    if (win.usedTokens >= this.userTokenLimitPer5h) {
-      const resetAt = new Date(win.windowStart + FIVE_HOURS_MS);
-      const err: any = new Error('已达本周期 token 配额，请稍后再试');
-      err.status = 429;
-      err.resetAt = resetAt;
-      throw err;
-    }
-    return {
-      used: win.usedTokens,
-      resetAt: new Date(win.windowStart + FIVE_HOURS_MS),
-    };
-  }
+  async reserveUserQuota(userId: string, tokens: number): Promise<void> {
+    const now = new Date();
+    const windowThreshold = new Date(now.getTime() - FIVE_HOURS_MS);
+    const amount = Math.max(0, tokens);
 
-  addUserUsage(userId: string, tokens: number): void {
-    const now = Date.now();
-    const win = this.userWindows.get(userId);
-    if (!win || now - win.windowStart >= FIVE_HOURS_MS) {
-      this.userWindows.set(userId, {
-        windowStart: now,
-        usedTokens: Math.max(0, tokens),
+    await this.prisma.$transaction(async (tx) => {
+      const current = await tx.aiUsageWindow.upsert({
+        where: { userId },
+        create: { userId, windowStart: now, usedTokens: 0 },
+        update: {},
       });
-      return;
-    }
-    win.usedTokens += Math.max(0, tokens);
+
+      if (current.windowStart <= windowThreshold) {
+        await tx.aiUsageWindow.update({
+          where: { userId },
+          data: { windowStart: now, usedTokens: 0 },
+        });
+      }
+
+      const reserved = await tx.aiUsageWindow.updateMany({
+        where: {
+          userId,
+          usedTokens: { lte: this.userTokenLimitPer5h - amount },
+        },
+        data: { usedTokens: { increment: amount } },
+      });
+
+      if (reserved.count !== 1) {
+        const usage = await tx.aiUsageWindow.findUniqueOrThrow({
+          where: { userId },
+        });
+        throw new HttpException(
+          {
+            message: '已达本周期 token 配额，请稍后再试',
+            data: {
+              resetAt: new Date(
+                usage.windowStart.getTime() + FIVE_HOURS_MS,
+              ).toISOString(),
+            },
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+    });
   }
 
   getUserTokenLimit(): number {
@@ -337,7 +345,8 @@ export class AiChatService {
 
     const requestChars = messages.reduce((acc, m) => acc + m.content.length, 0);
     const requestTokens = Math.ceil(requestChars / 4);
-    this.addUserUsage(userId, requestTokens);
+    const responseTokenBudget = dto.maxTokens ?? 1024;
+    await this.reserveUserQuota(userId, requestTokens + responseTokenBudget);
 
     let sources: KnowledgeHit[] = [];
 
@@ -398,20 +407,13 @@ export class AiChatService {
       throw new BadRequestException(`上游服务异常 (${upstream.status})`);
     }
 
-    let responseChars = 0;
     const node = Readable.fromWeb(
       upstream.body as import('stream/web').ReadableStream,
     );
-    node.on('data', (chunk: Buffer | string) => {
-      responseChars +=
-        typeof chunk === 'string' ? chunk.length : chunk.byteLength;
-    });
 
     const onClose = () => {
-      const responseTokens = Math.ceil(responseChars / 4);
-      this.addUserUsage(userId, responseTokens);
       this.logger.debug(
-        `AI usage user=${userId} req~${requestTokens} resp~${responseTokens}`,
+        `AI quota reserved user=${userId} tokens=${requestTokens + responseTokenBudget}`,
       );
     };
 
@@ -509,11 +511,6 @@ export class AiChatService {
     for (const [ip, win] of this.ipWindows.entries()) {
       if (now - win.windowStart > ONE_MINUTE_MS * 5) {
         this.ipWindows.delete(ip);
-      }
-    }
-    for (const [uid, win] of this.userWindows.entries()) {
-      if (now - win.windowStart > FIVE_HOURS_MS * 2) {
-        this.userWindows.delete(uid);
       }
     }
   }

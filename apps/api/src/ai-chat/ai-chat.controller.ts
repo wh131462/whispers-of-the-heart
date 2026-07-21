@@ -3,6 +3,7 @@ import {
   Controller,
   HttpCode,
   HttpStatus,
+  HttpException,
   Logger,
   Post,
   Req,
@@ -63,19 +64,6 @@ export class AiChatController {
       return;
     }
 
-    try {
-      this.aiChatService.checkUserQuota(userId);
-    } catch (e: any) {
-      if (e?.status === 429) {
-        res.status(HttpStatus.TOO_MANY_REQUESTS).json({
-          ...ApiResponseDto.error(e.message),
-          data: { resetAt: e.resetAt?.toISOString() },
-        });
-        return;
-      }
-      throw e;
-    }
-
     let onClose: (() => void) | null = null;
     try {
       const result = await this.aiChatService.streamCompletions(dto, userId);
@@ -115,13 +103,25 @@ export class AiChatController {
       });
 
       result.stream.pipe(res);
-    } catch (error: any) {
-      this.logger.error(`AI chat completions error: ${error.message}`);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : 'AI 对话请求失败';
+      this.logger.error(`AI chat completions error: ${message}`);
       if (!res.headersSent) {
-        const status = error?.status ?? error?.statusCode ?? 500;
-        res
-          .status(status)
-          .json(ApiResponseDto.error(error.message || 'AI 对话请求失败'));
+        if (error instanceof HttpException) {
+          const response = error.getResponse();
+          res
+            .status(error.getStatus())
+            .json(
+              typeof response === 'object'
+                ? { success: false, ...response }
+                : ApiResponseDto.error(response),
+            );
+        } else {
+          res
+            .status(HttpStatus.INTERNAL_SERVER_ERROR)
+            .json(ApiResponseDto.error(message));
+        }
       }
       onClose?.();
     }
