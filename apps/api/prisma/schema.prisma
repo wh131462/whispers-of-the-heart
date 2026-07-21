@@ -23,6 +23,7 @@ model User {
   bio           String?
   location      String?  // 最后一次 IP 归属地
   isAdmin       Boolean  @default(false) // 简化权限：仅区分管理员和普通用户
+  tokenVersion  Int      @default(0) // 密码或权限变更时递增，使旧令牌立即失效
   emailVerified Boolean  @default(false) // 邮箱是否已验证
   theme         String?  @default("system") // 主题偏好：system, light, dark
   createdAt     DateTime @default(now())
@@ -45,10 +46,23 @@ model User {
   media               Media[]
   commentReports      CommentReport[]
   repliedToComments   Comment[]            @relation("CommentReplyToUser") // 被回复的评论
+  aiUsageWindow       AiUsageWindow?
 
   @@index([email])
   @@index([username])
   @@map("users")
+}
+
+model AiUsageWindow {
+  userId      String   @id
+  windowStart DateTime
+  usedTokens  Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([windowStart])
+  @@map("ai_usage_windows")
 }
 
 // 刷新令牌模型
@@ -92,6 +106,7 @@ model VerificationCode {
   userId    String?  // 用户ID (注册时可能为空)
   expiresAt DateTime
   used      Boolean  @default(false)
+  attempts  Int      @default(0)
   createdAt DateTime @default(now())
 
   user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
