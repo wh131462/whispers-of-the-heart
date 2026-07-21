@@ -165,24 +165,25 @@ pnpm deploy                     # 完整部署流程
 
 ## 数据库模型概览
 
-| 模型               | 表名                  | 描述                 |
-| ------------------ | --------------------- | -------------------- |
-| User               | users                 | 用户账户             |
-| Post               | posts                 | 博客文章             |
-| Tag                | tags                  | 文章标签             |
-| PostTag            | post_tags             | 文章-标签关联        |
-| Comment            | comments              | 评论(抖音风格扁平化) |
-| Like               | likes                 | 文章点赞             |
-| CommentLike        | comment_likes         | 评论点赞             |
-| Favorite           | favorites             | 文章收藏             |
-| Media              | media                 | 媒体文件             |
-| MediaUsage         | media_usages          | 媒体使用记录         |
-| RefreshToken       | refresh_tokens        | 刷新令牌             |
-| PasswordResetToken | password_reset_tokens | 密码重置令牌         |
-| VerificationCode   | verification_codes    | 验证码               |
-| CommentReport      | comment_reports       | 评论举报             |
-| SiteConfig         | site_config           | 站点配置             |
+| 模型               | 表名                  | 描述                  |
+| ------------------ | --------------------- | --------------------- |
+| User               | users                 | 用户账户              |
+| Post               | posts                 | 博客文章              |
+| Tag                | tags                  | 文章标签              |
+| PostTag            | post_tags             | 文章-标签关联         |
+| Comment            | comments              | 评论(抖音风格扁平化)  |
+| Like               | likes                 | 文章点赞              |
+| CommentLike        | comment_likes         | 评论点赞              |
+| Favorite           | favorites             | 文章收藏              |
+| Media              | media                 | 媒体文件              |
+| MediaUsage         | media_usages          | 媒体使用记录          |
+| RefreshToken       | refresh_tokens        | 刷新令牌              |
+| PasswordResetToken | password_reset_tokens | 密码重置令牌          |
+| VerificationCode   | verification_codes    | 验证码                |
+| AiUsageWindow      | ai_usage_windows      | AI 用户五小时额度窗口 |
+| CommentReport      | comment_reports       | 评论举报              |
+| SiteConfig         | site_config           | 站点配置              |
 
 ---
 
-**最后更新**: 2026-01-09
+**最后更新**: 2026-07-21
