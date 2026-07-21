@@ -16,6 +16,7 @@ interface ErrorResponse {
   path: string;
   timestamp: string;
   stack?: string;
+  data?: unknown;
 }
 
 @Catch()
@@ -31,6 +32,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     let statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'Internal server error';
     let error = 'Internal Server Error';
+    let data: unknown;
 
     if (exception instanceof HttpException) {
       statusCode = exception.getStatus();
@@ -39,9 +41,22 @@ export class AllExceptionsFilter implements ExceptionFilter {
       if (typeof exceptionResponse === 'string') {
         message = exceptionResponse;
       } else if (typeof exceptionResponse === 'object') {
-        const responseObj = exceptionResponse as Record<string, any>;
-        message = responseObj.message || exception.message;
-        error = responseObj.error || this.getErrorName(statusCode);
+        const responseObj = exceptionResponse as Record<string, unknown>;
+        message =
+          typeof responseObj.message === 'string'
+            ? responseObj.message
+            : exception.message;
+        error =
+          typeof responseObj.error === 'string'
+            ? responseObj.error
+            : this.getErrorName(statusCode);
+        const details = { ...responseObj };
+        delete details.message;
+        delete details.error;
+        delete details.statusCode;
+        if (Object.keys(details).length > 0) {
+          data = details.data ?? details;
+        }
       }
     } else if (exception instanceof Error) {
       message = exception.message;
@@ -60,6 +75,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       error,
       path: request.url,
       timestamp: new Date().toISOString(),
+      ...(data === undefined ? {} : { data }),
     };
 
     // 仅在开发环境返回堆栈信息
