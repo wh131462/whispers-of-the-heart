@@ -33,8 +33,8 @@ export class CommentService {
     }
 
     // 检查文章是否存在，包含作者信息用于通知
-    const post = await this.prisma.post.findUnique({
-      where: { id: createCommentDto.postId },
+    const post = await this.prisma.post.findFirst({
+      where: { id: createCommentDto.postId, published: true },
       include: {
         author: {
           select: {
@@ -83,6 +83,10 @@ export class CommentService {
 
       if (!replyToComment) {
         throw new NotFoundException('被回复的评论不存在');
+      }
+
+      if (replyToComment.postId !== createCommentDto.postId) {
+        throw new BadRequestException('不能回复其他文章下的评论');
       }
 
       // 设置扁平化字段
