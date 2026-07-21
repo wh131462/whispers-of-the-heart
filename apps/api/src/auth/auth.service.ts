@@ -18,12 +18,16 @@ import {
   RegisterWithCodeDto,
 } from './dto/auth.dto';
 import * as bcrypt from 'bcrypt';
-import { randomBytes } from 'crypto';
+import { randomBytes, randomInt } from 'crypto';
 import type { StringValue } from 'ms';
 
 // 生成6位数字验证码
 function generateVerificationCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return randomInt(100000, 1000000).toString();
+}
+
+interface DecodedRefreshToken {
+  exp?: number;
 }
 
 @Injectable()
@@ -64,7 +68,12 @@ export class AuthService {
       throw new UnauthorizedException('用户名/邮箱或密码错误');
     }
 
-    const tokens = await this.generateTokens(user.id, user.email, user.isAdmin);
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.isAdmin,
+      user.tokenVersion,
+    );
 
     // 保存刷新令牌
     await this.saveRefreshToken(user.id, tokens.refreshToken);
@@ -116,10 +125,16 @@ export class AuthService {
         email: true,
         isAdmin: true,
         avatar: true,
+        tokenVersion: true,
       },
     });
 
-    const tokens = await this.generateTokens(user.id, user.email, user.isAdmin);
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.isAdmin,
+      user.tokenVersion,
+    );
 
     // 保存刷新令牌
     await this.saveRefreshToken(user.id, tokens.refreshToken);
@@ -154,15 +169,25 @@ export class AuthService {
         storedToken.user.id,
         storedToken.user.email,
         storedToken.user.isAdmin,
+        storedToken.user.tokenVersion,
       );
 
-      // 删除旧的刷新令牌
-      await this.prisma.refreshToken.delete({
-        where: { token: refreshToken },
-      });
+      await this.prisma.$transaction(async (tx) => {
+        const consumed = await tx.refreshToken.deleteMany({
+          where: { id: storedToken.id, token: refreshToken },
+        });
+        if (consumed.count !== 1) {
+          throw new UnauthorizedException('刷新令牌已被使用');
+        }
 
-      // 保存新的刷新令牌
-      await this.saveRefreshToken(storedToken.user.id, tokens.refreshToken);
+        await tx.refreshToken.create({
+          data: {
+            token: tokens.refreshToken,
+            userId: storedToken.user.id,
+            expiresAt: this.getTokenExpiresAt(tokens.refreshToken),
+          },
+        });
+      });
 
       return {
         user: {
@@ -192,8 +217,9 @@ export class AuthService {
     userId: string,
     email: string,
     isAdmin: boolean,
+    tokenVersion: number,
   ) {
-    const payload = { sub: userId, email, isAdmin };
+    const payload = { sub: userId, email, isAdmin, tokenVersion };
 
     const [accessToken, refreshToken] = await Promise.all([
       this.jwtService.signAsync(payload, {
@@ -214,16 +240,21 @@ export class AuthService {
   }
 
   private async saveRefreshToken(userId: string, token: string) {
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 7); // 7天后过期
-
     await this.prisma.refreshToken.create({
       data: {
         token,
         userId,
-        expiresAt,
+        expiresAt: this.getTokenExpiresAt(token),
       },
     });
+  }
+
+  private getTokenExpiresAt(token: string): Date {
+    const decoded = this.jwtService.decode<DecodedRefreshToken>(token);
+    if (!decoded?.exp) {
+      throw new Error('刷新令牌缺少过期时间');
+    }
+    return new Date(decoded.exp * 1000);
   }
 
   async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
@@ -305,17 +336,31 @@ export class AuthService {
       throw new BadRequestException('重置令牌已过期');
     }
 
-    // 更新用户密码
     const hashedPassword = await bcrypt.hash(password, 10);
-    await this.prisma.user.update({
-      where: { id: resetToken.userId },
-      data: { password: hashedPassword },
-    });
+    await this.prisma.$transaction(async (tx) => {
+      const consumed = await tx.passwordResetToken.updateMany({
+        where: {
+          id: resetToken.id,
+          used: false,
+          expiresAt: { gt: new Date() },
+        },
+        data: { used: true },
+      });
 
-    // 标记令牌为已使用
-    await this.prisma.passwordResetToken.update({
-      where: { id: resetToken.id },
-      data: { used: true },
+      if (consumed.count !== 1) {
+        throw new BadRequestException('重置令牌无效、已过期或已使用');
+      }
+
+      await tx.user.update({
+        where: { id: resetToken.userId },
+        data: {
+          password: hashedPassword,
+          tokenVersion: { increment: 1 },
+        },
+      });
+      await tx.refreshToken.deleteMany({
+        where: { userId: resetToken.userId },
+      });
     });
 
     return { message: '密码重置成功' };
@@ -332,6 +377,15 @@ export class AuthService {
 
     if (existingUser) {
       throw new ConflictException('该邮箱已被注册');
+    }
+
+    const latestCode = await this.prisma.verificationCode.findFirst({
+      where: { email, type: 'register' },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true },
+    });
+    if (latestCode && Date.now() - latestCode.createdAt.getTime() < 60 * 1000) {
+      throw new BadRequestException('验证码发送过于频繁，请一分钟后再试');
     }
 
     // 删除该邮箱之前未使用的验证码
@@ -372,7 +426,6 @@ export class AuthService {
     const verificationCode = await this.prisma.verificationCode.findFirst({
       where: {
         email,
-        code,
         type: 'register',
         used: false,
       },
@@ -381,12 +434,20 @@ export class AuthService {
       },
     });
 
-    if (!verificationCode) {
+    if (!verificationCode || verificationCode.attempts >= 5) {
       throw new BadRequestException('验证码无效');
     }
 
     if (verificationCode.expiresAt < new Date()) {
       throw new BadRequestException('验证码已过期');
+    }
+
+    if (verificationCode.code !== code) {
+      await this.prisma.verificationCode.update({
+        where: { id: verificationCode.id },
+        data: { attempts: { increment: 1 } },
+      });
+      throw new BadRequestException('验证码无效');
     }
 
     // 检查邮箱是否已存在
@@ -409,30 +470,40 @@ export class AuthService {
 
     // 创建用户（邮箱已验证）
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await this.prisma.user.create({
-      data: {
-        username,
-        email,
-        password: hashedPassword,
-        emailVerified: true,
-      },
-      select: {
-        id: true,
-        username: true,
-        email: true,
-        isAdmin: true,
-        avatar: true,
-        emailVerified: true,
-      },
+    const user = await this.prisma.$transaction(async (tx) => {
+      const consumed = await tx.verificationCode.updateMany({
+        where: { id: verificationCode.id, used: false, attempts: { lt: 5 } },
+        data: { used: true },
+      });
+      if (consumed.count !== 1) {
+        throw new BadRequestException('验证码已被使用');
+      }
+
+      return tx.user.create({
+        data: {
+          username,
+          email,
+          password: hashedPassword,
+          emailVerified: true,
+        },
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          isAdmin: true,
+          avatar: true,
+          emailVerified: true,
+          tokenVersion: true,
+        },
+      });
     });
 
-    // 标记验证码为已使用
-    await this.prisma.verificationCode.update({
-      where: { id: verificationCode.id },
-      data: { used: true },
-    });
-
-    const tokens = await this.generateTokens(user.id, user.email, user.isAdmin);
+    const tokens = await this.generateTokens(
+      user.id,
+      user.email,
+      user.isAdmin,
+      user.tokenVersion,
+    );
 
     // 保存刷新令牌
     await this.saveRefreshToken(user.id, tokens.refreshToken);

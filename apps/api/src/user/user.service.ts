@@ -361,7 +361,10 @@ export class UserService {
 
     const updatedUser = await this.prisma.user.update({
       where: { id },
-      data: { isAdmin: !user.isAdmin },
+      data: {
+        isAdmin: !user.isAdmin,
+        tokenVersion: { increment: 1 },
+      },
       select: {
         id: true,
         username: true,
