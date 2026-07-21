@@ -1,4 +1,51 @@
-import { IsString, IsOptional, IsBoolean, IsArray } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsArray,
+  IsBoolean,
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
+
+export class BlogListQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit = 10;
+
+  @IsOptional()
+  @IsString()
+  search?: string;
+}
+
+export class SearchPostsQueryDto extends BlogListQueryDto {
+  @IsOptional()
+  @IsString()
+  q?: string;
+
+  @IsOptional()
+  @IsString()
+  tag?: string;
+
+  @IsOptional()
+  @IsIn(['createdAt', 'views', 'publishedAt'])
+  sortBy: 'createdAt' | 'views' | 'publishedAt' = 'createdAt';
+
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  sortOrder: 'asc' | 'desc' = 'desc';
+}
 
 export class CreatePostDto {
   @IsString()

@@ -12,6 +12,7 @@ import {
   UpdateTagDto,
 } from './dto/blog.dto';
 import { MediaUsageService } from '../media/media-usage.service';
+import type { Prisma } from '@prisma/client';
 
 @Injectable()
 export class BlogService {
@@ -37,53 +38,40 @@ export class BlogService {
     // 生成唯一的 slug
     const slug = await this.generateUniqueSlug(postData.title);
 
-    // 创建文章
-    const post = await this.prisma.post.create({
-      data: {
-        ...postData,
-        slug,
-        authorId,
-        published: published || false,
-        publishedAt: published ? new Date() : null,
-      },
-      include: {
-        author: {
-          select: {
-            id: true,
-            username: true,
-            avatar: true,
-          },
+    const post = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.post.create({
+        data: {
+          ...postData,
+          slug,
+          authorId,
+          published: published ?? false,
+          publishedAt: published ? new Date() : null,
         },
-        postTags: {
-          include: {
-            tag: true,
-          },
-        },
-      },
+      });
+
+      if (tags && tags.length > 0) {
+        await this.handlePostTags(created.id, tags, tx);
+      }
+      if (postData.coverImage) {
+        await this.mediaUsageService.syncDirectUsage(
+          'post',
+          created.id,
+          'coverImage',
+          postData.coverImage,
+          tx,
+        );
+      }
+      if (postData.content) {
+        await this.mediaUsageService.syncContentUsage(
+          'post',
+          created.id,
+          'content',
+          postData.content,
+          tx,
+        );
+      }
+      return created;
     });
-
-    // 处理标签
-    if (tags && tags.length > 0) {
-      await this.handlePostTags(post.id, tags);
-    }
-
-    // 同步媒体使用记录
-    if (postData.coverImage) {
-      await this.mediaUsageService.syncDirectUsage(
-        'post',
-        post.id,
-        'coverImage',
-        postData.coverImage,
-      );
-    }
-    if (postData.content) {
-      await this.mediaUsageService.syncContentUsage(
-        'post',
-        post.id,
-        'content',
-        postData.content,
-      );
-    }
 
     return this.findOnePost(post.id);
   }
@@ -300,13 +288,35 @@ export class BlogService {
     return post;
   }
 
+  async findPublishedPostById(id: string) {
+    const post = await this.prisma.post.findFirst({
+      where: { id, published: true },
+      include: {
+        author: { select: { id: true, username: true, avatar: true } },
+        postTags: { include: { tag: true } },
+        _count: { select: { postComments: true, postLikes: true } },
+      },
+    });
+
+    if (!post) {
+      throw new NotFoundException('文章不存在');
+    }
+
+    await this.prisma.post.update({
+      where: { id: post.id },
+      data: { views: { increment: 1 } },
+    });
+
+    return post;
+  }
+
   async findOnePostForEdit(id: string) {
     return this.findOnePost(id, false);
   }
 
   async findPostBySlug(slug: string) {
-    const post = await this.prisma.post.findUnique({
-      where: { slug },
+    const post = await this.prisma.post.findFirst({
+      where: { slug, published: true },
       include: {
         author: {
           select: {
@@ -396,34 +406,30 @@ export class BlogService {
       }
     }
 
-    // 更新文章
-    await this.prisma.post.update({
-      where: { id },
-      data: dataToUpdate,
+    await this.prisma.$transaction(async (tx) => {
+      await tx.post.update({ where: { id }, data: dataToUpdate });
+      if (tags) {
+        await this.handlePostTags(id, tags, tx);
+      }
+      if ('coverImage' in updateData) {
+        await this.mediaUsageService.syncDirectUsage(
+          'post',
+          id,
+          'coverImage',
+          updateData.coverImage,
+          tx,
+        );
+      }
+      if ('content' in updateData) {
+        await this.mediaUsageService.syncContentUsage(
+          'post',
+          id,
+          'content',
+          updateData.content,
+          tx,
+        );
+      }
     });
-
-    // 处理标签
-    if (tags) {
-      await this.handlePostTags(id, tags);
-    }
-
-    // 同步媒体使用记录
-    if ('coverImage' in updateData) {
-      await this.mediaUsageService.syncDirectUsage(
-        'post',
-        id,
-        'coverImage',
-        updateData.coverImage,
-      );
-    }
-    if ('content' in updateData) {
-      await this.mediaUsageService.syncContentUsage(
-        'post',
-        id,
-        'content',
-        updateData.content,
-      );
-    }
 
     return this.findOnePost(id, false);
   }
@@ -455,12 +461,9 @@ export class BlogService {
       throw new ForbiddenException('无权限删除此文章');
     }
 
-    // 删除文章的媒体使用记录
-    await this.mediaUsageService.deleteEntityUsages('post', id);
-
-    // 直接删除文章（级联删除相关的标签关联、评论、点赞等）
-    await this.prisma.post.delete({
-      where: { id },
+    await this.prisma.$transaction(async (tx) => {
+      await this.mediaUsageService.deleteEntityUsages('post', id, tx);
+      await tx.post.delete({ where: { id } });
     });
 
     return { message: '文章删除成功' };
@@ -496,7 +499,7 @@ export class BlogService {
       include: {
         _count: {
           select: {
-            postTags: true,
+            postTags: { where: { post: { published: true } } },
           },
         },
       },
@@ -720,22 +723,26 @@ export class BlogService {
     return slug;
   }
 
-  private async handlePostTags(postId: string, tagNames: string[]) {
+  private async handlePostTags(
+    postId: string,
+    tagNames: string[],
+    client: Prisma.TransactionClient | PrismaService = this.prisma,
+  ) {
     // 删除现有的标签关联
-    await this.prisma.postTag.deleteMany({
+    await client.postTag.deleteMany({
       where: { postId },
     });
 
     // 创建或查找标签
     const tags = await Promise.all(
       tagNames.map(async (name) => {
-        let tag = await this.prisma.tag.findUnique({
+        let tag = await client.tag.findUnique({
           where: { name },
         });
 
         if (!tag) {
           const uniqueSlug = await this.generateUniqueTagSlug(name);
-          tag = await this.prisma.tag.create({
+          tag = await client.tag.create({
             data: {
               name,
               slug: uniqueSlug,
@@ -750,7 +757,7 @@ export class BlogService {
     // 创建标签关联
     await Promise.all(
       tags.map((tag) =>
-        this.prisma.postTag.create({
+        client.postTag.create({
           data: {
             postId,
             tagId: tag.id,
@@ -762,8 +769,8 @@ export class BlogService {
 
   // 点赞相关方法
   async toggleLike(postId: string, userId: string) {
-    const post = await this.prisma.post.findUnique({
-      where: { id: postId },
+    const post = await this.prisma.post.findFirst({
+      where: { id: postId, published: true },
     });
 
     if (!post) {
@@ -802,8 +809,8 @@ export class BlogService {
   }
 
   async getLikeStatus(postId: string, userId: string | null) {
-    const post = await this.prisma.post.findUnique({
-      where: { id: postId },
+    const post = await this.prisma.post.findFirst({
+      where: { id: postId, published: true },
     });
 
     if (!post) {
@@ -832,10 +839,10 @@ export class BlogService {
 
   // 收藏相关方法
   async toggleFavorite(postId: string, userId: string) {
-    const post = await this.prisma.post.findUnique({
-      where: { id: postId },
+    const post = await this.prisma.post.findFirst({
+      where: { id: postId, published: true },
+      select: { id: true },
     });
-
     if (!post) {
       throw new NotFoundException('文章不存在');
     }
@@ -868,6 +875,14 @@ export class BlogService {
   }
 
   async getFavoriteStatus(postId: string, userId: string | null) {
+    const post = await this.prisma.post.findFirst({
+      where: { id: postId, published: true },
+      select: { id: true },
+    });
+    if (!post) {
+      throw new NotFoundException('文章不存在');
+    }
+
     if (!userId) {
       return { favorited: false };
     }
@@ -889,7 +904,7 @@ export class BlogService {
 
     const [favorites, total] = await Promise.all([
       this.prisma.favorite.findMany({
-        where: { userId },
+        where: { userId, post: { published: true } },
         skip,
         take: limit,
         include: {
@@ -918,7 +933,9 @@ export class BlogService {
         },
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.favorite.count({ where: { userId } }),
+      this.prisma.favorite.count({
+        where: { userId, post: { published: true } },
+      }),
     ]);
 
     return {
@@ -940,7 +957,7 @@ export class BlogService {
         this.prisma.comment.count({
           where: { isApproved: true, deletedAt: null },
         }),
-        this.prisma.like.count(),
+        this.prisma.like.count({ where: { post: { published: true } } }),
         this.prisma.post.aggregate({
           _sum: { views: true },
           where: { published: true },

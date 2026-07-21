@@ -24,6 +24,8 @@ import {
   UpdatePostDto,
   CreateTagDto,
   UpdateTagDto,
+  BlogListQueryDto,
+  SearchPostsQueryDto,
 } from './dto/blog.dto';
 import { ApiResponseDto } from '../common/dto/api-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -49,28 +51,15 @@ export class BlogController {
     example: 10,
   })
   @ApiQuery({ name: 'search', required: false, description: '搜索关键词' })
-  @ApiQuery({ name: 'published', required: false, description: '是否已发布' })
   @ApiResponse({ status: 200, description: '获取成功' })
-  async findAll(@Query() query: any) {
-    try {
-      const { page = 1, limit = 10, search, published } = query;
-      const pageNum =
-        typeof page === 'string' ? parseInt(page, 10) : Number(page) || 1;
-      const limitNum =
-        typeof limit === 'string' ? parseInt(limit, 10) : Number(limit) || 10;
-      const isPublished =
-        published === 'true' ? true : published === 'false' ? false : undefined;
-      const posts = await this.blogService.findAllPosts(
-        pageNum,
-        limitNum,
-        search,
-        isPublished,
-      );
-      return ApiResponseDto.success(posts, '获取文章列表成功');
-    } catch (error) {
-      console.error('Controller error:', error);
-      throw error;
-    }
+  async findAll(@Query() query: BlogListQueryDto) {
+    const posts = await this.blogService.findAllPosts(
+      query.page,
+      query.limit,
+      query.search,
+      true,
+    );
+    return ApiResponseDto.success(posts, '获取文章列表成功');
   }
 
   @Get('search')
@@ -93,36 +82,17 @@ export class BlogController {
     enum: ['asc', 'desc'],
   })
   @ApiResponse({ status: 200, description: '搜索成功' })
-  async search(@Query() query: any) {
-    try {
-      const {
-        q,
-        page = 1,
-        limit = 20,
-        tag,
-        sortBy = 'createdAt',
-        sortOrder = 'desc',
-      } = query;
+  async search(@Query() query: SearchPostsQueryDto) {
+    const results = await this.blogService.searchPosts({
+      query: query.q,
+      page: query.page,
+      limit: query.limit,
+      tag: query.tag,
+      sortBy: query.sortBy,
+      sortOrder: query.sortOrder,
+    });
 
-      const pageNum =
-        typeof page === 'string' ? parseInt(page, 10) : Number(page) || 1;
-      const limitNum =
-        typeof limit === 'string' ? parseInt(limit, 10) : Number(limit) || 20;
-
-      const results = await this.blogService.searchPosts({
-        query: q,
-        page: pageNum,
-        limit: limitNum,
-        tag,
-        sortBy,
-        sortOrder,
-      });
-
-      return ApiResponseDto.success(results, '搜索成功');
-    } catch (error) {
-      console.error('Search error:', error);
-      throw error;
-    }
+    return ApiResponseDto.success(results, '搜索成功');
   }
 
   @Get('tags')
@@ -184,7 +154,7 @@ export class BlogController {
   @ApiResponse({ status: 200, description: '获取成功' })
   @ApiResponse({ status: 404, description: '文章不存在' })
   async findOne(@Param('id') id: string) {
-    const post = await this.blogService.findOnePost(id);
+    const post = await this.blogService.findPublishedPostById(id);
     return ApiResponseDto.success(post, '获取文章详情成功');
   }
 
