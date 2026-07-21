@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../common/prisma/prisma.service';
+import type { Prisma } from '@prisma/client';
+
+type DatabaseClient = PrismaService | Prisma.TransactionClient;
 
 export type EntityType = 'post' | 'user' | 'site_config';
 export type FieldName =
@@ -40,8 +43,8 @@ export class MediaUsageService {
   /**
    * 根据 URL 查找对应的媒体 ID
    */
-  async findMediaByUrl(url: string) {
-    return this.prisma.media.findFirst({
+  async findMediaByUrl(url: string, client: DatabaseClient = this.prisma) {
+    return client.media.findFirst({
       where: { url },
       select: { id: true },
     });
@@ -55,9 +58,10 @@ export class MediaUsageService {
     entityId: string,
     fieldName: FieldName,
     mediaUrl: string | null | undefined,
+    client: DatabaseClient = this.prisma,
   ) {
     // 先删除该字段的旧记录
-    await this.prisma.mediaUsage.deleteMany({
+    await client.mediaUsage.deleteMany({
       where: {
         entityType,
         entityId,
@@ -67,9 +71,9 @@ export class MediaUsageService {
 
     // 如果有新的 URL，创建使用记录
     if (mediaUrl) {
-      const media = await this.findMediaByUrl(mediaUrl);
+      const media = await this.findMediaByUrl(mediaUrl, client);
       if (media) {
-        await this.prisma.mediaUsage.create({
+        await client.mediaUsage.create({
           data: {
             mediaId: media.id,
             entityType,
@@ -90,9 +94,10 @@ export class MediaUsageService {
     entityId: string,
     fieldName: FieldName,
     content: string | null | undefined,
+    client: DatabaseClient = this.prisma,
   ) {
     // 先删除该字段的旧记录
-    await this.prisma.mediaUsage.deleteMany({
+    await client.mediaUsage.deleteMany({
       where: {
         entityType,
         entityId,
@@ -103,7 +108,7 @@ export class MediaUsageService {
     if (!content) return;
 
     // 获取所有媒体 URL
-    const allMedia = await this.prisma.media.findMany({
+    const allMedia = await client.media.findMany({
       select: { id: true, url: true },
     });
 
@@ -112,7 +117,7 @@ export class MediaUsageService {
 
     // 批量创建使用记录
     if (usedMedia.length > 0) {
-      await this.prisma.mediaUsage.createMany({
+      await client.mediaUsage.createMany({
         data: usedMedia.map((m) => ({
           mediaId: m.id,
           entityType,
@@ -127,8 +132,12 @@ export class MediaUsageService {
   /**
    * 删除实体的所有媒体使用记录
    */
-  async deleteEntityUsages(entityType: EntityType, entityId: string) {
-    await this.prisma.mediaUsage.deleteMany({
+  async deleteEntityUsages(
+    entityType: EntityType,
+    entityId: string,
+    client: DatabaseClient = this.prisma,
+  ) {
+    await client.mediaUsage.deleteMany({
       where: {
         entityType,
         entityId,

@@ -244,12 +244,27 @@ export class MediaService {
     });
   }
 
-  async update(id: string, data: { tags?: string[] }) {
+  async findAccessibleMedia(id: string, userId?: string, isAdmin = false) {
     const media = await this.prisma.media.findUnique({ where: { id } });
 
     if (!media) {
       throw new NotFoundException('媒体文件不存在');
     }
+
+    if (!isAdmin && media.uploaderId !== userId) {
+      throw new ForbiddenException('您没有权限访问此文件');
+    }
+
+    return media;
+  }
+
+  async update(
+    id: string,
+    data: { tags?: string[] },
+    userId?: string,
+    isAdmin = false,
+  ) {
+    await this.findAccessibleMedia(id, userId, isAdmin);
 
     return this.prisma.media.update({
       where: { id },

@@ -26,6 +26,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { MediaService } from './media.service';
 import { Request as ExpressRequest } from 'express';
+import type { FileFilterCallback } from 'multer';
 
 interface AuthenticatedRequest extends ExpressRequest {
   user?: { id: string; isAdmin?: boolean };
@@ -84,7 +85,11 @@ const storage = diskStorage({
 
 // File filter for allowed types
 
-const fileFilter = (_req: any, file: Express.Multer.File, callback: any) => {
+const fileFilter = (
+  _req: ExpressRequest,
+  file: Express.Multer.File,
+  callback: FileFilterCallback,
+) => {
   const allowedMimes = [
     'image/jpeg',
     'image/png',
@@ -107,7 +112,7 @@ const fileFilter = (_req: any, file: Express.Multer.File, callback: any) => {
   if (allowedMimes.includes(file.mimetype)) {
     callback(null, true);
   } else {
-    callback(new Error('不支持的文件类型'), false);
+    callback(new Error('不支持的文件类型'));
   }
 };
 
@@ -314,8 +319,14 @@ export class MediaController {
   async update(
     @Param('id') id: string,
     @Body() updateData: { tags?: string[] },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const media = await this.mediaService.update(id, updateData);
+    const media = await this.mediaService.update(
+      id,
+      updateData,
+      req.user?.id,
+      req.user?.isAdmin === true,
+    );
     return {
       success: true,
       data: media,
@@ -338,35 +349,16 @@ export class MediaController {
         HttpStatus.UNAUTHORIZED,
       );
     }
-    try {
-      await this.mediaService.delete(
-        id,
-        force === 'true',
-        req.user.id,
-        req.user.isAdmin,
-      );
-      return {
-        success: true,
-        message: '删除成功',
-      };
-    } catch (error: any) {
-      // 处理文件被引用的情况，返回详细的引用信息
-      if (error.status === HttpStatus.CONFLICT) {
-        const response = error.getResponse();
-        const responseData =
-          typeof response === 'object' ? response : { message: response };
-        throw new HttpException(
-          {
-            success: false,
-            message: responseData.message || '该媒体文件正在被使用，无法删除',
-            references: responseData.references || [],
-            usages: responseData.usages || [],
-          },
-          HttpStatus.CONFLICT,
-        );
-      }
-      throw error;
-    }
+    await this.mediaService.delete(
+      id,
+      force === 'true',
+      req.user.id,
+      req.user.isAdmin,
+    );
+    return {
+      success: true,
+      message: '删除成功',
+    };
   }
 
   @Post('batch/delete')
@@ -390,42 +382,31 @@ export class MediaController {
         message: '请选择要删除的文件',
       };
     }
-    try {
-      await this.mediaService.deleteMany(
-        ids,
-        body.force === true,
-        req.user.id,
-        req.user.isAdmin,
-      );
-      return {
-        success: true,
-        message: `成功删除 ${ids.length} 个文件`,
-      };
-    } catch (error: any) {
-      // 处理文件被引用的情况，返回详细的引用信息
-      if (error.status === HttpStatus.CONFLICT) {
-        const response = error.getResponse();
-        const responseData =
-          typeof response === 'object' ? response : { message: response };
-        throw new HttpException(
-          {
-            success: false,
-            message: responseData.message || '部分媒体文件正在被使用，无法删除',
-            referencedMedia: responseData.referencedMedia || [],
-          },
-          HttpStatus.CONFLICT,
-        );
-      }
-      throw error;
-    }
+    await this.mediaService.deleteMany(
+      ids,
+      body.force === true,
+      req.user.id,
+      req.user.isAdmin,
+    );
+    return {
+      success: true,
+      message: `成功删除 ${ids.length} 个文件`,
+    };
   }
 
   @Get(':id/references')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: '检查媒体引用' })
-  async checkReferences(@Param('id') id: string) {
-    const media = await this.mediaService.findOne(id);
+  async checkReferences(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const media = await this.mediaService.findAccessibleMedia(
+      id,
+      req.user?.id,
+      req.user?.isAdmin === true,
+    );
     const references = await this.mediaService.checkReferences(media.url);
     return {
       success: true,
