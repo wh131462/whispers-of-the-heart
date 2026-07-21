@@ -1,7 +1,7 @@
 'use client';
 
 import type React from 'react';
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import { cn } from '@/lib/utils';
 
 export type FallingPatternProps = React.ComponentProps<'div'> & {
@@ -11,7 +11,7 @@ export type FallingPatternProps = React.ComponentProps<'div'> & {
   backgroundColor?: string;
   /** Animation duration in seconds (default: 150) */
   duration?: number;
-  /** Blur intensity for the overlay effect (default: '1em') */
+  /** Softening intensity for the overlay sampling edge (default: '1em') */
   blurIntensity?: string;
   /** Pattern density - affects spacing (default: 1) */
   density?: number;
@@ -168,25 +168,46 @@ export function FallingPattern({
   className,
 }: FallingPatternProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [isVisible, setIsVisible] = useState(true);
   const rawId = useId();
   const prefix = `fp-${rawId.replace(/[^a-zA-Z0-9_-]/g, '')}`;
 
   useEffect(() => {
     const el = containerRef.current;
-    if (!el || typeof IntersectionObserver === 'undefined') return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setIsVisible(entry.isIntersecting),
-      { threshold: 0 }
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
+    if (!el) return;
+
+    let isIntersecting = true;
+    const updatePlayState = () => {
+      const shouldRun =
+        isIntersecting && document.visibilityState === 'visible';
+      el.style.setProperty('--fp-play-state', shouldRun ? 'running' : 'paused');
+    };
+
+    const observer =
+      typeof IntersectionObserver === 'undefined'
+        ? null
+        : new IntersectionObserver(
+            ([entry]) => {
+              isIntersecting = entry.isIntersecting;
+              updatePlayState();
+            },
+            { threshold: 0 }
+          );
+
+    observer?.observe(el);
+    document.addEventListener('visibilitychange', updatePlayState);
+    updatePlayState();
+
+    return () => {
+      observer?.disconnect();
+      document.removeEventListener('visibilitychange', updatePlayState);
+    };
   }, []);
 
   const keyframeRules = ROWS.map(
     (row, i) =>
       `@keyframes ${prefix}-r${i} { from { transform: translate3d(0,0,0); } to { transform: translate3d(0,${row.sizeY}px,0); } }`
   ).join('\n');
+  const maskFeather = `clamp(0px, calc(${blurIntensity} * 0.08), 1.5px)`;
 
   return (
     <div
@@ -197,7 +218,10 @@ export function FallingPattern({
         width: '100%',
         overflow: 'hidden',
         isolation: 'isolate',
+        contain: 'layout paint',
+        pointerEvents: 'none',
       }}
+      aria-hidden="true"
     >
       <style>{`${keyframeRules}
 @media (prefers-reduced-motion: reduce) {
@@ -224,27 +248,28 @@ export function FallingPattern({
               left: 0,
               right: 0,
               top: `-${row.sizeY}px`,
-              bottom: `-${row.sizeY}px`,
+              bottom: 0,
               zIndex: 0,
               backgroundImage: row.buildGradients(color),
               backgroundSize: sizeTriplet,
               backgroundPosition: row.bgPosition,
               backgroundRepeat: 'repeat',
+              filter: `blur(${blurIntensity})`,
               animation: `${prefix}-r${i} ${duration / row.cycles}s linear infinite`,
-              animationPlayState: isVisible ? 'running' : 'paused',
+              animationPlayState: 'var(--fp-play-state, running)',
+              willChange: 'transform',
+              backfaceVisibility: 'hidden',
             }}
           />
         );
       })}
 
       <div
-        className={cn('dark:brightness-[600]')}
         style={{
           position: 'absolute',
           inset: 0,
           zIndex: 1,
-          backdropFilter: `blur(${blurIntensity})`,
-          backgroundImage: `radial-gradient(circle at 50% 50%, transparent 0, transparent 2px, ${backgroundColor} 2px)`,
+          backgroundImage: `radial-gradient(circle at 50% 50%, transparent 0, transparent calc(2px - ${maskFeather}), ${backgroundColor} calc(2px + ${maskFeather}))`,
           backgroundSize: `${8 * density}px ${8 * density}px`,
         }}
       />
