@@ -2,7 +2,29 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import type { LanguageModel } from 'ai';
+import { jsonrepair } from 'jsonrepair';
 import { AIConfig, getFullAIConfig, PROVIDER_DEFAULTS } from './types';
+
+/**
+ * Some OpenAI-compatible providers occasionally emit function arguments with
+ * unescaped quotes (most often inside generated HTML). Repair the completed
+ * argument document only after all deltas have been joined; repairing partial
+ * deltas would change valid content at chunk boundaries.
+ */
+function normalizeToolCallArguments(argumentsText: string): string | null {
+  try {
+    JSON.parse(argumentsText);
+    return argumentsText;
+  } catch {
+    try {
+      const repaired = jsonrepair(argumentsText);
+      JSON.parse(repaired);
+      return repaired;
+    } catch {
+      return null;
+    }
+  }
+}
 
 /**
  * 缓冲流式响应并合并 tool call arguments
@@ -171,15 +193,23 @@ async function bufferAndCombineToolCallStream(
       }))
     );
 
-    // 验证合并后的 arguments 是否为有效 JSON
+    // 验证并修复合并后的 arguments。部分兼容服务会在 HTML 文本中输出
+    // 未转义的双引号；若继续下发，AI SDK 无法执行工具调用。
     for (const idx of toolCallIndices) {
-      try {
-        JSON.parse(toolCallArgs[idx] || '');
-      } catch {
+      const originalArguments = toolCallArgs[idx] || '';
+      const normalizedArguments = normalizeToolCallArguments(originalArguments);
+
+      if (normalizedArguments === null) {
         console.error(
-          `[AI-Buffer] Tool call ${idx} arguments is not valid JSON:`,
-          (toolCallArgs[idx] || '').substring(0, 200)
+          `[AI-Buffer] Tool call ${idx} arguments could not be repaired; returning original stream:`,
+          originalArguments.substring(0, 200)
         );
+        return createFallbackResponse();
+      }
+
+      if (normalizedArguments !== originalArguments) {
+        console.warn(`[AI-Buffer] Repaired tool call ${idx} arguments`);
+        toolCallArgs[idx] = normalizedArguments;
       }
     }
 
