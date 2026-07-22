@@ -366,6 +366,19 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
     const uploadFn = editor.uploadFile;
 
     const handlePaste = async (e: ClipboardEvent) => {
+      const target = e.target;
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement
+      ) {
+        return;
+      }
+
+      const editorElement = wrapperEl.querySelector('.bn-editor');
+      if (!(target instanceof Node) || !editorElement?.contains(target)) {
+        return;
+      }
+
       const cd = e.clipboardData;
       if (!cd) return;
 
