@@ -17,6 +17,7 @@ import {
   useBlockNoteEditor,
   useComponentsContext,
   useEditorState,
+  useExtensionState,
   BlockTypeSelect,
   BasicTextStyleButton,
   TextAlignButton,
@@ -173,6 +174,38 @@ const CustomFormattingToolbar: React.FC<{
       )}
     </FormattingToolbar>
   );
+};
+
+/**
+ * BlockNote XL AI uses document scroll events to detect whether the user has
+ * interrupted its automatic follow scrolling. The application's global smooth
+ * scrolling turns a single scrollIntoView call into multiple scroll events,
+ * which makes the extension disable auto-follow before generation finishes.
+ */
+const AIScrollBehaviorController: React.FC = () => {
+  const editor = useBlockNoteEditor();
+  const isAIMenuOpen = useExtensionState(AIExtension, {
+    editor,
+    selector: state => state.aiMenuState !== 'closed',
+  });
+
+  useEffect(() => {
+    if (!isAIMenuOpen) return;
+
+    const root = document.documentElement;
+    const previousScrollBehavior = root.style.scrollBehavior;
+    root.style.scrollBehavior = 'auto';
+
+    return () => {
+      if (previousScrollBehavior) {
+        root.style.scrollBehavior = previousScrollBehavior;
+      } else {
+        root.style.removeProperty('scroll-behavior');
+      }
+    };
+  }, [isAIMenuOpen]);
+
+  return null;
 };
 
 export interface BlockNoteEditorProps {
@@ -653,7 +686,19 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
         formattingToolbar={false}
         data-theming-css-variables-demo
       >
-        {isAIEnabled && <AIMenuController />}
+        {isAIEnabled && (
+          <>
+            <AIScrollBehaviorController />
+            <AIMenuController
+              floatingUIOptions={{
+                elementProps: {
+                  className: 'blocknote-ai-menu-popover',
+                  style: { zIndex: 100 },
+                },
+              }}
+            />
+          </>
+        )}
         <SuggestionMenuController
           triggerCharacter="/"
           getItems={getCustomSlashMenuItems}
@@ -679,6 +724,22 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
         .blocknote-wrapper .bn-container {
           border-radius: 0.5rem;
           overflow: visible;
+        }
+
+        .blocknote-ai-menu-popover {
+          position: fixed !important;
+          top: auto !important;
+          right: auto !important;
+          bottom: max(1rem, env(safe-area-inset-bottom)) !important;
+          left: 50% !important;
+          width: min(calc(100vw - 2rem), 52rem) !important;
+          max-height: min(60vh, 32rem);
+          overflow-y: auto;
+          transform: translateX(-50%) !important;
+        }
+
+        .blocknote-ai-menu-popover > * {
+          width: 100%;
         }
 
         .blocknote-wrapper .bn-editor {

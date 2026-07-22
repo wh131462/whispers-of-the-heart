@@ -4,6 +4,16 @@
 
 ## 📝 会话日志
 
+### 2026-07-22 - BlockNote AI 长内容续写滚动修复
+
+**问题**：长文章选区触发 AI 编辑后，AI 扩写会持续把锚点移动到最后变更块；项目根节点的全局平滑滚动与 BlockNote AI 的自动定位互相干扰。同时 AI 菜单按文档块定位且编辑器容器允许溢出，长内容下菜单会离开可视区并参与页面高度计算，表现为滚动条异常变长、无法找到“接受/拒绝”。
+
+**实施**：AI 会话开启期间临时将根节点滚动行为切换为 `auto`，关闭后恢复；将 AI 菜单固定到视口底部并限制最大高度，使输入、生成、审阅阶段的操作始终可见且不再撑高文档。
+
+**修改文件**：`packages/ui/src/components/editor/BlockNoteEditor.tsx`
+
+**验证**：UI 类型检查、目标 ESLint、UI 包构建和 Web 生产构建通过；本地 80 段长文浏览器验证中，菜单滚动前后均固定于视口底部，页面高度保持稳定，关闭后平滑滚动恢复。实际模型请求被当前本地模型配置以 `Thinking mode does not support this tool_choice` 拒绝，未覆盖成功生成后的“接受/拒绝”端到端点击，该错误与本次布局修复独立。
+
 ### 2026-07-22 - Codex 项目初始化适配
 
 新增仓库级 `AGENTS.md`，将现有 Claude 协作约束适配为 Codex 可直接执行的会话初始化流程。Claude 与 Codex 共同复用 `.ai/`、`openspec/` 和 `.claude/skills/`，不复制项目技能，避免双份配置漂移；补充 Codex 工具能力映射、真实网络行为约束、文档维护和规则优先级。同步更新 `.ai/README.md` 的助手入口说明。
@@ -32,15 +42,11 @@
 
 新增 `/chat`、OpenAI/Anthropic 前端适配器、SSE 流式解析、服务器默认 Provider、登录配额和博客知识检索。关键位置：`apps/web/src/pages/chat/`、`apps/web/src/stores/useAiChatStore.ts`、`apps/api/src/ai-chat/`、`packages/utils/src/ai-chat/`。默认配置不持久化，知识片段使用隔离标签注入。待完成端到端手测与 OpenSpec 归档。
 
-### 2026-06-12 - sitemap.xml 与静态 OG meta
-
-新增根路径 `/sitemap.xml`，只输出真实公开路由与已发布文章 slug；加入 1 小时缓存、W3C Datetime 和 XML 转义。前端补充站点级 canonical、OpenGraph、Twitter Card。关键位置：`apps/api/src/sitemap/`、`apps/web/index.html`。待归档。
-
 ## 🎯 当前上下文（最近 3 次）
 
-1. **Codex 初始化适配**：新增 `AGENTS.md`，Codex 与 Claude 共享 `.ai/`、OpenSpec 和项目技能源。
-2. **FallingPattern 异常修复**：代码与浏览器回归完成，待用户跨设备观察实际效果。
-3. **全仓逻辑整改**：高风险逻辑已集中修复，部署前执行数据库迁移。
+1. **BlockNote AI 长文滚动修复**：AI 菜单固定于视口底部，会话期间禁用根节点平滑滚动；静态与本地浏览器回归完成。
+2. **Codex 初始化适配**：新增 `AGENTS.md`，Codex 与 Claude 共享 `.ai/`、OpenSpec 和项目技能源。
+3. **FallingPattern 异常修复**：代码与浏览器回归完成，待用户跨设备观察实际效果。
 
 ## 💡 重要发现
 
@@ -56,14 +62,15 @@
 
 ### 常见问题及解决方案
 
-| 问题                               | 解决方案                                                                                   |
-| ---------------------------------- | ------------------------------------------------------------------------------------------ |
-| Zustand rehydration 竞态           | `_hasHydrated` + `queueMicrotask`                                                          |
-| 可选认证不解析 token               | 使用 `OptionalJwtAuthGuard`                                                                |
-| 评论点赞 N+1                       | 汇总评论 ID 后单次 `{ in: ids }` 查询                                                      |
-| BlockNote 自定义工具栏丢失默认按钮 | 显式列出全部按钮                                                                           |
-| 动态背景偶发闪烁                   | 避免全屏 `backdrop-filter` 依赖运动图层；静态滤镜纹理 + transform 合成 + paint containment |
-| 装饰动画离屏仍耗资源               | `IntersectionObserver` 与 Page Visibility 共同控制 CSS 播放变量                            |
+| 问题                                 | 解决方案                                                                                   |
+| ------------------------------------ | ------------------------------------------------------------------------------------------ |
+| Zustand rehydration 竞态             | `_hasHydrated` + `queueMicrotask`                                                          |
+| 可选认证不解析 token                 | 使用 `OptionalJwtAuthGuard`                                                                |
+| 评论点赞 N+1                         | 汇总评论 ID 后单次 `{ in: ids }` 查询                                                      |
+| BlockNote 自定义工具栏丢失默认按钮   | 显式列出全部按钮                                                                           |
+| BlockNote AI 长内容菜单离屏/撑高页面 | AI 会话期间关闭根节点平滑滚动，并将 AI 菜单固定于视口底部                                  |
+| 动态背景偶发闪烁                     | 避免全屏 `backdrop-filter` 依赖运动图层；静态滤镜纹理 + transform 合成 + paint containment |
+| 装饰动画离屏仍耗资源                 | `IntersectionObserver` 与 Page Visibility 共同控制 CSS 播放变量                            |
 
 ## 🔗 关键代码位置
 
@@ -75,6 +82,7 @@
 | 博客          | `apps/api/src/blog/`                                        |
 | 评论          | `apps/api/src/comment/`                                     |
 | AI 对话       | `apps/api/src/ai-chat/`、`apps/web/src/pages/chat/`         |
+| 富文本编辑器  | `packages/ui/src/components/editor/BlockNoteEditor.tsx`     |
 | AI 协作入口   | `CLAUDE.md`、`AGENTS.md`、`.ai/`                            |
 | Prisma Schema | `apps/api/prisma/schema.prisma`                             |
 | UI 组件库     | `packages/ui/src/components/`                               |
