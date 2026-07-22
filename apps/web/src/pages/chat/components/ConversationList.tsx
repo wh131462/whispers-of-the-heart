@@ -98,7 +98,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
   return (
     <div
       className={cn(
-        'flex flex-col h-full bg-gray-50 dark:bg-gray-900/50',
+        'flex flex-col h-full bg-stone-50/80 dark:bg-transparent',
         className
       )}
       onClick={() => setMenuOpenId(null)}
@@ -111,10 +111,10 @@ export const ConversationList: React.FC<ConversationListProps> = ({
           }}
           className={cn(
             'w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl',
-            'bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700',
-            'text-gray-700 dark:text-gray-200 text-sm font-medium',
-            'hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors',
-            'shadow-sm'
+            'bg-white dark:bg-[#211d1a] border border-stone-200 dark:border-white/[0.08]',
+            'text-stone-700 dark:text-stone-200 text-sm font-medium',
+            'hover:bg-stone-50 dark:hover:bg-[#29231f] transition-all',
+            'shadow-sm dark:shadow-black/20'
           )}
         >
           <MessageSquarePlus className="w-4 h-4" />
@@ -124,14 +124,14 @@ export const ConversationList: React.FC<ConversationListProps> = ({
 
       <div className="flex-1 overflow-y-auto px-2 pb-3 space-y-3">
         {conversations.length === 0 && (
-          <div className="text-xs text-gray-400 dark:text-gray-500 text-center py-8">
+          <div className="text-xs text-stone-400 dark:text-stone-500 text-center py-8">
             暂无会话
           </div>
         )}
 
         {groups.map(group => (
           <div key={group.label}>
-            <div className="px-2 mb-1 text-[11px] font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
+            <div className="px-2 mb-1 text-[11px] font-medium uppercase tracking-[0.12em] text-stone-400 dark:text-stone-500">
               {group.label}
             </div>
             <div className="space-y-0.5">
@@ -144,8 +144,8 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                     className={cn(
                       'group relative flex items-center gap-1 rounded-lg pl-3 pr-1 py-2 cursor-pointer text-sm transition-colors',
                       active
-                        ? 'bg-primary/10 text-primary'
-                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-200/60 dark:hover:bg-gray-800'
+                        ? 'bg-stone-200/80 text-stone-900 dark:bg-[#302820] dark:text-amber-100 ring-1 ring-stone-300/50 dark:ring-amber-200/10'
+                        : 'text-stone-700 dark:text-stone-300 hover:bg-stone-200/60 dark:hover:bg-white/[0.055]'
                     )}
                     onClick={() => {
                       if (isEditing) return;
@@ -181,7 +181,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                             e.stopPropagation();
                             handleCancelEdit();
                           }}
-                          className="p-1 text-gray-500 hover:text-gray-700"
+                          className="p-1 text-stone-500 hover:text-stone-700 dark:hover:text-stone-200"
                           aria-label="取消"
                         >
                           <X className="w-3.5 h-3.5" />
@@ -198,7 +198,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                             );
                           }}
                           className={cn(
-                            'p-1 rounded text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-opacity',
+                            'p-1 rounded text-stone-400 hover:text-stone-700 dark:text-stone-500 dark:hover:text-stone-200 transition-opacity',
                             menuOpenId === conv.id
                               ? 'opacity-100'
                               : 'opacity-0 group-hover:opacity-100'
@@ -212,8 +212,8 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                           <div
                             className={cn(
                               'absolute right-1 top-full mt-1 z-10 min-w-[120px]',
-                              'rounded-lg border border-gray-200 dark:border-gray-700',
-                              'bg-white dark:bg-gray-900 shadow-lg py-1'
+                              'rounded-lg border border-stone-200 dark:border-white/[0.09]',
+                              'bg-white dark:bg-[#211d1a] shadow-lg dark:shadow-black/40 py-1'
                             )}
                             onClick={e => e.stopPropagation()}
                           >
@@ -221,7 +221,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
                               onClick={() =>
                                 handleStartEdit(conv.id, conv.title)
                               }
-                              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800"
+                              className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-stone-700 dark:text-stone-200 hover:bg-stone-100 dark:hover:bg-white/[0.06]"
                             >
                               <Pencil className="w-3.5 h-3.5" />
                               重命名

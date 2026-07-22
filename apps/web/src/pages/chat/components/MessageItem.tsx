@@ -49,10 +49,10 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
     >
       <div
         className={cn(
-          'shrink-0 w-8 h-8 rounded-full flex items-center justify-center',
+          'shrink-0 w-8 h-8 rounded-xl flex items-center justify-center border shadow-sm',
           isUser
-            ? 'bg-primary text-white'
-            : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200'
+            ? 'bg-stone-800 text-stone-50 border-stone-700 dark:bg-[#514437] dark:text-amber-50 dark:border-amber-100/10'
+            : 'bg-white text-stone-700 border-stone-200 dark:bg-[#211d1a] dark:text-amber-100/80 dark:border-white/[0.08]'
         )}
       >
         {isUser ? (
@@ -65,10 +65,10 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
       <div className={cn('flex-1 min-w-0', isUser ? 'text-right' : '')}>
         <div
           className={cn(
-            'inline-block rounded-2xl px-4 py-2.5 text-left text-sm leading-6',
+            'inline-block rounded-2xl px-4 py-2.5 text-left text-sm leading-6 border',
             isUser
-              ? 'bg-primary text-white'
-              : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100',
+              ? 'bg-stone-800 text-stone-50 border-stone-800 dark:bg-[#4a3e33] dark:text-[#fff8ed] dark:border-amber-100/10 shadow-sm dark:shadow-black/20'
+              : 'bg-white/75 border-stone-200/80 text-stone-900 dark:bg-[#1b1816] dark:border-white/[0.07] dark:text-stone-100 shadow-sm dark:shadow-black/15',
             'max-w-full'
           )}
         >
@@ -155,7 +155,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({ message }) => {
         {!editing && (
           <div
             className={cn(
-              'mt-1 flex items-center gap-2 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity',
+              'mt-1.5 flex items-center gap-2 text-stone-400 dark:text-stone-500 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity',
               isUser ? 'justify-end' : 'justify-start'
             )}
           >

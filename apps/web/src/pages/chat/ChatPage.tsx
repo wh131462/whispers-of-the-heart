@@ -55,23 +55,23 @@ const ChatPage: React.FC = () => {
     activeProvider?.isServerDefault && !isAuthenticated;
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] sm:h-[calc(100vh-5rem)] bg-gray-50 dark:bg-gray-950">
+    <div className="flex h-[calc(100vh-4rem)] sm:h-[calc(100vh-5rem)] bg-gradient-to-b from-stone-50 to-stone-100/70 dark:from-[#100e0d] dark:via-[#12100f] dark:to-[#0e0c0b] text-foreground">
       {sidebarOpen && (
         <div
-          className="md:hidden fixed inset-0 bg-black/40 z-30"
+          className="md:hidden fixed inset-0 bg-black/55 backdrop-blur-[2px] z-30"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       <aside
         className={cn(
-          'border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 w-64 shrink-0',
+          'border-r border-stone-200/80 dark:border-white/[0.07] bg-white/90 dark:bg-[#151311]/95 backdrop-blur-xl w-64 shrink-0',
           'md:relative md:translate-x-0',
           'fixed inset-y-0 left-0 z-40 transition-transform',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         )}
       >
-        <div className="flex items-center justify-between px-3 py-2 md:hidden border-b border-gray-200 dark:border-gray-800">
+        <div className="flex items-center justify-between px-3 py-2 md:hidden border-b border-stone-200 dark:border-white/[0.07]">
           <span className="text-sm font-medium">会话列表</span>
           <button onClick={() => setSidebarOpen(false)}>
             <X className="w-4 h-4" />
@@ -82,22 +82,22 @@ const ChatPage: React.FC = () => {
 
       <main className="flex-1 flex flex-col min-w-0">
         {/* 顶部：简洁标题栏 */}
-        <header className="flex items-center gap-2 px-4 sm:px-6 h-12 shrink-0">
+        <header className="flex items-center gap-2 px-4 sm:px-6 h-12 shrink-0 border-b border-stone-200/60 dark:border-white/[0.05] bg-white/45 dark:bg-[#12100f]/75 backdrop-blur-xl">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="md:hidden p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
+            className="md:hidden p-1.5 rounded-lg hover:bg-stone-200 dark:hover:bg-white/[0.07] transition-colors"
             aria-label="打开会话列表"
           >
             <Menu className="w-4 h-4" />
           </button>
           <div className="flex-1 text-center">
-            <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+            <span className="text-sm font-medium text-stone-700 dark:text-stone-200">
               {activeConversation?.title ?? '新会话'}
             </span>
           </div>
           <button
             onClick={() => setSettingsOpen(true)}
-            className="p-1.5 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-stone-200 dark:hover:bg-white/[0.07] text-stone-500 dark:text-stone-400 transition-colors"
             aria-label="设置"
           >
             <SettingsIcon className="w-4 h-4" />

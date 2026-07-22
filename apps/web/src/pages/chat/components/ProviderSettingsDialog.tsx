@@ -242,18 +242,18 @@ export const ProviderSettingsDialog: React.FC<ProviderSettingsDialogProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-3"
+      className="fixed inset-0 z-50 bg-black/55 backdrop-blur-sm flex items-center justify-center p-3"
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-gray-900 w-full max-w-3xl max-h-[90vh] rounded-xl shadow-xl overflow-hidden flex flex-col"
+        className="bg-white dark:bg-[#181513] border border-transparent dark:border-white/[0.08] w-full max-w-3xl max-h-[90vh] rounded-2xl shadow-xl dark:shadow-black/50 overflow-hidden flex flex-col"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-200 dark:border-gray-800">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-stone-200 dark:border-white/[0.07] bg-stone-50/60 dark:bg-white/[0.02]">
           <h2 className="text-base font-semibold">AI 模型配置</h2>
           <button
             onClick={onClose}
-            className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+            className="p-1 rounded hover:bg-stone-100 dark:hover:bg-white/[0.07]"
           >
             <X className="w-4 h-4" />
           </button>
@@ -261,7 +261,7 @@ export const ProviderSettingsDialog: React.FC<ProviderSettingsDialogProps> = ({
 
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
           <section>
-            <h3 className="text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+            <h3 className="text-sm font-medium mb-2 text-stone-700 dark:text-stone-300">
               当前激活
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -273,8 +273,8 @@ export const ProviderSettingsDialog: React.FC<ProviderSettingsDialogProps> = ({
                     className={cn(
                       'relative group text-left p-2.5 rounded-lg border text-sm cursor-pointer',
                       activeProviderId === p.id
-                        ? 'border-primary bg-primary/5'
-                        : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+                        ? 'border-stone-400 bg-stone-100 dark:border-amber-100/20 dark:bg-amber-100/[0.07]'
+                        : 'border-stone-200 dark:border-white/[0.08] hover:bg-stone-50 dark:hover:bg-white/[0.04]'
                     )}
                     onClick={() => setActive(p.id)}
                   >
@@ -285,12 +285,12 @@ export const ProviderSettingsDialog: React.FC<ProviderSettingsDialogProps> = ({
                       {p.name}
                     </div>
                     {p.description && (
-                      <div className="text-xs text-gray-500 mt-0.5">
+                      <div className="text-xs text-stone-500 dark:text-stone-400 mt-0.5">
                         {p.description}
                       </div>
                     )}
                     {!p.isServerDefault && (
-                      <div className="text-xs text-gray-400 mt-0.5">
+                      <div className="text-xs text-stone-400 dark:text-stone-500 mt-0.5">
                         {p.protocol} &middot; {p.model || '未配置模型'}
                       </div>
                     )}
@@ -301,7 +301,7 @@ export const ProviderSettingsDialog: React.FC<ProviderSettingsDialogProps> = ({
                             e.stopPropagation();
                             handleStartEdit(p);
                           }}
-                          className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-primary"
+                          className="p-1 rounded hover:bg-stone-200 dark:hover:bg-white/[0.07] text-stone-500 hover:text-primary"
                           title="编辑"
                         >
                           <Pencil className="w-3.5 h-3.5" />
@@ -322,7 +322,7 @@ export const ProviderSettingsDialog: React.FC<ProviderSettingsDialogProps> = ({
                 ))}
             </div>
             {userProviders.length === 0 && (
-              <p className="mt-2 text-xs text-gray-400">
+              <p className="mt-2 text-xs text-stone-400 dark:text-stone-500">
                 还没有自定义 Provider，下方可基于预设模板新建后再激活。
               </p>
             )}
@@ -330,11 +330,11 @@ export const ProviderSettingsDialog: React.FC<ProviderSettingsDialogProps> = ({
 
           <section>
             <div className="flex items-center justify-between gap-3 mb-2 flex-wrap">
-              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+              <h3 className="text-sm font-medium text-stone-700 dark:text-stone-300 whitespace-nowrap">
                 {editingId ? '编辑 Provider' : '新增 Provider'}
               </h3>
               {!editingId && (
-                <div className="text-xs text-gray-500 flex items-center gap-2 whitespace-nowrap">
+                <div className="text-xs text-stone-500 dark:text-stone-400 flex items-center gap-2 whitespace-nowrap">
                   <span>从预设复制</span>
                   <Select
                     value=""
@@ -419,7 +419,7 @@ export const ProviderSettingsDialog: React.FC<ProviderSettingsDialogProps> = ({
                   <button
                     type="button"
                     onClick={() => setShowKey(v => !v)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600 dark:hover:text-stone-200"
                   >
                     {showKey ? (
                       <EyeOff className="w-4 h-4" />
@@ -482,7 +482,7 @@ export const ProviderSettingsDialog: React.FC<ProviderSettingsDialogProps> = ({
                     ? 'border-green-300 bg-green-50 text-green-700 dark:border-green-700 dark:bg-green-900/20 dark:text-green-300'
                     : testResult === 'fail'
                       ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-900/20 dark:text-red-300'
-                      : 'border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800'
+                      : 'border-stone-300 dark:border-white/[0.12] hover:bg-stone-50 dark:hover:bg-white/[0.05]'
                 )}
               >
                 {testing ? (
@@ -505,18 +505,18 @@ export const ProviderSettingsDialog: React.FC<ProviderSettingsDialogProps> = ({
               {editingId && (
                 <button
                   onClick={handleCancelEdit}
-                  className="px-3 py-1.5 rounded-md bg-gray-100 dark:bg-gray-800 text-sm"
+                  className="px-3 py-1.5 rounded-md bg-stone-100 dark:bg-white/[0.07] text-sm"
                 >
                   取消
                 </button>
               )}
-              <span className="text-xs text-gray-400 ml-auto">
+              <span className="text-xs text-stone-400 dark:text-stone-500 ml-auto">
                 提示：API Key 仅保存在本浏览器，不会上传到服务器
               </span>
             </div>
           </section>
 
-          <section className="pt-2 border-t border-gray-200 dark:border-gray-800">
+          <section className="pt-2 border-t border-stone-200 dark:border-white/[0.07]">
             <button
               onClick={() => setShowResetConfirm(true)}
               className="text-xs text-red-600 hover:text-red-700 underline"
@@ -561,7 +561,7 @@ export const ProviderSettingsDialog: React.FC<ProviderSettingsDialogProps> = ({
 };
 
 const inputCls =
-  'w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 px-2.5 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40';
+  'w-full rounded-lg border border-stone-300 dark:border-white/[0.1] bg-white dark:bg-[#211d1a] px-2.5 py-1.5 text-sm text-stone-900 dark:text-stone-100 placeholder:text-stone-400 dark:placeholder:text-stone-600 focus:outline-none focus:ring-2 focus:ring-stone-400/30 dark:focus:ring-amber-100/10 dark:focus:border-amber-100/20';
 
 const Field: React.FC<{
   label: string;
@@ -569,7 +569,7 @@ const Field: React.FC<{
   children: React.ReactNode;
 }> = ({ label, className, children }) => (
   <label className={cn('block', className)}>
-    <span className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+    <span className="block text-xs text-stone-600 dark:text-stone-400 mb-1">
       {label}
     </span>
     {children}
