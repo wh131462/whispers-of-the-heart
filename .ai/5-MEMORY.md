@@ -4,6 +4,10 @@
 
 ## 📝 会话日志
 
+### 2026-07-22 - Codex 项目初始化适配
+
+新增仓库级 `AGENTS.md`，将现有 Claude 协作约束适配为 Codex 可直接执行的会话初始化流程。Claude 与 Codex 共同复用 `.ai/`、`openspec/` 和 `.claude/skills/`，不复制项目技能，避免双份配置漂移；补充 Codex 工具能力映射、真实网络行为约束、文档维护和规则优先级。同步更新 `.ai/README.md` 的助手入口说明。
+
 ### 2026-07-21 - 首页 FallingPattern 偶发显示异常修复
 
 **问题**：首页背景由 12 个超视口动画层和全屏 `backdrop-filter` 组成，高 DPI、集显或图层恢复时可能出现闪烁、锐化、断层；暂停恢复还会触发 React 整体重渲染。原设计要求的 `will-change` 未落实，`dark:brightness-[600]` 还是潜在异常值。
@@ -32,15 +36,11 @@
 
 新增根路径 `/sitemap.xml`，只输出真实公开路由与已发布文章 slug；加入 1 小时缓存、W3C Datetime 和 XML 转义。前端补充站点级 canonical、OpenGraph、Twitter Card。关键位置：`apps/api/src/sitemap/`、`apps/web/index.html`。待归档。
 
-### 2026-06-12 - RSS 订阅
-
-新增根路径 `/rss.xml`，输出最新 20 篇已发布文章，包含 XML/CDATA 安全处理和 10 分钟缓存；前端 head 与 Footer 增加订阅入口。关键位置：`apps/api/src/rss/`、`apps/web/src/layouts/MainLayout.tsx`。待归档。
-
 ## 🎯 当前上下文（最近 3 次）
 
-1. **FallingPattern 异常修复**：代码与浏览器回归完成，待用户跨设备观察实际效果。
-2. **全仓逻辑整改**：高风险逻辑已集中修复，部署前执行数据库迁移。
-3. **AI 对话界面**：主体完成，待登录状态下端到端手测。
+1. **Codex 初始化适配**：新增 `AGENTS.md`，Codex 与 Claude 共享 `.ai/`、OpenSpec 和项目技能源。
+2. **FallingPattern 异常修复**：代码与浏览器回归完成，待用户跨设备观察实际效果。
+3. **全仓逻辑整改**：高风险逻辑已集中修复，部署前执行数据库迁移。
 
 ## 💡 重要发现
 
@@ -75,9 +75,10 @@
 | 博客          | `apps/api/src/blog/`                                        |
 | 评论          | `apps/api/src/comment/`                                     |
 | AI 对话       | `apps/api/src/ai-chat/`、`apps/web/src/pages/chat/`         |
+| AI 协作入口   | `CLAUDE.md`、`AGENTS.md`、`.ai/`                            |
 | Prisma Schema | `apps/api/prisma/schema.prisma`                             |
 | UI 组件库     | `packages/ui/src/components/`                               |
 
 ---
 
-**最后更新**：2026-07-21
+**最后更新**：2026-07-22
