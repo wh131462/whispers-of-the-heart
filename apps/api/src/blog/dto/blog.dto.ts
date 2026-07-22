@@ -27,6 +27,25 @@ export class BlogListQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  // 兼容现有首页使用的排序参数。公开列表目前固定按创建时间倒序，
+  // 但严格白名单校验不应因此拒绝旧客户端的请求。
+  @IsOptional()
+  @IsIn(['createdAt', 'views', 'publishedAt'])
+  sort?: 'createdAt' | 'views' | 'publishedAt';
+
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  order?: 'asc' | 'desc';
+
+  // 文章列表页使用的新参数名，同样保留在公开列表契约中。
+  @IsOptional()
+  @IsIn(['createdAt', 'views', 'publishedAt'])
+  sortBy?: 'createdAt' | 'views' | 'publishedAt';
+
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  sortOrder?: 'asc' | 'desc';
 }
 
 export class SearchPostsQueryDto extends BlogListQueryDto {
@@ -37,14 +56,6 @@ export class SearchPostsQueryDto extends BlogListQueryDto {
   @IsOptional()
   @IsString()
   tag?: string;
-
-  @IsOptional()
-  @IsIn(['createdAt', 'views', 'publishedAt'])
-  sortBy: 'createdAt' | 'views' | 'publishedAt' = 'createdAt';
-
-  @IsOptional()
-  @IsIn(['asc', 'desc'])
-  sortOrder: 'asc' | 'desc' = 'desc';
 }
 
 export class CreatePostDto {
