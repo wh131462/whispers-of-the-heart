@@ -227,12 +227,7 @@ const PostsPage: React.FC = () => {
     []
   );
 
-  // 初始加载 - 只在组件挂载时执行一次
-  useEffect(() => {
-    fetchPosts(1, true);
-  }, [fetchPosts]);
-
-  // 搜索词或标签变化时重新加载
+  // 初始加载，以及搜索词或标签变化时重新加载
   useEffect(() => {
     // 更新 ref
     filtersRef.current = { search: debouncedSearch, tag: activeTag };

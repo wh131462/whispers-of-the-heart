@@ -58,6 +58,7 @@ const PostManagementPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [errorState, setErrorState] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<
     'all' | 'draft' | 'published'
   >('all');
@@ -77,8 +78,8 @@ const PostManagementPage: React.FC = () => {
         limit: 100,
       };
 
-      if (searchTerm.trim()) {
-        params.search = searchTerm.trim();
+      if (debouncedSearchTerm.trim()) {
+        params.search = debouncedSearchTerm.trim();
       }
 
       if (statusFilter !== 'all') {
@@ -104,19 +105,19 @@ const PostManagementPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, statusFilter, accessToken]);
+  }, [debouncedSearchTerm, statusFilter, accessToken]);
+
+  // 搜索词停止变化 500ms 后再更新实际查询条件。
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+    }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
 
   useEffect(() => {
     fetchPosts();
   }, [fetchPosts]);
-
-  // 搜索防抖
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      fetchPosts();
-    }, 500);
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm]);
 
   const handleDelete = async (postId: string) => {
     try {
