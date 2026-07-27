@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { Info, LogOut } from 'lucide-react';
 import { ChatShell } from './components/ChatShell';
 import { ConnectionStatus } from './components/ConnectionStatus';
@@ -18,43 +18,38 @@ function generateDefaultName() {
 export default function P2PChat() {
   const [showHelp, setShowHelp] = useState(false);
   const [userName, setUserName] = useState(generateDefaultName);
-  const { messages, addMessage, clearMessages } = useChat();
+  const { messages, addMessage, updateDelivery, clearMessages } = useChat();
 
   const handleMessage = useCallback(
     (payload: MessagePayload) => {
-      addMessage(
-        payload.content,
-        'remote',
-        payload.senderName,
-        (payload.type as MessageType) || 'text'
-      );
+      addMessage(payload.content, 'remote', payload.senderName, payload.type, {
+        id: `${payload.peerId}:${payload.messageId}`,
+        peerId: payload.peerId,
+      });
     },
     [addMessage]
   );
 
-  const { state, joinRoom, sendMessage, reset } = useRoom({
+  const { state, joinRoom, sendMessage, retryMessage, reset } = useRoom({
     userName,
     onMessage: handleMessage,
+    onDeliveryUpdate: updateDelivery,
   });
-
-  // 被断开连接后自动返回到连接页面
-  useEffect(() => {
-    if (state.connectionState === 'disconnected') {
-      const timer = setTimeout(() => {
-        reset();
-        clearMessages();
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [state.connectionState, reset, clearMessages]);
 
   const handleSend = useCallback(
     (content: string, type: MessageType) => {
-      if (sendMessage(content, type)) {
-        addMessage(content, 'local', userName, type);
-      }
+      const message = addMessage(content, 'local', userName, type, {
+        deliveryStatus: 'sending',
+        totalPeers: state.peerCount,
+      });
+      sendMessage({
+        messageId: message.id,
+        content: message.content,
+        type: message.type,
+        timestamp: message.timestamp,
+      });
     },
-    [sendMessage, addMessage, userName]
+    [sendMessage, addMessage, userName, state.peerCount]
   );
 
   const handleReset = useCallback(() => {
@@ -62,9 +57,26 @@ export default function P2PChat() {
     clearMessages();
   }, [reset, clearMessages]);
 
+  const handleRetry = useCallback(
+    (messageId: string) => {
+      if (retryMessage(messageId)) return;
+      const message = messages.find(
+        item => item.id === messageId && item.sender === 'local'
+      );
+      if (!message) return;
+      sendMessage({
+        messageId: message.id,
+        content: message.content,
+        type: message.type,
+        timestamp: message.timestamp,
+      });
+    },
+    [messages, retryMessage, sendMessage]
+  );
+
   const isConnected = state.connectionState === 'connected';
-  const isConnecting = state.connectionState === 'connecting';
-  const isDisconnected = state.connectionState === 'disconnected';
+  const hasJoinedRoom = Boolean(state.roomCode);
+  const canSend = isConnected && state.readyPeerCount > 0;
 
   return (
     <div className="w-full max-w-md mx-auto p-4">
@@ -86,7 +98,7 @@ export default function P2PChat() {
               peers={state.peers}
               currentUserName={userName}
             />
-            {!isConnected && !isConnecting && (
+            {!hasJoinedRoom && (
               <button
                 onClick={() => setShowHelp(true)}
                 className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors"
@@ -95,7 +107,7 @@ export default function P2PChat() {
                 <Info className="w-4 h-4" />
               </button>
             )}
-            {(isConnected || isConnecting) && (
+            {hasJoinedRoom && (
               <button
                 onClick={handleReset}
                 className="p-1.5 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 transition-colors"
@@ -108,21 +120,20 @@ export default function P2PChat() {
         </div>
 
         {/* 主内容区 */}
-        {isConnected ? (
+        {hasJoinedRoom ? (
           <>
-            <MessageList messages={messages} />
-            <MessageInput onSend={handleSend} />
+            {!canSend && (
+              <div className="px-4 py-2 text-xs text-amber-700 bg-amber-50 border-b border-amber-100">
+                {!isConnected
+                  ? '数据通道正在恢复，未确认消息会在重连后继续发送。'
+                  : state.peerCount === 0
+                    ? '等待对方加入房间。'
+                    : '正在建立安全数据通道，请稍候。'}
+              </div>
+            )}
+            <MessageList messages={messages} onRetry={handleRetry} />
+            <MessageInput onSend={handleSend} disabled={!canSend} />
           </>
-        ) : isDisconnected ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-4 p-6">
-            <div className="w-12 h-12 rounded-full bg-zinc-100 flex items-center justify-center">
-              <LogOut className="w-6 h-6 text-zinc-400" />
-            </div>
-            <div className="text-center">
-              <p className="text-sm font-medium text-zinc-700">连接已断开</p>
-              <p className="text-xs text-zinc-500 mt-1">正在返回...</p>
-            </div>
-          </div>
         ) : (
           <ConnectionPanel
             state={state}

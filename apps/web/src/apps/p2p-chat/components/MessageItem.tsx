@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
+import { RefreshCw } from 'lucide-react';
 import {
   FilePreviewModal,
   type PreviewFileLink,
@@ -9,9 +10,10 @@ import type { ChatMessage } from '../types';
 
 interface MessageItemProps {
   message: ChatMessage;
+  onRetry?: (messageId: string) => void;
 }
 
-export function MessageItem({ message }: MessageItemProps) {
+export function MessageItem({ message, onRetry }: MessageItemProps) {
   const [imageLoaded, setImageLoaded] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -97,8 +99,51 @@ export function MessageItem({ message }: MessageItemProps) {
           {renderContent()}
         </div>
 
-        {/* 时间 */}
-        <span className="text-[10px] text-zinc-400 px-1">{time}</span>
+        {/* 时间和送达状态 */}
+        <div className="flex items-center gap-2 px-1">
+          <span className="text-[10px] text-zinc-400">{time}</span>
+          {isLocal && message.deliveryStatus && (
+            <span
+              className={cn(
+                'text-[10px]',
+                message.deliveryStatus === 'delivered' && 'text-emerald-600',
+                message.deliveryStatus === 'sending' && 'text-amber-600',
+                message.deliveryStatus === 'partial' && 'text-orange-600',
+                message.deliveryStatus === 'failed' && 'text-red-600'
+              )}
+            >
+              {message.deliveryStatus === 'delivered'
+                ? '已送达'
+                : message.deliveryStatus === 'sending'
+                  ? message.totalPeers && message.totalPeers > 1
+                    ? `发送中 ${message.deliveredPeers || 0}/${message.totalPeers}`
+                    : '发送中'
+                  : message.deliveryStatus === 'partial'
+                    ? `部分送达 ${message.deliveredPeers || 0}/${message.totalPeers || 0}`
+                    : '发送失败'}
+            </span>
+          )}
+          {isLocal &&
+            (message.deliveryStatus === 'failed' ||
+              message.deliveryStatus === 'partial') &&
+            onRetry && (
+              <button
+                type="button"
+                onClick={() => onRetry(message.id)}
+                className="inline-flex items-center gap-1 text-[10px] text-red-600 hover:text-red-700"
+              >
+                <RefreshCw className="w-3 h-3" />
+                重试
+              </button>
+            )}
+        </div>
+        {isLocal &&
+          message.deliveryError &&
+          message.deliveryStatus === 'failed' && (
+            <span className="text-[10px] text-red-500 px-1 max-w-[80%] text-right">
+              {message.deliveryError}
+            </span>
+          )}
       </div>
 
       {/* 图片预览模态框 */}

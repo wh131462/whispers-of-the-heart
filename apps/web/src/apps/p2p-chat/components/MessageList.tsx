@@ -5,9 +5,10 @@ import { MessageItem } from './MessageItem';
 
 interface MessageListProps {
   messages: ChatMessage[];
+  onRetry?: (messageId: string) => void;
 }
 
-export function MessageList({ messages }: MessageListProps) {
+export function MessageList({ messages, onRetry }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   // 自动滚动到底部
@@ -34,7 +35,7 @@ export function MessageList({ messages }: MessageListProps) {
       )}
     >
       {messages.map(msg => (
-        <MessageItem key={msg.id} message={msg} />
+        <MessageItem key={msg.id} message={msg} onRetry={onRetry} />
       ))}
     </div>
   );

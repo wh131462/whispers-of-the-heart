@@ -303,7 +303,7 @@ export function MessageInput({ onSend, disabled }: MessageInputProps) {
             onPaste={handlePaste}
             placeholder={
               disabled
-                ? '等待连接...'
+                ? '等待对方的数据通道...'
                 : imagePreview
                   ? '点击发送图片'
                   : '输入消息，可粘贴图片'

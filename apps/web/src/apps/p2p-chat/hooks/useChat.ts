@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import type { ChatMessage, MessageType } from '../types';
+import type { ChatMessage, DeliveryUpdate, MessageType } from '../types';
 
 // 生成 UUID（兼容非 HTTPS 环境）
 function generateUUID(): string {
@@ -31,20 +31,49 @@ export function useChat() {
       content: string,
       sender: 'local' | 'remote',
       senderName: string,
-      type: MessageType = 'text'
-    ) => {
+      type: MessageType = 'text',
+      options: Partial<
+        Pick<
+          ChatMessage,
+          | 'id'
+          | 'timestamp'
+          | 'peerId'
+          | 'deliveryStatus'
+          | 'deliveredPeers'
+          | 'totalPeers'
+        >
+      > = {}
+    ): ChatMessage => {
       const newMessage: ChatMessage = {
-        id: generateUUID(),
+        id: options.id || generateUUID(),
         type,
         content,
-        timestamp: Date.now(),
+        timestamp: options.timestamp || Date.now(),
         sender,
         senderName,
+        ...options,
       };
       setMessages(prev => [...prev, newMessage]);
+      return newMessage;
     },
     []
   );
+
+  const updateDelivery = useCallback((update: DeliveryUpdate) => {
+    setMessages(prev =>
+      prev.map(message =>
+        message.id === update.messageId
+          ? {
+              ...message,
+              deliveryStatus: update.status,
+              deliveredPeers: update.deliveredPeers,
+              totalPeers: update.totalPeers,
+              deliveryError: update.error,
+            }
+          : message
+      )
+    );
+  }, []);
 
   const clearMessages = useCallback(() => {
     setMessages([]);
@@ -53,6 +82,7 @@ export function useChat() {
   return {
     messages,
     addMessage,
+    updateDelivery,
     clearMessages,
   };
 }
