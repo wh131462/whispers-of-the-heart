@@ -24,6 +24,7 @@ export type {
   TrysteroRoomState,
   ActionSender,
   ActionReceiver,
+  ActionOptions,
 } from './useTrysteroRoom';
 export type {
   PlayerRole,

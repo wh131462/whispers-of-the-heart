@@ -7,6 +7,8 @@ import {
   FileIcon,
   Trash2,
   Clock,
+  PauseCircle,
+  ShieldCheck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { FileTransferItem } from '../types';
@@ -66,6 +68,8 @@ function TransferItem({ item, onDownload, onRemove }: TransferItemProps) {
   const isFailed = item.status === 'failed';
   const isPending = item.status === 'pending';
   const isTransferring = item.status === 'transferring';
+  const isPaused = item.status === 'paused';
+  const isVerifying = item.status === 'verifying';
 
   return (
     <div
@@ -104,6 +108,12 @@ function TransferItem({ item, onDownload, onRemove }: TransferItemProps) {
           {isTransferring && (
             <Loader2 className="w-3.5 h-3.5 text-blue-500 animate-spin flex-shrink-0" />
           )}
+          {isPaused && (
+            <PauseCircle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+          )}
+          {isVerifying && (
+            <ShieldCheck className="w-3.5 h-3.5 text-violet-500 flex-shrink-0" />
+          )}
           {isCompleted && (
             <Check className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
           )}
@@ -120,19 +130,36 @@ function TransferItem({ item, onDownload, onRemove }: TransferItemProps) {
         </div>
 
         {/* 进度条 */}
-        {(isTransferring || (isCompleted && item.progress > 0)) && (
+        {(isTransferring ||
+          isPaused ||
+          isVerifying ||
+          (isCompleted && item.progress > 0)) && (
           <div className="mt-2">
             <div className="h-1.5 bg-zinc-200 rounded-full overflow-hidden">
               <div
                 className={cn(
                   'h-full rounded-full transition-all',
-                  isCompleted ? 'bg-green-500' : 'bg-blue-500'
+                  isCompleted
+                    ? 'bg-green-500'
+                    : isPaused
+                      ? 'bg-amber-500'
+                      : isVerifying
+                        ? 'bg-violet-500'
+                        : 'bg-blue-500'
                 )}
                 style={{ width: `${item.progress}%` }}
               />
             </div>
             <div className="flex justify-between mt-1">
-              <span className="text-xs text-zinc-400">{item.progress}%</span>
+              <span className="text-xs text-zinc-400">
+                {isPaused
+                  ? `已暂停 ${item.progress}%`
+                  : isVerifying
+                    ? '正在校验完整性'
+                    : isCompleted && item.verified
+                      ? 'SHA-256 校验通过'
+                      : `${item.progress}%`}
+              </span>
               {item.error && (
                 <span className="text-xs text-red-500">{item.error}</span>
               )}

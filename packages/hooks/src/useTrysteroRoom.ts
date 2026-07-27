@@ -20,6 +20,7 @@ export interface TrysteroRoomState {
   roomCode: string | null;
   peerCount: number;
   peers: Map<string, BasePeerInfo>;
+  readyPeers: Set<string>;
   error: string | null;
 }
 
@@ -28,6 +29,10 @@ export type ActionSender<T> = (data: T, peerId?: string) => void;
 
 // Action 接收回调类型
 export type ActionReceiver<T> = (data: T, peerId: string) => void;
+
+export interface ActionOptions {
+  requireDataChannel?: boolean;
+}
 
 // Peer 连接
 interface PeerConnection {
@@ -48,6 +53,7 @@ const initialState: TrysteroRoomState = {
   roomCode: null,
   peerCount: 0,
   peers: new Map(),
+  readyPeers: new Set(),
   error: null,
 };
 
@@ -57,6 +63,9 @@ const ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun.cloudflare.com:3478' },
 ];
+
+const DATA_CHANNEL_BUFFER_HIGH_WATER = 512 * 1024;
+const DATA_CHANNEL_BUFFER_LOW_WATER = 128 * 1024;
 
 // 信令服务器地址
 const getSignalingServerUrl = () => {
@@ -114,12 +123,27 @@ export function useTrysteroRoom(config: RoomConfig) {
   // 设置数据通道
   const setupDataChannel = useCallback(
     (channel: RTCDataChannel, peerId: string) => {
+      channel.bufferedAmountLowThreshold = DATA_CHANNEL_BUFFER_LOW_WATER;
       channel.onopen = () => {
         console.log(`[WebRTC] Data channel to ${peerId} opened`);
+        const connection = peerConnectionsRef.current.get(peerId);
+        if (connection && connection.dataChannel !== channel) return;
+        setState(prev => {
+          const readyPeers = new Set(prev.readyPeers);
+          readyPeers.add(peerId);
+          return { ...prev, readyPeers };
+        });
       };
 
       channel.onclose = () => {
         console.log(`[WebRTC] Data channel to ${peerId} closed`);
+        const connection = peerConnectionsRef.current.get(peerId);
+        if (connection && connection.dataChannel !== channel) return;
+        setState(prev => {
+          const readyPeers = new Set(prev.readyPeers);
+          readyPeers.delete(peerId);
+          return { ...prev, readyPeers };
+        });
       };
 
       channel.onmessage = event => {
@@ -143,6 +167,12 @@ export function useTrysteroRoom(config: RoomConfig) {
   // 创建 RTCPeerConnection
   const createPeerConnection = useCallback(
     (peerId: string, peerName: string, isInitiator: boolean) => {
+      const existingConnection = peerConnectionsRef.current.get(peerId);
+      if (existingConnection) {
+        existingConnection.dataChannel?.close();
+        existingConnection.connection.close();
+        peerConnectionsRef.current.delete(peerId);
+      }
       const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
 
       let dataChannel: RTCDataChannel | null = null;
@@ -178,11 +208,13 @@ export function useTrysteroRoom(config: RoomConfig) {
       // 连接状态变化
       pc.onconnectionstatechange = () => {
         console.log(`[WebRTC] Connection to ${peerId}: ${pc.connectionState}`);
-        if (
-          pc.connectionState === 'disconnected' ||
-          pc.connectionState === 'failed'
-        ) {
-          removePeer(peerId);
+        if (pc.connectionState === 'failed') {
+          const current = peerConnectionsRef.current.get(peerId);
+          if (current?.connection === pc) {
+            current.dataChannel?.close();
+            current.connection.close();
+            peerConnectionsRef.current.delete(peerId);
+          }
         }
       };
 
@@ -207,17 +239,19 @@ export function useTrysteroRoom(config: RoomConfig) {
       conn.dataChannel?.close();
       conn.connection.close();
       peerConnectionsRef.current.delete(peerId);
-
-      setState(prev => {
-        const newPeers = new Map(prev.peers);
-        newPeers.delete(peerId);
-        return {
-          ...prev,
-          peerCount: Math.max(0, prev.peerCount - 1),
-          peers: newPeers,
-        };
-      });
     }
+    setState(prev => {
+      const newPeers = new Map(prev.peers);
+      const readyPeers = new Set(prev.readyPeers);
+      newPeers.delete(peerId);
+      readyPeers.delete(peerId);
+      return {
+        ...prev,
+        peerCount: newPeers.size,
+        peers: newPeers,
+        readyPeers,
+      };
+    });
   }, []);
 
   // 处理信号
@@ -230,9 +264,9 @@ export function useTrysteroRoom(config: RoomConfig) {
 
       if (signal.type === 'offer') {
         // 收到 offer，创建连接并回复 answer
-        if (!conn) {
-          conn = createPeerConnection(fromPeerId, '对方', false);
-        }
+        const peerName =
+          state.peers.get(fromPeerId)?.name || conn?.name || '对方';
+        conn = createPeerConnection(fromPeerId, peerName, false);
 
         await conn.connection.setRemoteDescription(
           new RTCSessionDescription(signal as RTCSessionDescriptionInit)
@@ -265,7 +299,7 @@ export function useTrysteroRoom(config: RoomConfig) {
         }
       }
     },
-    [createPeerConnection]
+    [createPeerConnection, state.peers]
   );
 
   /**
@@ -280,6 +314,7 @@ export function useTrysteroRoom(config: RoomConfig) {
         status: 'connecting',
         roomCode, // 显示给用户的仍然是原始房间码
         peers: new Map(),
+        readyPeers: new Set(),
         error: null,
       });
 
@@ -302,6 +337,14 @@ export function useTrysteroRoom(config: RoomConfig) {
       socket.on('connect', () => {
         console.log('[Signaling] Connected to server');
 
+        // Socket.IO 的 connect 会在首次连接和每次重连后触发。先清理失效的
+        // PeerConnection，再根据服务端返回的成员列表完整重建 DataChannel。
+        peerConnectionsRef.current.forEach(conn => {
+          conn.dataChannel?.close();
+          conn.connection.close();
+        });
+        peerConnectionsRef.current.clear();
+
         // 加入房间（使用组合后的完整房间码）
         socket.emit(
           'join',
@@ -315,42 +358,43 @@ export function useTrysteroRoom(config: RoomConfig) {
             members: Array<{ peerId: string; name: string }>;
           }) => {
             if (response.success) {
-              updateState({ status: 'connected' });
+              const peers = new Map<string, BasePeerInfo>(
+                response.members.map(member => [
+                  member.peerId,
+                  { id: member.peerId, name: member.name },
+                ])
+              );
+              updateState({
+                status: 'connected',
+                error: null,
+                peers,
+                peerCount: peers.size,
+                readyPeers: new Set(),
+              });
 
               // 向所有现有成员发起连接
               response.members.forEach(async member => {
-                const conn = createPeerConnection(
-                  member.peerId,
-                  member.name,
-                  true
-                );
+                try {
+                  const conn = createPeerConnection(
+                    member.peerId,
+                    member.name,
+                    true
+                  );
+                  peerJoinCallbackRef.current?.(member.peerId);
+                  const offer = await conn.connection.createOffer();
+                  await conn.connection.setLocalDescription(offer);
 
-                // 更新 peers
-                setState(prev => {
-                  const newPeers = new Map(prev.peers);
-                  newPeers.set(member.peerId, {
-                    id: member.peerId,
-                    name: member.name,
+                  socket.emit('signal', {
+                    roomCode: fullRoomCode,
+                    targetPeerId: member.peerId,
+                    signal: { type: 'offer', sdp: offer.sdp },
                   });
-                  return {
-                    ...prev,
-                    peerCount: newPeers.size,
-                    peers: newPeers,
-                  };
-                });
-
-                // 触发 peer join 回调
-                peerJoinCallbackRef.current?.(member.peerId);
-
-                // 创建并发送 offer
-                const offer = await conn.connection.createOffer();
-                await conn.connection.setLocalDescription(offer);
-
-                socket.emit('signal', {
-                  roomCode: fullRoomCode,
-                  targetPeerId: member.peerId,
-                  signal: { type: 'offer', sdp: offer.sdp },
-                });
+                } catch (error) {
+                  console.error(
+                    `[WebRTC] Failed to reconnect peer ${member.peerId}:`,
+                    error
+                  );
+                }
               });
             }
           }
@@ -369,8 +413,19 @@ export function useTrysteroRoom(config: RoomConfig) {
           // 服务端主动断开，需要手动重连
           socket.connect();
         }
+        peerConnectionsRef.current.forEach(conn => {
+          conn.dataChannel?.close();
+          conn.connection.close();
+        });
+        peerConnectionsRef.current.clear();
         // 设置状态为 connecting 表示正在重连
-        updateState({ status: 'connecting', error: '连接断开，正在重连...' });
+        updateState({
+          status: 'connecting',
+          error: '连接断开，正在重连...',
+          peers: new Map(),
+          peerCount: 0,
+          readyPeers: new Set(),
+        });
       });
 
       // 重连尝试
@@ -385,24 +440,6 @@ export function useTrysteroRoom(config: RoomConfig) {
       // 重连成功
       socket.io.on('reconnect', () => {
         console.log('[Signaling] Reconnected to server');
-        // 重新加入房间
-        socket.emit(
-          'join',
-          {
-            roomCode: roomCodeRef.current,
-            peerId: peerIdRef.current,
-            name: userNameRef.current,
-          },
-          (response: {
-            success: boolean;
-            members: Array<{ peerId: string; name: string }>;
-          }) => {
-            if (response.success) {
-              updateState({ status: 'connected', error: null });
-              console.log('[Signaling] Rejoined room after reconnect');
-            }
-          }
-        );
       });
 
       // 重连失败（达到最大次数）
@@ -519,6 +556,45 @@ export function useTrysteroRoom(config: RoomConfig) {
   }, [leave]);
 
   /**
+   * 等待指定 DataChannel 的发送缓冲回落到低水位。
+   * DataChannel 尚未建立时控制消息会由 createAction 回退到信令通道，无需等待。
+   */
+  const waitForDataChannelDrain = useCallback(
+    (peerId: string): Promise<void> => {
+      const channel = peerConnectionsRef.current.get(peerId)?.dataChannel;
+      if (
+        !channel ||
+        channel.readyState !== 'open' ||
+        channel.bufferedAmount < DATA_CHANNEL_BUFFER_HIGH_WATER
+      ) {
+        return Promise.resolve();
+      }
+
+      return new Promise(resolve => {
+        let settled = false;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          channel.removeEventListener('bufferedamountlow', finish);
+          channel.removeEventListener('close', finish);
+          clearTimeout(timeout);
+          resolve();
+        };
+        const timeout = setTimeout(finish, 1000);
+        channel.addEventListener('bufferedamountlow', finish, { once: true });
+        channel.addEventListener('close', finish, { once: true });
+      });
+    },
+    []
+  );
+
+  const isDataChannelOpen = useCallback((peerId: string): boolean => {
+    return (
+      peerConnectionsRef.current.get(peerId)?.dataChannel?.readyState === 'open'
+    );
+  }, []);
+
+  /**
    * 创建一个消息通道（Action）
    * @param actionName 通道名称
    * @param onReceive 接收消息回调
@@ -527,7 +603,8 @@ export function useTrysteroRoom(config: RoomConfig) {
   const createAction = useCallback(
     <T extends Record<string, unknown>>(
       actionName: string,
-      onReceive?: ActionReceiver<T>
+      onReceive?: ActionReceiver<T>,
+      options?: ActionOptions
     ): ActionSender<T> | null => {
       if (onReceive) {
         messageHandlersRef.current.set(
@@ -555,21 +632,37 @@ export function useTrysteroRoom(config: RoomConfig) {
           // 发送给特定 peer
           const conn = peerConnectionsRef.current.get(targetPeerId);
           if (conn?.dataChannel?.readyState === 'open') {
-            conn.dataChannel.send(message);
-          } else {
+            try {
+              conn.dataChannel.send(message);
+              return;
+            } catch (error) {
+              console.error('[WebRTC] Data channel send failed:', error);
+            }
+          }
+          if (options?.requireDataChannel) {
+            console.warn(
+              `[WebRTC] Data channel for ${targetPeerId} is unavailable`
+            );
+          } else if (socketRef.current?.connected) {
             // DataChannel 未就绪，通过信令服务器转发
-            socketRef.current?.emit('message', {
+            socketRef.current.emit('message', {
               roomCode: roomCodeRef.current,
               targetPeerId,
               data: { action: actionName, payload: data },
             });
+          } else {
+            console.warn(`[WebRTC] Peer ${targetPeerId} is unavailable`);
           }
         } else {
           // 广播给所有 peer
           peerConnectionsRef.current.forEach(conn => {
             if (conn.dataChannel?.readyState === 'open') {
-              conn.dataChannel.send(message);
-            } else {
+              try {
+                conn.dataChannel.send(message);
+              } catch (error) {
+                console.error('[WebRTC] Data channel send failed:', error);
+              }
+            } else if (!options?.requireDataChannel) {
               socketRef.current?.emit('message', {
                 roomCode: roomCodeRef.current,
                 targetPeerId: conn.peerId,
@@ -612,6 +705,8 @@ export function useTrysteroRoom(config: RoomConfig) {
     leave,
     reset,
     createAction,
+    waitForDataChannelDrain,
+    isDataChannelOpen,
     getRoom,
   };
 }
