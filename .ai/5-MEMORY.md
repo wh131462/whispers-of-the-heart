@@ -6,13 +6,13 @@
 
 ### 2026-07-28 - P2P 文件传输连接就绪误判修复
 
-**问题**：文件传输 UI 只依据房间成员数开放文件选择，但成员已加入不代表 WebRTC DataChannel 已建立；metadata/ACK 可经信令通道提前完成握手，发送循环随后发现 DataChannel 未就绪，立即把刚开始的任务标记为“连接已断开，等待重连”。发送循环还额外依赖由 React Effect 延迟同步的成员快照，存在短暂误判风险。
+**问题**：文件传输 UI 只依据房间成员数开放文件选择，但成员已加入不代表 WebRTC DataChannel 已建立；metadata/ACK 可经信令通道提前完成握手，发送循环随后发现 DataChannel 未就绪，立即把刚开始的任务标记为“连接已断开，等待重连”。修正 UI 判定后进一步确认底层 WebRTC 信令存在时序错误：`setLocalDescription()` 期间产生的 ICE candidate 可能早于 offer/answer 发出，对端在 PeerConnection 或远端 SDP 尚未建立时直接丢弃候选，导致 DataChannel 一直无法就绪。
 
-**实施**：房间状态新增可传输 Peer 数量，文件选择和默认目标只使用 `readyPeers`；发送循环仅以实时 DataChannel 状态判断分块通道，不再使用延迟成员快照；在线但通道未就绪时显示“正在建立数据通道”，仅成员确实离开时提示等待重连；同时避免旧发送协程在退出时覆盖新协程的 `sending` 状态。
+**实施**：房间状态新增可传输 Peer 数量，文件选择和默认目标只使用 `readyPeers`；发送循环仅以实时 DataChannel 状态判断分块通道，不再使用延迟成员快照；在线但通道未就绪时显示“正在建立数据通道”，仅成员确实离开时提示等待重连；同时避免旧发送协程在退出时覆盖新协程的 `sending` 状态。共享 WebRTC Hook 按 Peer 缓存提前到达的 ICE candidate，在 offer/answer 设置远端 SDP 后统一补加，并在失败、离房和重连时清理缓存；offer/answer 改为发送 `localDescription`。
 
-**修改文件**：`apps/web/src/apps/p2p-file-transfer/{types.ts,index.tsx,components/FileDropZone.tsx,hooks/useFileTransfer.ts}`。
+**修改文件**：`apps/web/src/apps/p2p-file-transfer/{types.ts,index.tsx,components/FileDropZone.tsx,hooks/useFileTransfer.ts}`、`packages/hooks/src/useTrysteroRoom.ts`。
 
-**验证**：Web 类型检查、目标 ESLint、差异检查和全仓生产构建通过；构建前通过完整 `pnpm install` 恢复缺失的 workspace 链接，并重新生成 Prisma Client 以同步当前 schema。真实双浏览器端到端传输待验证。
+**验证**：Web/Hooks 类型检查、目标 ESLint、差异检查和全仓生产构建通过；构建前通过完整 `pnpm install` 恢复缺失的 workspace 链接，并重新生成 Prisma Client 以同步当前 schema。真实双浏览器端到端传输待验证。
 
 ### 2026-07-27 - P2P 聊天可靠传输与断点续传
 
@@ -50,7 +50,7 @@
 
 ## 🎯 当前上下文（最近 3 次）
 
-1. **P2P 文件传输连接就绪误判修复**：文件选择和发送目标改为仅使用 DataChannel 已就绪 Peer，在线成员不再被误判为可传输连接；静态验证通过，待真实双端传输实测。
+1. **P2P 文件传输连接建立修复**：文件选择和发送目标仅使用 DataChannel 已就绪 Peer；提前到达的 ICE candidate 会缓存到远端 SDP 就绪后补加，避免通道永久停在连接中；全仓构建通过，待真实双端传输实测。
 2. **P2P 聊天可靠传输与断点续传**：消息只有接收端 SHA-256 verification 后才送达；DataChannel 重连后按首个缺块续传，UI 保留失败状态与重试；本地构建通过，待真实双端断网实测。
 3. **P2P 文件传输可靠性与断点续传**：接收端 checkpoint + finalize/SHA-256 verification 才完成，重连重建 DataChannel 并从缺块续传；本地构建和辅助检查通过，待真实双端断网实测。
 
@@ -81,6 +81,7 @@
 | P2P `send()` 被误判为送达            | 使用 metadata/checkpoint/finalize/verification 协议；仅远端长度与 SHA-256 校验成功后完成   |
 | P2P 断线后无法继续                   | 保留内存会话，重建 DataChannel 后重发 metadata，并从接收端首个缺块位置续传                 |
 | P2P 成员在线但传输立即暂停           | 区分房间成员与 `readyPeers`；仅 DataChannel 就绪后开放文件选择和启动分块发送               |
+| P2P DataChannel 一直无法就绪         | 缓存早于 offer/answer 到达的 ICE candidate，远端 SDP 设置完成后再按 Peer 补加              |
 
 ## 🔗 关键代码位置
 
