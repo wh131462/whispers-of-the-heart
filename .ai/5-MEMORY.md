@@ -4,6 +4,16 @@
 
 ## 📝 会话日志
 
+### 2026-07-28 - P2P 文件传输连接就绪误判修复
+
+**问题**：文件传输 UI 只依据房间成员数开放文件选择，但成员已加入不代表 WebRTC DataChannel 已建立；metadata/ACK 可经信令通道提前完成握手，发送循环随后发现 DataChannel 未就绪，立即把刚开始的任务标记为“连接已断开，等待重连”。发送循环还额外依赖由 React Effect 延迟同步的成员快照，存在短暂误判风险。
+
+**实施**：房间状态新增可传输 Peer 数量，文件选择和默认目标只使用 `readyPeers`；发送循环仅以实时 DataChannel 状态判断分块通道，不再使用延迟成员快照；在线但通道未就绪时显示“正在建立数据通道”，仅成员确实离开时提示等待重连；同时避免旧发送协程在退出时覆盖新协程的 `sending` 状态。
+
+**修改文件**：`apps/web/src/apps/p2p-file-transfer/{types.ts,index.tsx,components/FileDropZone.tsx,hooks/useFileTransfer.ts}`。
+
+**验证**：Web 类型检查、目标 ESLint、差异检查和全仓生产构建通过；构建前通过完整 `pnpm install` 恢复缺失的 workspace 链接，并重新生成 Prisma Client 以同步当前 schema。真实双浏览器端到端传输待验证。
+
 ### 2026-07-27 - P2P 聊天可靠传输与断点续传
 
 **问题**：聊天原实现把本地 `send()` 调用当作发送成功，按 JavaScript 字符切分正文，接收端不校验完整分块/摘要，也没有来源 Peer 隔离、远端确认、重连续传或接收缓存过期清理。
@@ -38,27 +48,11 @@
 
 新增仓库级 `AGENTS.md`，将现有 Claude 协作约束适配为 Codex 可直接执行的会话初始化流程。Claude 与 Codex 共同复用 `.ai/`、`openspec/` 和 `.claude/skills/`，不复制项目技能，避免双份配置漂移；补充 Codex 工具能力映射、真实网络行为约束、文档维护和规则优先级。同步更新 `.ai/README.md` 的助手入口说明。
 
-### 2026-07-21 - 首页 FallingPattern 偶发显示异常修复
-
-**问题**：首页背景由 12 个超视口动画层和全屏 `backdrop-filter` 组成，高 DPI、集显或图层恢复时可能出现闪烁、锐化、断层；暂停恢复还会触发 React 整体重渲染。原设计要求的 `will-change` 未落实，`dark:brightness-[600]` 还是潜在异常值。
-
-**实施**：
-
-- 将全屏 `backdrop-filter` 改为各静态图案层的 `filter: blur()`，模糊纹理只需缓存后随 transform 合成。
-- 每层高度从“视口 + 2 个 tile”收缩为“视口 + 1 个 tile”，仍保持一个 tile 位移的无缝循环。
-- 增加 `will-change: transform`、`backface-visibility: hidden`、根容器 `contain: layout paint`。
-- 用根元素 CSS 变量控制播放状态，`IntersectionObserver` 与 `visibilitychange` 直接更新变量，避免 React 重渲染。
-- 蒙版改为软边 radial-gradient，移除无效且危险的 `dark:brightness-[600]`；背景设为装饰元素并禁用指针事件。
-
-**修改文件**：`packages/ui/src/components/background/FallingPattern.tsx`
-
-**验证**：UI/Web 类型检查、目标 ESLint、UI 包构建、Web 生产构建通过；浏览器验证浅色/深色视觉、动画持续运行、离屏暂停/恢复，控制台 0 警告。Web 构建仍有历史大 chunk 与 Browserslist 数据过期提示。
-
 ## 🎯 当前上下文（最近 3 次）
 
-1. **P2P 聊天可靠传输与断点续传**：消息只有接收端 SHA-256 verification 后才送达；DataChannel 重连后按首个缺块续传，UI 保留失败状态与重试；本地构建通过，待真实双端断网实测。
-2. **P2P 文件传输可靠性与断点续传**：接收端 checkpoint + finalize/SHA-256 verification 才完成，重连重建 DataChannel 并从缺块续传；本地构建和辅助检查通过，待真实双端断网实测。
-3. **BlockNote AI 长文滚动修复**：AI 菜单固定于视口底部，会话期间禁用根节点平滑滚动；静态与本地浏览器回归完成。
+1. **P2P 文件传输连接就绪误判修复**：文件选择和发送目标改为仅使用 DataChannel 已就绪 Peer，在线成员不再被误判为可传输连接；静态验证通过，待真实双端传输实测。
+2. **P2P 聊天可靠传输与断点续传**：消息只有接收端 SHA-256 verification 后才送达；DataChannel 重连后按首个缺块续传，UI 保留失败状态与重试；本地构建通过，待真实双端断网实测。
+3. **P2P 文件传输可靠性与断点续传**：接收端 checkpoint + finalize/SHA-256 verification 才完成，重连重建 DataChannel 并从缺块续传；本地构建和辅助检查通过，待真实双端断网实测。
 
 ## 💡 重要发现
 
@@ -86,6 +80,7 @@
 | 装饰动画离屏仍耗资源                 | `IntersectionObserver` 与 Page Visibility 共同控制 CSS 播放变量                            |
 | P2P `send()` 被误判为送达            | 使用 metadata/checkpoint/finalize/verification 协议；仅远端长度与 SHA-256 校验成功后完成   |
 | P2P 断线后无法继续                   | 保留内存会话，重建 DataChannel 后重发 metadata，并从接收端首个缺块位置续传                 |
+| P2P 成员在线但传输立即暂停           | 区分房间成员与 `readyPeers`；仅 DataChannel 就绪后开放文件选择和启动分块发送               |
 
 ## 🔗 关键代码位置
 
