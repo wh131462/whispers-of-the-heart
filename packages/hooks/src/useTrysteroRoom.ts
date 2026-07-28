@@ -98,6 +98,9 @@ export function useTrysteroRoom(config: RoomConfig) {
 
   const socketRef = useRef<Socket | null>(null);
   const peerConnectionsRef = useRef<Map<string, PeerConnection>>(new Map());
+  const pendingIceCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(
+    new Map()
+  );
   const userNameRef = useRef(userName);
   const roomCodeRef = useRef<string | null>(null);
   const peerIdRef = useRef<string>(generatePeerId());
@@ -119,6 +122,24 @@ export function useTrysteroRoom(config: RoomConfig) {
   const updateState = useCallback((updates: Partial<TrysteroRoomState>) => {
     setState(prev => ({ ...prev, ...updates }));
   }, []);
+
+  const flushPendingIceCandidates = useCallback(
+    async (peerId: string, connection: RTCPeerConnection): Promise<void> => {
+      if (!connection.remoteDescription) return;
+      const candidates = pendingIceCandidatesRef.current.get(peerId);
+      if (!candidates?.length) return;
+
+      pendingIceCandidatesRef.current.delete(peerId);
+      for (const candidate of candidates) {
+        try {
+          await connection.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (error) {
+          console.error('[WebRTC] Failed to add queued ICE candidate:', error);
+        }
+      }
+    },
+    []
+  );
 
   // 设置数据通道
   const setupDataChannel = useCallback(
@@ -214,6 +235,7 @@ export function useTrysteroRoom(config: RoomConfig) {
             current.dataChannel?.close();
             current.connection.close();
             peerConnectionsRef.current.delete(peerId);
+            pendingIceCandidatesRef.current.delete(peerId);
           }
         }
       };
@@ -240,6 +262,7 @@ export function useTrysteroRoom(config: RoomConfig) {
       conn.connection.close();
       peerConnectionsRef.current.delete(peerId);
     }
+    pendingIceCandidatesRef.current.delete(peerId);
     setState(prev => {
       const newPeers = new Map(prev.peers);
       const readyPeers = new Set(prev.readyPeers);
@@ -271,13 +294,14 @@ export function useTrysteroRoom(config: RoomConfig) {
         await conn.connection.setRemoteDescription(
           new RTCSessionDescription(signal as RTCSessionDescriptionInit)
         );
+        await flushPendingIceCandidates(fromPeerId, conn.connection);
         const answer = await conn.connection.createAnswer();
         await conn.connection.setLocalDescription(answer);
 
         socketRef.current?.emit('signal', {
           roomCode: roomCodeRef.current,
           targetPeerId: fromPeerId,
-          signal: { type: 'answer', sdp: answer.sdp },
+          signal: conn.connection.localDescription,
         });
       } else if (signal.type === 'answer') {
         // 收到 answer
@@ -285,21 +309,27 @@ export function useTrysteroRoom(config: RoomConfig) {
           await conn.connection.setRemoteDescription(
             new RTCSessionDescription(signal as RTCSessionDescriptionInit)
           );
+          await flushPendingIceCandidates(fromPeerId, conn.connection);
         }
       } else if (signal.type === 'candidate') {
-        // 收到 ICE 候选
-        if (conn) {
+        const candidate = signal.candidate as RTCIceCandidateInit;
+        if (conn?.connection.remoteDescription) {
           try {
             await conn.connection.addIceCandidate(
-              new RTCIceCandidate(signal.candidate as RTCIceCandidateInit)
+              new RTCIceCandidate(candidate)
             );
           } catch (e) {
             console.error('[WebRTC] Failed to add ICE candidate:', e);
           }
+        } else {
+          const candidates =
+            pendingIceCandidatesRef.current.get(fromPeerId) ?? [];
+          candidates.push(candidate);
+          pendingIceCandidatesRef.current.set(fromPeerId, candidates);
         }
       }
     },
-    [createPeerConnection, state.peers]
+    [createPeerConnection, flushPendingIceCandidates, state.peers]
   );
 
   /**
@@ -344,6 +374,7 @@ export function useTrysteroRoom(config: RoomConfig) {
           conn.connection.close();
         });
         peerConnectionsRef.current.clear();
+        pendingIceCandidatesRef.current.clear();
 
         // 加入房间（使用组合后的完整房间码）
         socket.emit(
@@ -387,7 +418,7 @@ export function useTrysteroRoom(config: RoomConfig) {
                   socket.emit('signal', {
                     roomCode: fullRoomCode,
                     targetPeerId: member.peerId,
-                    signal: { type: 'offer', sdp: offer.sdp },
+                    signal: conn.connection.localDescription,
                   });
                 } catch (error) {
                   console.error(
@@ -418,6 +449,7 @@ export function useTrysteroRoom(config: RoomConfig) {
           conn.connection.close();
         });
         peerConnectionsRef.current.clear();
+        pendingIceCandidatesRef.current.clear();
         // 设置状态为 connecting 表示正在重连
         updateState({
           status: 'connecting',
@@ -539,6 +571,7 @@ export function useTrysteroRoom(config: RoomConfig) {
       conn.connection.close();
     });
     peerConnectionsRef.current.clear();
+    pendingIceCandidatesRef.current.clear();
 
     // 清空消息缓冲区
     messageBufferRef.current = [];
