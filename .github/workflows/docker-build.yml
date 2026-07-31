@@ -178,6 +178,12 @@ jobs:
           API_URL=${{ vars.VITE_API_URL || 'https://api.131462.wang' }}
           API_PORT=7777
           WEB_PORT=8888
+          STUN_URLS=${{ vars.STUN_URLS || 'stun:stun.l.google.com:19302,stun:stun.cloudflare.com:3478' }}
+          TURN_URLS=${{ vars.TURN_URLS || '' }}
+          TURN_SHARED_SECRET=${{ secrets.TURN_SHARED_SECRET }}
+          TURN_CREDENTIAL_TTL_SECONDS=${{ vars.TURN_CREDENTIAL_TTL_SECONDS || '3600' }}
+          TURN_USERNAME=${{ vars.TURN_USERNAME || '' }}
+          TURN_CREDENTIAL=${{ secrets.TURN_CREDENTIAL }}
           LOG_LEVEL=info
           LOG_FILE=logs/app.log
           CORS_ORIGINS=${{ vars.CORS_ORIGINS || 'https://131462.wang,https://www.131462.wang' }}

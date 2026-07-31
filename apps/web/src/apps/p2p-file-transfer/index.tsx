@@ -136,6 +136,14 @@ export default function P2PFileTransfer() {
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* 文件拖拽区 */}
             <div className="p-3 border-b border-zinc-100">
+              {state.error && (
+                <div
+                  role="alert"
+                  className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600"
+                >
+                  {state.error}
+                </div>
+              )}
               {state.peerCount > 1 && (
                 <label className="block mb-3">
                   <span className="block mb-1.5 text-xs font-medium text-zinc-600">

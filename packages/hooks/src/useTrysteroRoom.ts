@@ -40,6 +40,8 @@ interface PeerConnection {
   name: string;
   connection: RTCPeerConnection;
   dataChannel: RTCDataChannel | null;
+  isInitiator: boolean;
+  iceRestartAttempts: number;
 }
 
 // 房间对象（兼容原有 API）
@@ -57,8 +59,8 @@ const initialState: TrysteroRoomState = {
   error: null,
 };
 
-// ICE 服务器配置
-const ICE_SERVERS: RTCIceServer[] = [
+// ICE 服务器兜底配置。生产环境会在加入房间前从 API 获取 TURN 短期凭证。
+const DEFAULT_ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun.cloudflare.com:3478' },
@@ -67,6 +69,7 @@ const ICE_SERVERS: RTCIceServer[] = [
 const DATA_CHANNEL_BUFFER_HIGH_WATER = 512 * 1024;
 const DATA_CHANNEL_BUFFER_LOW_WATER = 128 * 1024;
 const MAX_PENDING_ICE_CANDIDATES = 256;
+const MAX_ICE_RESTART_ATTEMPTS = 1;
 
 // 信令服务器地址
 const getSignalingServerUrl = () => {
@@ -89,6 +92,61 @@ const getSignalingServerUrl = () => {
   return 'http://localhost:7777';
 };
 
+function normalizeIceServers(value: unknown): RTCIceServer[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap(server => {
+    if (!server || typeof server !== 'object') return [];
+    const candidate = server as Record<string, unknown>;
+    const urls = Array.isArray(candidate.urls)
+      ? candidate.urls.filter((url): url is string => typeof url === 'string')
+      : typeof candidate.urls === 'string'
+        ? [candidate.urls]
+        : [];
+    const validUrls = urls.filter(url =>
+      /^(stun|turn|turns):/i.test(url.trim())
+    );
+    if (validUrls.length === 0) return [];
+
+    const normalized: RTCIceServer = { urls: validUrls };
+    if (typeof candidate.username === 'string') {
+      normalized.username = candidate.username;
+    }
+    if (typeof candidate.credential === 'string') {
+      normalized.credential = candidate.credential;
+    }
+    return [normalized];
+  });
+}
+
+async function loadIceServers(serverUrl: string): Promise<RTCIceServer[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const response = await fetch(
+      `${serverUrl.replace(/\/$/, '')}/api/v1/signaling/ice-servers`,
+      {
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+        signal: controller.signal,
+      }
+    );
+    if (!response.ok) {
+      throw new Error(`ICE config request failed with ${response.status}`);
+    }
+
+    const payload = (await response.json()) as { iceServers?: unknown };
+    const iceServers = normalizeIceServers(payload.iceServers);
+    if (iceServers.length === 0) {
+      throw new Error('ICE config response contains no valid server');
+    }
+    return iceServers;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 /**
  * P2P 房间 Hook（使用自定义信令服务器）
  */
@@ -99,6 +157,7 @@ export function useTrysteroRoom(config: RoomConfig) {
 
   const socketRef = useRef<Socket | null>(null);
   const peerConnectionsRef = useRef<Map<string, PeerConnection>>(new Map());
+  const iceServersRef = useRef<RTCIceServer[]>(DEFAULT_ICE_SERVERS);
   const pendingIceCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(
     new Map()
   );
@@ -135,7 +194,7 @@ export function useTrysteroRoom(config: RoomConfig) {
         setState(prev => {
           const readyPeers = new Set(prev.readyPeers);
           readyPeers.add(peerId);
-          return { ...prev, readyPeers };
+          return { ...prev, readyPeers, error: null };
         });
       };
 
@@ -177,7 +236,9 @@ export function useTrysteroRoom(config: RoomConfig) {
         existingConnection.connection.close();
         peerConnectionsRef.current.delete(peerId);
       }
-      const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+      const pc = new RTCPeerConnection({
+        iceServers: iceServersRef.current,
+      });
 
       let dataChannel: RTCDataChannel | null = null;
 
@@ -212,15 +273,63 @@ export function useTrysteroRoom(config: RoomConfig) {
       // 连接状态变化
       pc.onconnectionstatechange = () => {
         console.log(`[WebRTC] Connection to ${peerId}: ${pc.connectionState}`);
-        if (pc.connectionState === 'failed') {
-          const current = peerConnectionsRef.current.get(peerId);
-          if (current?.connection === pc) {
-            current.dataChannel?.close();
-            current.connection.close();
-            peerConnectionsRef.current.delete(peerId);
-            pendingIceCandidatesRef.current.delete(peerId);
-          }
+        const current = peerConnectionsRef.current.get(peerId);
+        if (pc.connectionState === 'connected') {
+          if (current?.connection === pc) current.iceRestartAttempts = 0;
+          return;
         }
+        if (pc.connectionState === 'failed') {
+          if (current?.connection !== pc) return;
+          if (
+            current.isInitiator &&
+            current.iceRestartAttempts < MAX_ICE_RESTART_ATTEMPTS &&
+            socketRef.current?.connected
+          ) {
+            current.iceRestartAttempts += 1;
+            console.warn(`[WebRTC] Restarting ICE for ${peerId}`);
+            pc.restartIce();
+            void (async () => {
+              const offer = await pc.createOffer({ iceRestart: true });
+              await pc.setLocalDescription(offer);
+              socketRef.current?.emit('signal', {
+                roomCode: roomCodeRef.current,
+                targetPeerId: peerId,
+                signal: pc.localDescription,
+              });
+            })().catch(error => {
+              console.error(
+                `[WebRTC] ICE restart failed for ${peerId}:`,
+                error
+              );
+              current.dataChannel?.close();
+              current.connection.close();
+              peerConnectionsRef.current.delete(peerId);
+              pendingIceCandidatesRef.current.delete(peerId);
+            });
+            return;
+          }
+
+          current.dataChannel?.close();
+          current.connection.close();
+          peerConnectionsRef.current.delete(peerId);
+          pendingIceCandidatesRef.current.delete(peerId);
+          const hasTurn = iceServersRef.current.some(server =>
+            (Array.isArray(server.urls) ? server.urls : [server.urls]).some(
+              url => /^turns?:/i.test(url)
+            )
+          );
+          updateState({
+            error: hasTurn
+              ? 'P2P 连接失败，请检查网络后重试'
+              : 'P2P 连接失败：服务器未配置 TURN 中继',
+          });
+        }
+      };
+
+      pc.onicecandidateerror = event => {
+        console.warn(
+          `[WebRTC] ICE candidate error for ${peerId}: ${event.errorCode} ${event.errorText}`
+        );
       };
 
       const peerConnection: PeerConnection = {
@@ -228,13 +337,15 @@ export function useTrysteroRoom(config: RoomConfig) {
         name: peerName,
         connection: pc,
         dataChannel,
+        isInitiator,
+        iceRestartAttempts: 0,
       };
 
       peerConnectionsRef.current.set(peerId, peerConnection);
 
       return peerConnection;
     },
-    [setupDataChannel]
+    [setupDataChannel, updateState]
   );
 
   // 移除 peer
@@ -380,73 +491,120 @@ export function useTrysteroRoom(config: RoomConfig) {
       });
 
       socketRef.current = socket;
+      let connectionGeneration = 0;
 
       socket.on('connect', () => {
-        console.log('[Signaling] Connected to server');
+        const generation = ++connectionGeneration;
+        void (async () => {
+          console.log('[Signaling] Connected to server');
 
-        // Socket.IO 的 connect 会在首次连接和每次重连后触发。先清理失效的
-        // PeerConnection，再根据服务端返回的成员列表完整重建 DataChannel。
-        peerConnectionsRef.current.forEach(conn => {
-          conn.dataChannel?.close();
-          conn.connection.close();
-        });
-        peerConnectionsRef.current.clear();
-        pendingIceCandidatesRef.current.clear();
-
-        // 加入房间（使用组合后的完整房间码）
-        socket.emit(
-          'join',
-          {
-            roomCode: fullRoomCode,
-            peerId: peerIdRef.current,
-            name: userNameRef.current,
-          },
-          (response: {
-            success: boolean;
-            members: Array<{ peerId: string; name: string }>;
-          }) => {
-            if (response.success) {
-              const peers = new Map<string, BasePeerInfo>(
-                response.members.map(member => [
-                  member.peerId,
-                  { id: member.peerId, name: member.name },
-                ])
-              );
-              updateState({
-                status: 'connected',
-                error: null,
-                peers,
-                peerCount: peers.size,
-                readyPeers: new Set(),
-              });
-
-              // 向所有现有成员发起连接
-              response.members.forEach(async member => {
-                try {
-                  const conn = createPeerConnection(
-                    member.peerId,
-                    member.name,
-                    true
-                  );
-                  peerJoinCallbackRef.current?.(member.peerId);
-                  const offer = await conn.connection.createOffer();
-                  await conn.connection.setLocalDescription(offer);
-
-                  socket.emit('signal', {
-                    roomCode: fullRoomCode,
-                    targetPeerId: member.peerId,
-                    signal: conn.connection.localDescription,
-                  });
-                } catch (error) {
-                  console.error(
-                    `[WebRTC] Failed to reconnect peer ${member.peerId}:`,
-                    error
-                  );
-                }
-              });
-            }
+          // 每次首次连接/重连前刷新短期 TURN 凭证。配置服务不可用时保留
+          // STUN 兜底，让局域网和可直连网络仍可使用。
+          try {
+            const iceServers = await loadIceServers(serverUrl);
+            if (
+              socket !== socketRef.current ||
+              generation !== connectionGeneration
+            )
+              return;
+            iceServersRef.current = iceServers;
+            const hasTurn = iceServers.some(server =>
+              (Array.isArray(server.urls) ? server.urls : [server.urls]).some(
+                url => /^turns?:/i.test(url)
+              )
+            );
+            console.log(
+              `[WebRTC] ICE servers loaded (${hasTurn ? 'STUN + TURN' : 'STUN only'})`
+            );
+          } catch (error) {
+            if (
+              socket !== socketRef.current ||
+              generation !== connectionGeneration
+            )
+              return;
+            iceServersRef.current = DEFAULT_ICE_SERVERS;
+            console.warn(
+              '[WebRTC] Failed to load TURN config, using STUN fallback:',
+              error
+            );
           }
-        );
+
+          if (
+            socket !== socketRef.current ||
+            generation !== connectionGeneration ||
+            !socket.connected
+          )
+            return;
+
+          // Socket.IO 的 connect 会在首次连接和每次重连后触发。先清理失效的
+          // PeerConnection，再根据服务端返回的成员列表完整重建 DataChannel。
+          peerConnectionsRef.current.forEach(conn => {
+            conn.dataChannel?.close();
+            conn.connection.close();
+          });
+          peerConnectionsRef.current.clear();
+          pendingIceCandidatesRef.current.clear();
+
+          // 加入房间（使用组合后的完整房间码）
+          socket.emit(
+            'join',
+            {
+              roomCode: fullRoomCode,
+              peerId: peerIdRef.current,
+              name: userNameRef.current,
+            },
+            (response: {
+              success: boolean;
+              members: Array<{ peerId: string; name: string }>;
+            }) => {
+              if (response.success) {
+                const peers = new Map<string, BasePeerInfo>(
+                  response.members.map(member => [
+                    member.peerId,
+                    { id: member.peerId, name: member.name },
+                  ])
+                );
+                updateState({
+                  status: 'connected',
+                  error: null,
+                  peers,
+                  peerCount: peers.size,
+                  readyPeers: new Set(),
+                });
+
+                // 向所有现有成员发起连接
+                response.members.forEach(async member => {
+                  try {
+                    const conn = createPeerConnection(
+                      member.peerId,
+                      member.name,
+                      true
+                    );
+                    peerJoinCallbackRef.current?.(member.peerId);
+                    const offer = await conn.connection.createOffer();
+                    await conn.connection.setLocalDescription(offer);
+
+                    socket.emit('signal', {
+                      roomCode: fullRoomCode,
+                      targetPeerId: member.peerId,
+                      signal: conn.connection.localDescription,
+                    });
+                  } catch (error) {
+                    console.error(
+                      `[WebRTC] Failed to reconnect peer ${member.peerId}:`,
+                      error
+                    );
+                  }
+                });
+              }
+            }
+          );
+        })().catch(error => {
+          console.error(
+            '[Signaling] Failed to initialize room connection:',
+            error
+          );
+        });
       });
 
       socket.on('connect_error', (error: Error) => {
@@ -455,6 +613,7 @@ export function useTrysteroRoom(config: RoomConfig) {
       });
 
       socket.on('disconnect', (reason: string) => {
+        connectionGeneration += 1;
         console.log('[Signaling] Disconnected from server:', reason);
         // 如果是服务端主动断开或传输关闭，尝试重连
         if (reason === 'io server disconnect') {
