@@ -66,6 +66,7 @@ const ICE_SERVERS: RTCIceServer[] = [
 
 const DATA_CHANNEL_BUFFER_HIGH_WATER = 512 * 1024;
 const DATA_CHANNEL_BUFFER_LOW_WATER = 128 * 1024;
+const MAX_PENDING_ICE_CANDIDATES = 256;
 
 // 信令服务器地址
 const getSignalingServerUrl = () => {
@@ -98,6 +99,9 @@ export function useTrysteroRoom(config: RoomConfig) {
 
   const socketRef = useRef<Socket | null>(null);
   const peerConnectionsRef = useRef<Map<string, PeerConnection>>(new Map());
+  const pendingIceCandidatesRef = useRef<Map<string, RTCIceCandidateInit[]>>(
+    new Map()
+  );
   const userNameRef = useRef(userName);
   const roomCodeRef = useRef<string | null>(null);
   const peerIdRef = useRef<string>(generatePeerId());
@@ -240,6 +244,7 @@ export function useTrysteroRoom(config: RoomConfig) {
       conn.connection.close();
       peerConnectionsRef.current.delete(peerId);
     }
+    pendingIceCandidatesRef.current.delete(peerId);
     setState(prev => {
       const newPeers = new Map(prev.peers);
       const readyPeers = new Set(prev.readyPeers);
@@ -253,6 +258,38 @@ export function useTrysteroRoom(config: RoomConfig) {
       };
     });
   }, []);
+
+  const queueIceCandidate = useCallback(
+    (peerId: string, candidate: RTCIceCandidateInit) => {
+      const candidates = pendingIceCandidatesRef.current.get(peerId) ?? [];
+      if (candidates.length >= MAX_PENDING_ICE_CANDIDATES) {
+        console.warn(
+          `[WebRTC] Too many pending ICE candidates for ${peerId}, dropping candidate`
+        );
+        return;
+      }
+      candidates.push(candidate);
+      pendingIceCandidatesRef.current.set(peerId, candidates);
+    },
+    []
+  );
+
+  const flushIceCandidates = useCallback(
+    async (peerId: string, connection: RTCPeerConnection) => {
+      const candidates = pendingIceCandidatesRef.current.get(peerId);
+      if (!candidates?.length) return;
+
+      pendingIceCandidatesRef.current.delete(peerId);
+      for (const candidate of candidates) {
+        try {
+          await connection.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (error) {
+          console.error('[WebRTC] Failed to add queued ICE candidate:', error);
+        }
+      }
+    },
+    []
+  );
 
   // 处理信号
   const handleSignal = useCallback(
@@ -271,6 +308,7 @@ export function useTrysteroRoom(config: RoomConfig) {
         await conn.connection.setRemoteDescription(
           new RTCSessionDescription(signal as RTCSessionDescriptionInit)
         );
+        await flushIceCandidates(fromPeerId, conn.connection);
         const answer = await conn.connection.createAnswer();
         await conn.connection.setLocalDescription(answer);
 
@@ -285,21 +323,28 @@ export function useTrysteroRoom(config: RoomConfig) {
           await conn.connection.setRemoteDescription(
             new RTCSessionDescription(signal as RTCSessionDescriptionInit)
           );
+          await flushIceCandidates(fromPeerId, conn.connection);
         }
       } else if (signal.type === 'candidate') {
         // 收到 ICE 候选
-        if (conn) {
-          try {
-            await conn.connection.addIceCandidate(
-              new RTCIceCandidate(signal.candidate as RTCIceCandidateInit)
-            );
-          } catch (e) {
-            console.error('[WebRTC] Failed to add ICE candidate:', e);
-          }
+        const candidate = signal.candidate as RTCIceCandidateInit | undefined;
+        if (!candidate) return;
+
+        // Trickle ICE 可能早于 offer/answer 到达。远端描述设置前调用
+        // addIceCandidate 会失败，因此先缓存，待描述就绪后按顺序补入。
+        if (!conn?.connection.remoteDescription) {
+          queueIceCandidate(fromPeerId, candidate);
+          return;
+        }
+
+        try {
+          await conn.connection.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (error) {
+          console.error('[WebRTC] Failed to add ICE candidate:', error);
         }
       }
     },
-    [createPeerConnection, state.peers]
+    [createPeerConnection, flushIceCandidates, queueIceCandidate, state.peers]
   );
 
   /**
@@ -344,6 +389,7 @@ export function useTrysteroRoom(config: RoomConfig) {
           conn.connection.close();
         });
         peerConnectionsRef.current.clear();
+        pendingIceCandidatesRef.current.clear();
 
         // 加入房间（使用组合后的完整房间码）
         socket.emit(
@@ -418,6 +464,7 @@ export function useTrysteroRoom(config: RoomConfig) {
           conn.connection.close();
         });
         peerConnectionsRef.current.clear();
+        pendingIceCandidatesRef.current.clear();
         // 设置状态为 connecting 表示正在重连
         updateState({
           status: 'connecting',
@@ -489,7 +536,12 @@ export function useTrysteroRoom(config: RoomConfig) {
           fromPeerId: string;
           signal: { type: string };
         }) => {
-          handleSignal(fromPeerId, signal);
+          void handleSignal(fromPeerId, signal).catch(error => {
+            console.error(
+              `[WebRTC] Failed to handle ${signal.type} from ${fromPeerId}:`,
+              error
+            );
+          });
         }
       );
 
@@ -539,6 +591,7 @@ export function useTrysteroRoom(config: RoomConfig) {
       conn.connection.close();
     });
     peerConnectionsRef.current.clear();
+    pendingIceCandidatesRef.current.clear();
 
     // 清空消息缓冲区
     messageBufferRef.current = [];
