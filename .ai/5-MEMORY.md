@@ -8,21 +8,21 @@
 
 **问题**：文件传输双方已进入同一房间且成员可见，但在部分信令时序下 DataChannel 一直无法就绪，上传任务停留在等待 P2P 通道状态。Trickle ICE candidate 到达时，目标 PeerConnection 可能尚未创建或尚未设置 `remoteDescription`，原逻辑会直接丢弃或添加失败且不再重试。
 
-**实施**：`useTrysteroRoom` 按 Peer 缓存提前到达的 ICE candidate，在 offer/answer 的远端描述设置完成后按序刷新；候选缓存限制为 256 条，Peer 离开、Socket 重连、断开和主动离房时同步清理。信令异步处理增加统一错误隔离，避免单个无效信令产生未处理的 Promise rejection 并影响后续协商。
+**实施**：`useTrysteroRoom` 按 Peer 缓存提前到达的 ICE candidate，在 offer/answer 的远端描述设置完成后按序刷新；候选缓存限制为 256 条，Peer 离开、Socket 重连、断开和主动离房时同步清理。信令异步处理增加统一错误隔离，避免单个无效信令产生未处理的 Promise rejection 并影响后续协商。文件传输 UI 区分“无人加入”和“DataChannel 尚未就绪”；多人房间必须显式选择一个通道已就绪的接收方，禁止隐式选择首位成员或默认广播，目标离线后自动清除选择。
 
-**修改文件**：`packages/hooks/src/useTrysteroRoom.ts`
+**修改文件**：`packages/hooks/src/useTrysteroRoom.ts`、`apps/web/src/apps/p2p-file-transfer/{types.ts,index.tsx,components/FileDropZone.tsx,hooks/useFileTransfer.ts}`、`openspec/specs/reliable-p2p-file-transfer/spec.md`
 
-**验证**：`@whispers/hooks` 类型检查与构建、目标 ESLint、Web 类型检查和生产构建通过；两个独立应用内浏览器加入同一房间后，双方均确认 `RTCPeerConnection` 为 `connected`、DataChannel 为 `opened`，上传区域正常可用。浏览器自动化未能操作隐藏文件输入，因此本轮未重复执行完整文件内容传输；此前文件校验与断点协议保持未改动。
+**验证**：`@whispers/hooks` 类型检查与构建、目标 ESLint、Web 类型检查和生产构建通过；两个独立应用内浏览器加入同一房间后，双方均确认 `RTCPeerConnection` 为 `connected`、DataChannel 为 `opened`，上传区域正常可用。多人接收方选择通过 Web 类型检查、目标 ESLint 和生产构建；目标 Lint 仅保留 `useFileTransfer` 已有的 effect cleanup ref 警告。浏览器自动化未能操作隐藏文件输入，因此本轮未重复执行完整文件内容传输；此前文件校验与断点协议保持未改动。
 
 ### 2026-07-31 - 管理后台应用分发与更新接口
 
 **需求**：在管理后台注册待分发应用、维护版本，并为客户端提供包含 `versionCode`、`versionName`、`apkUrl` 和可选 `releaseNotes` 的 HTTPS JSON 更新地址。
 
-**实施**：新增 `add-app-distribution` OpenSpec 变更；以 `DistributedApp + AppRelease` 保存应用及版本历史，同一应用的 `versionCode` 唯一，公开接口始终选择最高版本码。NestJS 新增管理员应用/版本 CRUD 与无需认证的 `GET /api/v1/app-distributions/:slug/latest.json`，下载地址仅接受 HTTPS，公开成功响应不套统一 API 包裹。管理后台新增响应式“应用分发”页面，可维护应用和版本、识别当前最新版本、复制或打开环境对应的完整更新地址。
+**实施**：新增 `add-app-distribution` OpenSpec 变更；以 `DistributedApp + AppRelease` 保存应用及版本历史，同一应用的 `versionCode` 唯一，公开接口始终选择最高版本码。NestJS 新增管理员应用/版本 CRUD 与无需认证的 `GET /api/v1/app-distributions/:slug/latest.json`，下载地址仅接受 HTTPS，公开成功响应不套统一 API 包裹。管理后台新增响应式“应用分发”页面，可维护应用和版本、识别当前最新版本、复制或打开环境对应的完整更新地址。补充 Web Tailwind `content` 对 `packages/ui/src` 的扫描，修复共享 Dialog 任意值定位类未生成、点击后弹窗实际落在视口下方的问题。
 
 **修改文件**：`apps/api/src/app-distribution/`、`apps/api/prisma/{schema.prisma,migrations/20260731000000_add_app_distribution/}`、`apps/web/src/pages/admin/AppDistributionPage.tsx`、管理路由与侧边栏；规格位于 `openspec/changes/add-app-distribution/`。
 
-**验证**：Prisma Schema 校验与 Client 生成通过；API/Web 类型检查、目标 ESLint、API 构建和 Web 生产构建通过；HTTPS URL 校验确定性检查通过。本地 API/Web 可访问，但数据库已有 `20260721000000_add_user_token_version` 失败迁移导致 Prisma P3009，新增迁移未执行，因此未完成真实管理端/API 端到端验证。Web 构建仅保留已有 Browserslist 数据过期和大 chunk 警告。
+**验证**：Prisma Schema 校验与 Client 生成通过；API/Web 类型检查、目标 ESLint、API 构建和 Web 生产构建通过；HTTPS URL 校验确定性检查通过。浏览器复现确认修复前注册弹窗位于视口外，修复后居中完整可见，空表单提交能显示校验提示。本地数据库未启动，且此前迁移检查发现已有 `20260721000000_add_user_token_version` 失败迁移导致 Prisma P3009，因此未完成真实写库/API 端到端验证。Web 构建仅保留已有 Browserslist 数据过期和大 chunk 警告。
 
 ### 2026-07-28 - P2P 文件传输连接就绪误判修复
 
@@ -87,6 +87,7 @@
 | P2P `send()` 被误判为送达            | 使用 metadata/checkpoint/finalize/verification 协议；仅远端长度与 SHA-256 校验成功后完成   |
 | P2P 断线后无法继续                   | 保留内存会话，重建 DataChannel 后重发 metadata，并从接收端首个缺块位置续传                 |
 | 客户端更新接口不应带通用响应包裹     | 管理 CRUD 使用 `ApiResponseDto`，公开 `latest.json` Controller 直接返回固定版本字段        |
+| 共享 UI 的 Tailwind 任意值类未生效   | Web 的 Tailwind `content` 必须扫描 `packages/ui/src/**/*.{js,ts,jsx,tsx}`                  |
 | P2P 成员在线但传输立即暂停           | 区分房间成员与 `readyPeers`；仅 DataChannel 就绪后开放文件选择和启动分块发送               |
 | P2P DataChannel 一直无法就绪         | 缓存早于 offer/answer 到达的 ICE candidate，远端 SDP 设置完成后再按 Peer 补加              |
 
