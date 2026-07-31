@@ -66,6 +66,7 @@ whispers-of-the-heart/
 | RSS 订阅 | RSS 2.0 feed 输出                            | `apps/api/src/rss/`                                           |
 | Sitemap  | sitemap.xml 输出 / 静态 OG                   | `apps/api/src/sitemap/`                                       |
 | 友链     | 友链 CRUD / 展示 / 后台管理                  | `apps/api/src/friend-link/`                                   |
+| 应用分发 | 应用注册 / 版本历史 / 公开更新 JSON          | `apps/api/src/app-distribution/`                              |
 | AI 对话  | 独立对话页 + 服务器默认配置 + 博客知识库 RAG | 前端 `apps/web/src/pages/chat/`，后端 `apps/api/src/ai-chat/` |
 
 ## 端口配置
@@ -90,18 +91,19 @@ whispers-of-the-heart/
 
 ## 重要目录映射
 
-| 功能领域   | 文件位置                                  |
-| ---------- | ----------------------------------------- |
-| 用户认证   | `apps/api/src/auth/`                      |
-| 博客服务   | `apps/api/src/blog/blog.service.ts`       |
-| 评论服务   | `apps/api/src/comment/comment.service.ts` |
-| 媒体上传   | `apps/api/src/media/`                     |
-| Prisma模型 | `apps/api/prisma/schema.prisma`           |
-| UI组件     | `packages/ui/src/components/`             |
-| 前端页面   | `apps/web/src/pages/`                     |
-| 应用中心   | `apps/web/src/apps/`                      |
-| 状态管理   | `apps/web/src/stores/`                    |
-| API工具    | `packages/utils/src/`                     |
+| 功能领域   | 文件位置                                                                             |
+| ---------- | ------------------------------------------------------------------------------------ |
+| 用户认证   | `apps/api/src/auth/`                                                                 |
+| 博客服务   | `apps/api/src/blog/blog.service.ts`                                                  |
+| 评论服务   | `apps/api/src/comment/comment.service.ts`                                            |
+| 媒体上传   | `apps/api/src/media/`                                                                |
+| Prisma模型 | `apps/api/prisma/schema.prisma`                                                      |
+| UI组件     | `packages/ui/src/components/`                                                        |
+| 前端页面   | `apps/web/src/pages/`                                                                |
+| 应用中心   | `apps/web/src/apps/`                                                                 |
+| 应用分发   | `apps/api/src/app-distribution/`、`apps/web/src/pages/admin/AppDistributionPage.tsx` |
+| 状态管理   | `apps/web/src/stores/`                                                               |
+| API工具    | `packages/utils/src/`                                                                |
 
 ## 常用命令
 
@@ -151,5 +153,5 @@ pnpm type-check            # TypeScript类型检查
 
 ---
 
-**最后更新**: 2026-06-05
+**最后更新**: 2026-07-31
 **维护者**: wh131462

@@ -4,6 +4,26 @@
 
 ## 📝 会话日志
 
+### 2026-07-31 - P2P DataChannel 建立竞态修复
+
+**问题**：文件传输双方已进入同一房间且成员可见，但在部分信令时序下 DataChannel 一直无法就绪，上传任务停留在等待 P2P 通道状态。Trickle ICE candidate 到达时，目标 PeerConnection 可能尚未创建或尚未设置 `remoteDescription`，原逻辑会直接丢弃或添加失败且不再重试。
+
+**实施**：`useTrysteroRoom` 按 Peer 缓存提前到达的 ICE candidate，在 offer/answer 的远端描述设置完成后按序刷新；候选缓存限制为 256 条，Peer 离开、Socket 重连、断开和主动离房时同步清理。信令异步处理增加统一错误隔离，避免单个无效信令产生未处理的 Promise rejection 并影响后续协商。
+
+**修改文件**：`packages/hooks/src/useTrysteroRoom.ts`
+
+**验证**：`@whispers/hooks` 类型检查与构建、目标 ESLint、Web 类型检查和生产构建通过；两个独立应用内浏览器加入同一房间后，双方均确认 `RTCPeerConnection` 为 `connected`、DataChannel 为 `opened`，上传区域正常可用。浏览器自动化未能操作隐藏文件输入，因此本轮未重复执行完整文件内容传输；此前文件校验与断点协议保持未改动。
+
+### 2026-07-31 - 管理后台应用分发与更新接口
+
+**需求**：在管理后台注册待分发应用、维护版本，并为客户端提供包含 `versionCode`、`versionName`、`apkUrl` 和可选 `releaseNotes` 的 HTTPS JSON 更新地址。
+
+**实施**：新增 `add-app-distribution` OpenSpec 变更；以 `DistributedApp + AppRelease` 保存应用及版本历史，同一应用的 `versionCode` 唯一，公开接口始终选择最高版本码。NestJS 新增管理员应用/版本 CRUD 与无需认证的 `GET /api/v1/app-distributions/:slug/latest.json`，下载地址仅接受 HTTPS，公开成功响应不套统一 API 包裹。管理后台新增响应式“应用分发”页面，可维护应用和版本、识别当前最新版本、复制或打开环境对应的完整更新地址。
+
+**修改文件**：`apps/api/src/app-distribution/`、`apps/api/prisma/{schema.prisma,migrations/20260731000000_add_app_distribution/}`、`apps/web/src/pages/admin/AppDistributionPage.tsx`、管理路由与侧边栏；规格位于 `openspec/changes/add-app-distribution/`。
+
+**验证**：Prisma Schema 校验与 Client 生成通过；API/Web 类型检查、目标 ESLint、API 构建和 Web 生产构建通过；HTTPS URL 校验确定性检查通过。本地 API/Web 可访问，但数据库已有 `20260721000000_add_user_token_version` 失败迁移导致 Prisma P3009，新增迁移未执行，因此未完成真实管理端/API 端到端验证。Web 构建仅保留已有 Browserslist 数据过期和大 chunk 警告。
+
 ### 2026-07-27 - P2P 聊天可靠传输与断点续传
 
 **问题**：聊天原实现把本地 `send()` 调用当作发送成功，按 JavaScript 字符切分正文，接收端不校验完整分块/摘要，也没有来源 Peer 隔离、远端确认、重连续传或接收缓存过期清理。
@@ -34,31 +54,11 @@
 
 **验证**：UI 类型检查、目标 ESLint、UI 包构建和 Web 生产构建通过；本地 80 段长文浏览器验证中，菜单滚动前后均固定于视口底部，页面高度保持稳定，关闭后平滑滚动恢复。AI 输入框粘贴回归确认文本只进入提示词输入框，正文内容保持不变。实际模型请求被当前本地模型配置以 `Thinking mode does not support this tool_choice` 拒绝，未覆盖成功生成后的“接受/拒绝”端到端点击，该错误与本次布局修复独立。
 
-### 2026-07-22 - Codex 项目初始化适配
-
-新增仓库级 `AGENTS.md`，将现有 Claude 协作约束适配为 Codex 可直接执行的会话初始化流程。Claude 与 Codex 共同复用 `.ai/`、`openspec/` 和 `.claude/skills/`，不复制项目技能，避免双份配置漂移；补充 Codex 工具能力映射、真实网络行为约束、文档维护和规则优先级。同步更新 `.ai/README.md` 的助手入口说明。
-
-### 2026-07-21 - 首页 FallingPattern 偶发显示异常修复
-
-**问题**：首页背景由 12 个超视口动画层和全屏 `backdrop-filter` 组成，高 DPI、集显或图层恢复时可能出现闪烁、锐化、断层；暂停恢复还会触发 React 整体重渲染。原设计要求的 `will-change` 未落实，`dark:brightness-[600]` 还是潜在异常值。
-
-**实施**：
-
-- 将全屏 `backdrop-filter` 改为各静态图案层的 `filter: blur()`，模糊纹理只需缓存后随 transform 合成。
-- 每层高度从“视口 + 2 个 tile”收缩为“视口 + 1 个 tile”，仍保持一个 tile 位移的无缝循环。
-- 增加 `will-change: transform`、`backface-visibility: hidden`、根容器 `contain: layout paint`。
-- 用根元素 CSS 变量控制播放状态，`IntersectionObserver` 与 `visibilitychange` 直接更新变量，避免 React 重渲染。
-- 蒙版改为软边 radial-gradient，移除无效且危险的 `dark:brightness-[600]`；背景设为装饰元素并禁用指针事件。
-
-**修改文件**：`packages/ui/src/components/background/FallingPattern.tsx`
-
-**验证**：UI/Web 类型检查、目标 ESLint、UI 包构建、Web 生产构建通过；浏览器验证浅色/深色视觉、动画持续运行、离屏暂停/恢复，控制台 0 警告。Web 构建仍有历史大 chunk 与 Browserslist 数据过期提示。
-
 ## 🎯 当前上下文（最近 3 次）
 
-1. **P2P 聊天可靠传输与断点续传**：消息只有接收端 SHA-256 verification 后才送达；DataChannel 重连后按首个缺块续传，UI 保留失败状态与重试；本地构建通过，待真实双端断网实测。
-2. **P2P 文件传输可靠性与断点续传**：接收端 checkpoint + finalize/SHA-256 verification 才完成，重连重建 DataChannel 并从缺块续传；本地构建和辅助检查通过，待真实双端断网实测。
-3. **BlockNote AI 长文滚动修复**：AI 菜单固定于视口底部，会话期间禁用根节点平滑滚动；静态与本地浏览器回归完成。
+1. **P2P DataChannel 建立竞态修复**：提前到达的 ICE candidate 按 Peer 缓存，远端描述就绪后补入；双浏览器已确认连接与 DataChannel 正常打开。
+2. **应用分发与更新接口**：管理端可维护应用和版本历史；公开 `latest.json` 返回最高 `versionCode` 对应字段，APK URL 强制 HTTPS；静态验证完成，待数据库迁移与真实端到端验证。
+3. **P2P 聊天可靠传输与断点续传**：消息只有接收端 SHA-256 verification 后才送达；DataChannel 重连后按首个缺块续传，UI 保留失败状态与重试；本地构建通过，待真实双端断网实测。
 
 ## 💡 重要发现
 
@@ -86,25 +86,28 @@
 | 装饰动画离屏仍耗资源                 | `IntersectionObserver` 与 Page Visibility 共同控制 CSS 播放变量                            |
 | P2P `send()` 被误判为送达            | 使用 metadata/checkpoint/finalize/verification 协议；仅远端长度与 SHA-256 校验成功后完成   |
 | P2P 断线后无法继续                   | 保留内存会话，重建 DataChannel 后重发 metadata，并从接收端首个缺块位置续传                 |
+| P2P 成员可见但 DataChannel 不就绪    | 缓存早于远端描述到达的 ICE candidate，并在 `setRemoteDescription` 完成后按序补入           |
+| 客户端更新接口不应带通用响应包裹     | 管理 CRUD 使用 `ApiResponseDto`，公开 `latest.json` Controller 直接返回固定版本字段        |
 
 ## 🔗 关键代码位置
 
-| 功能          | 路径                                                        |
-| ------------- | ----------------------------------------------------------- |
-| 首页动态背景  | `packages/ui/src/components/background/FallingPattern.tsx`  |
-| 首页调用方    | `apps/web/src/pages/HomePage.tsx`                           |
-| 认证与会话    | `apps/api/src/auth/`、`apps/web/src/stores/useAuthStore.ts` |
-| 博客          | `apps/api/src/blog/`                                        |
-| 评论          | `apps/api/src/comment/`                                     |
-| AI 对话       | `apps/api/src/ai-chat/`、`apps/web/src/pages/chat/`         |
-| P2P 共享连接  | `packages/hooks/src/useTrysteroRoom.ts`                     |
-| P2P 聊天      | `apps/web/src/apps/p2p-chat/`                               |
-| P2P 文件传输  | `apps/web/src/apps/p2p-file-transfer/`                      |
-| 富文本编辑器  | `packages/ui/src/components/editor/BlockNoteEditor.tsx`     |
-| AI 协作入口   | `CLAUDE.md`、`AGENTS.md`、`.ai/`                            |
-| Prisma Schema | `apps/api/prisma/schema.prisma`                             |
-| UI 组件库     | `packages/ui/src/components/`                               |
+| 功能          | 路径                                                                                 |
+| ------------- | ------------------------------------------------------------------------------------ |
+| 首页动态背景  | `packages/ui/src/components/background/FallingPattern.tsx`                           |
+| 首页调用方    | `apps/web/src/pages/HomePage.tsx`                                                    |
+| 认证与会话    | `apps/api/src/auth/`、`apps/web/src/stores/useAuthStore.ts`                          |
+| 博客          | `apps/api/src/blog/`                                                                 |
+| 评论          | `apps/api/src/comment/`                                                              |
+| AI 对话       | `apps/api/src/ai-chat/`、`apps/web/src/pages/chat/`                                  |
+| 应用分发      | `apps/api/src/app-distribution/`、`apps/web/src/pages/admin/AppDistributionPage.tsx` |
+| P2P 共享连接  | `packages/hooks/src/useTrysteroRoom.ts`                                              |
+| P2P 聊天      | `apps/web/src/apps/p2p-chat/`                                                        |
+| P2P 文件传输  | `apps/web/src/apps/p2p-file-transfer/`                                               |
+| 富文本编辑器  | `packages/ui/src/components/editor/BlockNoteEditor.tsx`                              |
+| AI 协作入口   | `CLAUDE.md`、`AGENTS.md`、`.ai/`                                                     |
+| Prisma Schema | `apps/api/prisma/schema.prisma`                                                      |
+| UI 组件库     | `packages/ui/src/components/`                                                        |
 
 ---
 
-**最后更新**：2026-07-27
+**最后更新**：2026-07-31
