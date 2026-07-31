@@ -218,6 +218,7 @@ export function useTrysteroRoom(config: RoomConfig) {
             current.dataChannel?.close();
             current.connection.close();
             peerConnectionsRef.current.delete(peerId);
+            pendingIceCandidatesRef.current.delete(peerId);
           }
         }
       };
@@ -275,7 +276,8 @@ export function useTrysteroRoom(config: RoomConfig) {
   );
 
   const flushIceCandidates = useCallback(
-    async (peerId: string, connection: RTCPeerConnection) => {
+    async (peerId: string, connection: RTCPeerConnection): Promise<void> => {
+      if (!connection.remoteDescription) return;
       const candidates = pendingIceCandidatesRef.current.get(peerId);
       if (!candidates?.length) return;
 
@@ -315,7 +317,7 @@ export function useTrysteroRoom(config: RoomConfig) {
         socketRef.current?.emit('signal', {
           roomCode: roomCodeRef.current,
           targetPeerId: fromPeerId,
-          signal: { type: 'answer', sdp: answer.sdp },
+          signal: conn.connection.localDescription,
         });
       } else if (signal.type === 'answer') {
         // 收到 answer
@@ -433,7 +435,7 @@ export function useTrysteroRoom(config: RoomConfig) {
                   socket.emit('signal', {
                     roomCode: fullRoomCode,
                     targetPeerId: member.peerId,
-                    signal: { type: 'offer', sdp: offer.sdp },
+                    signal: conn.connection.localDescription,
                   });
                 } catch (error) {
                   console.error(

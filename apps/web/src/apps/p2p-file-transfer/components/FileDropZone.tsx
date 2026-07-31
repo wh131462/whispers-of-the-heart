@@ -102,10 +102,10 @@ export function FileDropZone({
           </div>
           <div className="text-center">
             <p className="text-sm font-medium text-zinc-600">
-              等待其他用户加入
+              等待数据通道连接
             </p>
             <p className="text-xs text-zinc-400 mt-1">
-              需要至少一个对方才能传输文件
+              对方加入后需等待 P2P 通道就绪
             </p>
           </div>
         </>

@@ -55,7 +55,7 @@ export default function P2PFileTransfer() {
   const isConnected = state.connectionState === 'connected';
   const isConnecting = state.connectionState === 'connecting';
   const isDisconnected = state.connectionState === 'disconnected';
-  const hasPeers = state.peerCount > 0;
+  const hasReadyPeers = state.readyPeerCount > 0;
 
   return (
     <div className="w-full max-w-md mx-auto p-4">
@@ -107,7 +107,7 @@ export default function P2PFileTransfer() {
             <div className="p-3 border-b border-zinc-100">
               <FileDropZone
                 onFilesSelected={handleFilesSelected}
-                hasPeers={hasPeers}
+                hasPeers={hasReadyPeers}
               />
             </div>
 

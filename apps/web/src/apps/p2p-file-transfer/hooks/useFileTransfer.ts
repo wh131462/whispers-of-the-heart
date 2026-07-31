@@ -114,16 +114,11 @@ export function useFileTransfer({
   const verificationTimersRef = useRef<
     Map<string, ReturnType<typeof setTimeout>>
   >(new Map());
-  const peersRef = useRef(roomState.peers);
   const onFileReceiveRequestRef = useRef(onFileReceiveRequest);
 
   useEffect(() => {
     onFileReceiveRequestRef.current = onFileReceiveRequest;
   }, [onFileReceiveRequest]);
-
-  useEffect(() => {
-    peersRef.current = roomState.peers;
-  }, [roomState.peers]);
 
   const generateFileId = useCallback(
     () => `file_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -378,13 +373,10 @@ export function useFileTransfer({
         ) {
           if (!sendQueueRef.current.has(fileId)) return;
           if (queueItem.runId !== runId) return;
-          if (
-            !peersRef.current.has(queueItem.targetPeerId) ||
-            !isDataChannelOpen(queueItem.targetPeerId)
-          ) {
+          if (!isDataChannelOpen(queueItem.targetPeerId)) {
             updateTransfer(fileId, {
               status: 'paused',
-              error: '连接已断开，等待重连',
+              error: '数据通道不可用，等待重新建立',
             });
             return;
           }
@@ -429,7 +421,9 @@ export function useFileTransfer({
         );
         updateTransfer(fileId, { status: 'verifying', progress: 99 });
       } finally {
-        queueItem.sending = false;
+        if (queueItem.runId === runId) {
+          queueItem.sending = false;
+        }
       }
     },
     [
@@ -703,7 +697,9 @@ export function useFileTransfer({
           ? {
               ...item,
               status: 'paused',
-              error: '数据通道已断开，等待重连',
+              error: roomState.peers.has(item.peerId)
+                ? '正在建立数据通道'
+                : '对方已离开，等待重连',
             }
           : item
       )
@@ -723,9 +719,14 @@ export function useFileTransfer({
   const sendFile = useCallback(
     async (file: File, targetPeerId?: string) => {
       if (!sendersRef.current.sendMetadata) return;
-      const targetPeer = targetPeerId
-        ? roomState.peers.get(targetPeerId)
-        : roomState.peers.values().next().value;
+      const readyPeerId = targetPeerId
+        ? roomState.readyPeers.has(targetPeerId)
+          ? targetPeerId
+          : undefined
+        : roomState.readyPeers.values().next().value;
+      const targetPeer = readyPeerId
+        ? roomState.peers.get(readyPeerId)
+        : undefined;
       if (!targetPeer) return;
 
       const fileId = generateFileId();
@@ -767,7 +768,7 @@ export function useFileTransfer({
       ]);
       sendersRef.current.sendMetadata(metadata, targetPeer.id);
     },
-    [generateFileId, roomState.peers, userName]
+    [generateFileId, roomState.peers, roomState.readyPeers, userName]
   );
 
   const downloadFile = useCallback(
@@ -827,6 +828,7 @@ export function useFileTransfer({
             : 'disconnected',
     roomCode: roomState.roomCode,
     peerCount: roomState.peerCount,
+    readyPeerCount: roomState.readyPeers.size,
     peers: roomState.peers,
     error: roomState.error,
   };

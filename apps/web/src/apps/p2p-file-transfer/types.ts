@@ -104,6 +104,7 @@ export interface RoomState {
   connectionState: ConnectionState;
   roomCode: string | null;
   peerCount: number;
+  readyPeerCount: number;
   peers: Map<string, PeerInfo>;
   error: string | null;
 }

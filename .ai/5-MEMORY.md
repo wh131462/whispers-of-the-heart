@@ -24,6 +24,16 @@
 
 **验证**：Prisma Schema 校验与 Client 生成通过；API/Web 类型检查、目标 ESLint、API 构建和 Web 生产构建通过；HTTPS URL 校验确定性检查通过。本地 API/Web 可访问，但数据库已有 `20260721000000_add_user_token_version` 失败迁移导致 Prisma P3009，新增迁移未执行，因此未完成真实管理端/API 端到端验证。Web 构建仅保留已有 Browserslist 数据过期和大 chunk 警告。
 
+### 2026-07-28 - P2P 文件传输连接就绪误判修复
+
+**问题**：文件传输 UI 只依据房间成员数开放文件选择，但成员已加入不代表 WebRTC DataChannel 已建立；metadata/ACK 可经信令通道提前完成握手，发送循环随后发现 DataChannel 未就绪，立即把刚开始的任务标记为“连接已断开，等待重连”。修正 UI 判定后进一步确认底层 WebRTC 信令存在时序错误：`setLocalDescription()` 期间产生的 ICE candidate 可能早于 offer/answer 发出，对端在 PeerConnection 或远端 SDP 尚未建立时直接丢弃候选，导致 DataChannel 一直无法就绪。
+
+**实施**：房间状态新增可传输 Peer 数量，文件选择和默认目标只使用 `readyPeers`；发送循环仅以实时 DataChannel 状态判断分块通道，不再使用延迟成员快照；在线但通道未就绪时显示“正在建立数据通道”，仅成员确实离开时提示等待重连；同时避免旧发送协程在退出时覆盖新协程的 `sending` 状态。共享 WebRTC Hook 按 Peer 缓存提前到达的 ICE candidate，在 offer/answer 设置远端 SDP 后统一补加，并在失败、离房和重连时清理缓存；offer/answer 改为发送 `localDescription`。
+
+**修改文件**：`apps/web/src/apps/p2p-file-transfer/{types.ts,index.tsx,components/FileDropZone.tsx,hooks/useFileTransfer.ts}`、`packages/hooks/src/useTrysteroRoom.ts`。
+
+**验证**：Web/Hooks 类型检查、目标 ESLint、差异检查和全仓生产构建通过；构建前通过完整 `pnpm install` 恢复缺失的 workspace 链接，并重新生成 Prisma Client 以同步当前 schema。真实双浏览器端到端传输待验证。
+
 ### 2026-07-27 - P2P 聊天可靠传输与断点续传
 
 **问题**：聊天原实现把本地 `send()` 调用当作发送成功，按 JavaScript 字符切分正文，接收端不校验完整分块/摘要，也没有来源 Peer 隔离、远端确认、重连续传或接收缓存过期清理。
@@ -44,19 +54,9 @@
 
 **验证**：P2P 辅助函数确定性检查通过（缺块、重复块、断点、空文件、SHA-256）；hooks 类型检查/构建、web 类型检查、目标 ESLint、web 生产构建通过。应用内浏览器可加载连接页；因本机 API/信令服务未启动，未完成双浏览器端到端传输和断网实测，页面控制台的 API 500 属于环境缺少后端服务。
 
-### 2026-07-22 - BlockNote AI 长内容续写滚动修复
-
-**问题**：长文章选区触发 AI 编辑后，AI 扩写会持续把锚点移动到最后变更块；项目根节点的全局平滑滚动与 BlockNote AI 的自动定位互相干扰。同时 AI 菜单按文档块定位且编辑器容器允许溢出，长内容下菜单会离开可视区并参与页面高度计算，表现为滚动条异常变长、无法找到“接受/拒绝”。
-
-**实施**：AI 会话开启期间临时将根节点滚动行为切换为 `auto`，关闭后恢复；将 AI 菜单固定到视口底部并限制最大高度，使输入、生成、审阅阶段的操作始终可见且不再撑高文档。正文的捕获阶段粘贴处理器仅处理 `.bn-editor` 内事件，并放行原生输入框，避免 AI 提示词被 Markdown 粘贴逻辑截获后插入正文。
-
-**修改文件**：`packages/ui/src/components/editor/BlockNoteEditor.tsx`
-
-**验证**：UI 类型检查、目标 ESLint、UI 包构建和 Web 生产构建通过；本地 80 段长文浏览器验证中，菜单滚动前后均固定于视口底部，页面高度保持稳定，关闭后平滑滚动恢复。AI 输入框粘贴回归确认文本只进入提示词输入框，正文内容保持不变。实际模型请求被当前本地模型配置以 `Thinking mode does not support this tool_choice` 拒绝，未覆盖成功生成后的“接受/拒绝”端到端点击，该错误与本次布局修复独立。
-
 ## 🎯 当前上下文（最近 3 次）
 
-1. **P2P DataChannel 建立竞态修复**：提前到达的 ICE candidate 按 Peer 缓存，远端描述就绪后补入；双浏览器已确认连接与 DataChannel 正常打开。
+1. **P2P 文件传输连接建立修复**：文件选择和发送目标仅使用 DataChannel 已就绪 Peer；提前到达的 ICE candidate 会缓存到远端 SDP 就绪后补加，并限制单 Peer 缓存数量；双浏览器已确认连接与 DataChannel 正常打开，完整文件传输仍待回归。
 2. **应用分发与更新接口**：管理端可维护应用和版本历史；公开 `latest.json` 返回最高 `versionCode` 对应字段，APK URL 强制 HTTPS；静态验证完成，待数据库迁移与真实端到端验证。
 3. **P2P 聊天可靠传输与断点续传**：消息只有接收端 SHA-256 verification 后才送达；DataChannel 重连后按首个缺块续传，UI 保留失败状态与重试；本地构建通过，待真实双端断网实测。
 
@@ -86,8 +86,9 @@
 | 装饰动画离屏仍耗资源                 | `IntersectionObserver` 与 Page Visibility 共同控制 CSS 播放变量                            |
 | P2P `send()` 被误判为送达            | 使用 metadata/checkpoint/finalize/verification 协议；仅远端长度与 SHA-256 校验成功后完成   |
 | P2P 断线后无法继续                   | 保留内存会话，重建 DataChannel 后重发 metadata，并从接收端首个缺块位置续传                 |
-| P2P 成员可见但 DataChannel 不就绪    | 缓存早于远端描述到达的 ICE candidate，并在 `setRemoteDescription` 完成后按序补入           |
 | 客户端更新接口不应带通用响应包裹     | 管理 CRUD 使用 `ApiResponseDto`，公开 `latest.json` Controller 直接返回固定版本字段        |
+| P2P 成员在线但传输立即暂停           | 区分房间成员与 `readyPeers`；仅 DataChannel 就绪后开放文件选择和启动分块发送               |
+| P2P DataChannel 一直无法就绪         | 缓存早于 offer/answer 到达的 ICE candidate，远端 SDP 设置完成后再按 Peer 补加              |
 
 ## 🔗 关键代码位置
 
