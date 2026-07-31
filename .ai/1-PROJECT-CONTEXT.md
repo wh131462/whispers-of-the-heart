@@ -49,7 +49,7 @@ whispers-of-the-heart/
 2. **共享包**: packages/\* 被 web 和 api 复用
 3. **API通信**: RESTful API + JWT 认证
 4. **状态管理**: Zustand + persist 中间件
-5. **实时通信**: Socket.IO (通知系统)
+5. **实时通信**: Socket.IO（通知与 P2P 信令）+ WebRTC DataChannel；跨 NAT 生产环境由 `apps/api/src/signaling/` 签发 TURN 短期凭证
 
 ## 核心功能模块
 
@@ -91,19 +91,20 @@ whispers-of-the-heart/
 
 ## 重要目录映射
 
-| 功能领域   | 文件位置                                                                             |
-| ---------- | ------------------------------------------------------------------------------------ |
-| 用户认证   | `apps/api/src/auth/`                                                                 |
-| 博客服务   | `apps/api/src/blog/blog.service.ts`                                                  |
-| 评论服务   | `apps/api/src/comment/comment.service.ts`                                            |
-| 媒体上传   | `apps/api/src/media/`                                                                |
-| Prisma模型 | `apps/api/prisma/schema.prisma`                                                      |
-| UI组件     | `packages/ui/src/components/`                                                        |
-| 前端页面   | `apps/web/src/pages/`                                                                |
-| 应用中心   | `apps/web/src/apps/`                                                                 |
-| 应用分发   | `apps/api/src/app-distribution/`、`apps/web/src/pages/admin/AppDistributionPage.tsx` |
-| 状态管理   | `apps/web/src/stores/`                                                               |
-| API工具    | `packages/utils/src/`                                                                |
+| 功能领域     | 文件位置                                                                             |
+| ------------ | ------------------------------------------------------------------------------------ |
+| 用户认证     | `apps/api/src/auth/`                                                                 |
+| 博客服务     | `apps/api/src/blog/blog.service.ts`                                                  |
+| 评论服务     | `apps/api/src/comment/comment.service.ts`                                            |
+| 媒体上传     | `apps/api/src/media/`                                                                |
+| Prisma模型   | `apps/api/prisma/schema.prisma`                                                      |
+| UI组件       | `packages/ui/src/components/`                                                        |
+| 前端页面     | `apps/web/src/pages/`                                                                |
+| 应用中心     | `apps/web/src/apps/`                                                                 |
+| 应用分发     | `apps/api/src/app-distribution/`、`apps/web/src/pages/admin/AppDistributionPage.tsx` |
+| P2P 文件传输 | `packages/hooks/src/useTrysteroRoom.ts`、`apps/web/src/apps/p2p-file-transfer/`      |
+| 状态管理     | `apps/web/src/stores/`                                                               |
+| API工具      | `packages/utils/src/`                                                                |
 
 ## 常用命令
 

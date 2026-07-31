@@ -8,11 +8,11 @@
 
 **问题**：文件传输双方已进入同一房间且成员可见，但在部分信令时序下 DataChannel 一直无法就绪，上传任务停留在等待 P2P 通道状态。Trickle ICE candidate 到达时，目标 PeerConnection 可能尚未创建或尚未设置 `remoteDescription`，原逻辑会直接丢弃或添加失败且不再重试。
 
-**实施**：`useTrysteroRoom` 按 Peer 缓存提前到达的 ICE candidate，在 offer/answer 的远端描述设置完成后按序刷新；候选缓存限制为 256 条，Peer 离开、Socket 重连、断开和主动离房时同步清理。信令异步处理增加统一错误隔离，避免单个无效信令产生未处理的 Promise rejection 并影响后续协商。文件传输 UI 区分“无人加入”和“DataChannel 尚未就绪”；多人房间必须显式选择一个通道已就绪的接收方，禁止隐式选择首位成员或默认广播，目标离线后自动清除选择。
+**实施**：`useTrysteroRoom` 按 Peer 缓存提前到达的 ICE candidate，在 offer/answer 的远端描述设置完成后按序刷新；候选缓存限制为 256 条，Peer 离开、Socket 重连、断开和主动离房时同步清理。信令异步处理增加统一错误隔离，避免单个无效信令产生未处理的 Promise rejection 并影响后续协商。文件传输 UI 区分“无人加入”和“DataChannel 尚未就绪”；多人房间必须显式选择一个通道已就绪的接收方，禁止隐式选择首位成员或默认广播，目标离线后自动清除选择。针对跨 NAT 连通失败，新增公开 ICE 配置接口，由后端按 coturn shared-secret 模式签发短期 TURN 凭证；客户端在加入/重连前刷新配置，首次 ICE 失败执行一次 restart，并在最终失败时显示 STUN-only/TURN 未配置诊断。
 
-**修改文件**：`packages/hooks/src/useTrysteroRoom.ts`、`apps/web/src/apps/p2p-file-transfer/{types.ts,index.tsx,components/FileDropZone.tsx,hooks/useFileTransfer.ts}`、`openspec/specs/reliable-p2p-file-transfer/spec.md`
+**修改文件**：`packages/hooks/src/useTrysteroRoom.ts`、`apps/api/src/signaling/{signaling.controller.ts,signaling.service.ts,signaling.module.ts}`、`apps/web/src/apps/p2p-file-transfer/index.tsx`、`configs/env.example`、`.github/workflows/docker-build.yml`、`openspec/specs/reliable-p2p-file-transfer/spec.md`
 
-**验证**：`@whispers/hooks` 类型检查与构建、目标 ESLint、Web 类型检查和生产构建通过；两个独立应用内浏览器加入同一房间后，双方均确认 `RTCPeerConnection` 为 `connected`、DataChannel 为 `opened`，上传区域正常可用。多人接收方选择通过 Web 类型检查、目标 ESLint 和生产构建；目标 Lint 仅保留 `useFileTransfer` 已有的 effect cleanup ref 警告。浏览器自动化未能操作隐藏文件输入，因此本轮未重复执行完整文件内容传输；此前文件校验与断点协议保持未改动。
+**验证**：Hooks/API 类型检查与构建、TURN HMAC 凭证确定性检查、Web 类型检查和生产构建通过；目标 ESLint 无错误，仅保留 `useFileTransfer` 已有的 effect cleanup ref 警告。双浏览器直连验证仍可建立 DataChannel；跨 NAT 的 TURN 真实连通待部署实际 TURN 服务、开放 3478 与 relay 端口后验证。此前文件校验与断点协议保持未改动。
 
 ### 2026-07-31 - 管理后台应用分发与更新接口
 
