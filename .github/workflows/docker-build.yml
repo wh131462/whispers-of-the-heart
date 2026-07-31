@@ -254,7 +254,9 @@ jobs:
           log-file=stdout
           simple-log
           EOF
-          chmod 600 configs/turnserver.conf
+          # scp-action 在独立容器内打包工作区，需要能够读取该文件；
+          # 上传到生产服务器后会立即重新收紧为 600。
+          chmod 644 configs/turnserver.conf
 
       - name: Copy files to server
         uses: appleboy/scp-action@v0.1.7
