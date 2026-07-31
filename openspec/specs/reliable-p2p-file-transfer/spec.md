@@ -75,3 +75,17 @@ TBD - created by archiving change harden-p2p-file-transfer. Update Purpose after
 
 - **WHEN** 同一文件摘要校验连续失败达到最大重试次数
 - **THEN** 双方将会话标记为 failed，保留错误原因且不提供下载 Blob
+
+### Requirement: Multi-peer rooms use an explicit ready receiver
+
+房间存在多个远端 Peer 时，发送端 MUST 要求用户显式选择一个 DataChannel 已就绪的接收方，并将本次文件会话只绑定到该 Peer。发送端 MUST NOT 隐式选择成员集合中的第一个 Peer，也不得默认向所有成员广播文件。房间仅有一个远端 Peer 时 MAY 自动选择该已就绪 Peer。
+
+#### Scenario: Multiple peers are ready
+
+- **WHEN** 房间中有两个或以上远端 Peer 且至少一个 DataChannel 已就绪
+- **THEN** 上传入口保持禁用直到用户选择一个已就绪接收方，随后文件只发送给该 Peer
+
+#### Scenario: Selected peer becomes unavailable
+
+- **WHEN** 已选择的接收方离开房间或其 DataChannel 断开
+- **THEN** 发送端清除当前选择、禁止新文件发送，并要求用户重新选择可用接收方

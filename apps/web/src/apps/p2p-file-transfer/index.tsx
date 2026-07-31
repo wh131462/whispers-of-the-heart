@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { Info, LogOut } from 'lucide-react';
 import { TransferShell } from './components/TransferShell';
 import { ConnectionStatus } from './components/ConnectionStatus';
@@ -16,6 +16,7 @@ function generateDefaultName() {
 export default function P2PFileTransfer() {
   const [showHelp, setShowHelp] = useState(false);
   const [userName, setUserName] = useState(generateDefaultName);
+  const [selectedPeerId, setSelectedPeerId] = useState('');
 
   const {
     state,
@@ -41,11 +42,18 @@ export default function P2PFileTransfer() {
 
   const handleFilesSelected = useCallback(
     (files: File[]) => {
+      const readyPeers = Array.from(state.peers.values()).filter(peer =>
+        state.readyPeerIds.has(peer.id)
+      );
+      const targetPeerId =
+        state.peerCount === 1 ? readyPeers[0]?.id : selectedPeerId;
+      if (!targetPeerId || !state.readyPeerIds.has(targetPeerId)) return;
+
       files.forEach(file => {
-        sendFile(file);
+        sendFile(file, targetPeerId);
       });
     },
-    [sendFile]
+    [selectedPeerId, sendFile, state.peerCount, state.peers, state.readyPeerIds]
   );
 
   const handleReset = useCallback(() => {
@@ -55,7 +63,30 @@ export default function P2PFileTransfer() {
   const isConnected = state.connectionState === 'connected';
   const isConnecting = state.connectionState === 'connecting';
   const isDisconnected = state.connectionState === 'disconnected';
+  const hasPeers = state.peerCount > 0;
   const hasReadyPeers = state.readyPeerCount > 0;
+  const readyPeers = useMemo(
+    () =>
+      Array.from(state.peers.values()).filter(peer =>
+        state.readyPeerIds.has(peer.id)
+      ),
+    [state.peers, state.readyPeerIds]
+  );
+  const selectedReadyPeerId = state.readyPeerIds.has(selectedPeerId)
+    ? selectedPeerId
+    : '';
+  const targetPeerId =
+    state.peerCount === 1 ? readyPeers[0]?.id || '' : selectedReadyPeerId;
+  const requiresPeerSelection = state.peerCount > 1 && !targetPeerId;
+
+  useEffect(() => {
+    if (
+      selectedPeerId &&
+      (state.peerCount <= 1 || !state.readyPeerIds.has(selectedPeerId))
+    ) {
+      setSelectedPeerId('');
+    }
+  }, [selectedPeerId, state.peerCount, state.readyPeerIds]);
 
   return (
     <div className="w-full max-w-md mx-auto p-4">
@@ -105,9 +136,38 @@ export default function P2PFileTransfer() {
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* 文件拖拽区 */}
             <div className="p-3 border-b border-zinc-100">
+              {state.peerCount > 1 && (
+                <label className="block mb-3">
+                  <span className="block mb-1.5 text-xs font-medium text-zinc-600">
+                    文件接收方
+                  </span>
+                  <select
+                    value={selectedPeerId}
+                    onChange={event => setSelectedPeerId(event.target.value)}
+                    className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700 outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+                  >
+                    <option value="">请选择接收方</option>
+                    {Array.from(state.peers.values()).map(peer => {
+                      const isReady = state.readyPeerIds.has(peer.id);
+                      return (
+                        <option
+                          key={peer.id}
+                          value={peer.id}
+                          disabled={!isReady}
+                        >
+                          {peer.name}
+                          {isReady ? '' : '（连接中）'}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+              )}
               <FileDropZone
                 onFilesSelected={handleFilesSelected}
-                hasPeers={hasReadyPeers}
+                hasPeers={hasPeers}
+                hasReadyPeers={hasReadyPeers}
+                requiresPeerSelection={requiresPeerSelection}
               />
             </div>
 

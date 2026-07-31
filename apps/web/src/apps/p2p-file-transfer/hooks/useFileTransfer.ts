@@ -829,6 +829,7 @@ export function useFileTransfer({
     roomCode: roomState.roomCode,
     peerCount: roomState.peerCount,
     readyPeerCount: roomState.readyPeers.size,
+    readyPeerIds: roomState.readyPeers,
     peers: roomState.peers,
     error: roomState.error,
   };

@@ -6,12 +6,16 @@ interface FileDropZoneProps {
   onFilesSelected: (files: File[]) => void;
   disabled?: boolean;
   hasPeers: boolean;
+  hasReadyPeers: boolean;
+  requiresPeerSelection: boolean;
 }
 
 export function FileDropZone({
   onFilesSelected,
   disabled,
   hasPeers,
+  hasReadyPeers,
+  requiresPeerSelection,
 }: FileDropZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -20,11 +24,11 @@ export function FileDropZone({
     (e: React.DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      if (!disabled && hasPeers) {
+      if (!disabled && hasReadyPeers && !requiresPeerSelection) {
         setIsDragging(true);
       }
     },
-    [disabled, hasPeers]
+    [disabled, hasReadyPeers, requiresPeerSelection]
   );
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
@@ -39,21 +43,21 @@ export function FileDropZone({
       e.stopPropagation();
       setIsDragging(false);
 
-      if (disabled || !hasPeers) return;
+      if (disabled || !hasReadyPeers || requiresPeerSelection) return;
 
       const files = Array.from(e.dataTransfer.files);
       if (files.length > 0) {
         onFilesSelected(files);
       }
     },
-    [disabled, hasPeers, onFilesSelected]
+    [disabled, hasReadyPeers, onFilesSelected, requiresPeerSelection]
   );
 
   const handleClick = useCallback(() => {
-    if (!disabled && hasPeers) {
+    if (!disabled && hasReadyPeers && !requiresPeerSelection) {
       fileInputRef.current?.click();
     }
-  }, [disabled, hasPeers]);
+  }, [disabled, hasReadyPeers, requiresPeerSelection]);
 
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -67,7 +71,7 @@ export function FileDropZone({
     [onFilesSelected]
   );
 
-  const isDisabled = disabled || !hasPeers;
+  const isDisabled = disabled || !hasReadyPeers || requiresPeerSelection;
 
   return (
     <div
@@ -102,10 +106,36 @@ export function FileDropZone({
           </div>
           <div className="text-center">
             <p className="text-sm font-medium text-zinc-600">
+              等待其他用户加入
+            </p>
+            <p className="text-xs text-zinc-400 mt-1">
+              需要至少一个对方才能传输文件
+            </p>
+          </div>
+        </>
+      ) : !hasReadyPeers ? (
+        <>
+          <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+            <AlertCircle className="w-6 h-6 text-amber-500" />
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-medium text-zinc-600">
               等待数据通道连接
             </p>
             <p className="text-xs text-zinc-400 mt-1">
               对方加入后需等待 P2P 通道就绪
+            </p>
+          </div>
+        </>
+      ) : requiresPeerSelection ? (
+        <>
+          <div className="w-12 h-12 rounded-full bg-amber-100 flex items-center justify-center">
+            <AlertCircle className="w-6 h-6 text-amber-500" />
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-medium text-zinc-600">请先选择接收方</p>
+            <p className="text-xs text-zinc-400 mt-1">
+              多人房间需要明确文件发送目标
             </p>
           </div>
         </>
