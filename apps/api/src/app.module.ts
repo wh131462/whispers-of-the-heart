@@ -27,6 +27,7 @@ import { AiChatModule } from './ai-chat/ai-chat.module';
 import { RssModule } from './rss/rss.module';
 import { SitemapModule } from './sitemap/sitemap.module';
 import { FriendLinkModule } from './friend-link/friend-link.module';
+import { AppDistributionModule } from './app-distribution/app-distribution.module';
 
 // 查找项目根目录的 configs 文件夹
 function findConfigsDir(): string {
@@ -81,6 +82,7 @@ const configsDir = findConfigsDir();
     RssModule,
     SitemapModule,
     FriendLinkModule,
+    AppDistributionModule,
   ],
   controllers: [AppController, HitokotoController],
   providers: [AppService],

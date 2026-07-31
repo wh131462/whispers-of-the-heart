@@ -42,6 +42,9 @@ const AdminUsersPage = lazy(() => import('./pages/admin/UsersPage'));
 const AdminFeedbackPage = lazy(() => import('./pages/admin/FeedbackPage'));
 const AdminSettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
 const AdminMailPage = lazy(() => import('./pages/admin/MailPage'));
+const AdminAppDistributionPage = lazy(
+  () => import('./pages/admin/AppDistributionPage')
+);
 
 // AI 对话页面（懒加载）
 const ChatPage = lazy(() => import('./pages/chat/ChatPage'));
@@ -201,6 +204,15 @@ function App() {
               element={
                 <Suspense fallback={<PageLoader />}>
                   <AdminMailPage />
+                </Suspense>
+              }
+            />
+            {/* 应用分发 */}
+            <Route
+              path="app-distribution"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <AdminAppDistributionPage />
                 </Suspense>
               }
             />

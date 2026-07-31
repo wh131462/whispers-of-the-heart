@@ -416,6 +416,39 @@ model FriendLink {
   @@map("friend_links")
 }
 
+// 分发应用模型
+model DistributedApp {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 关联关系：删除应用时同步删除全部版本
+  releases AppRelease[]
+
+  @@index([createdAt])
+  @@map("distributed_apps")
+}
+
+// 应用版本模型
+model AppRelease {
+  id           String   @id @default(cuid())
+  versionCode  Int
+  versionName  String
+  apkUrl       String
+  releaseNotes String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // 所属分发应用
+  appId String
+  app   DistributedApp @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  @@unique([appId, versionCode])
+  @@map("app_releases")
+}
+
 // 用户反馈模型
 model Feedback {
   id        String   @id @default(cuid())
