@@ -4,6 +4,14 @@
 
 ## 📝 会话日志
 
+### 2026-07-31 - coturn 纳入 CI 自动部署
+
+**需求**：将 P2P 跨 NAT 所需的 coturn 从手工启动改为生产 CI 自动部署。
+
+**实施**：`docker-compose.ghcr.yml` 新增固定版本 `coturn/coturn:4.16.0-r0`，使用 host 网络和 3478/49160-49200 端口；GitHub Actions 在 production 环境校验 `TURN_SHARED_SECRET`、`TURN_EXTERNAL_IP`、`TURN_URLS`，生成带 `use-auth-secret` 和 `static-auth-secret` 的临时配置，随镜像传输到部署服务器，并在每次部署时重建 coturn。工作流路径过滤补充自身和 `configs/**`，确保配置变更也能触发部署。
+
+**验证**：Docker 镜像可拉取，Compose 配置解析和差异检查通过；真实生产部署待配置 GitHub production 变量/密钥及服务器防火墙后验证。
+
 ### 2026-07-31 - P2P DataChannel 建立竞态修复
 
 **问题**：文件传输双方已进入同一房间且成员可见，但在部分信令时序下 DataChannel 一直无法就绪，上传任务停留在等待 P2P 通道状态。Trickle ICE candidate 到达时，目标 PeerConnection 可能尚未创建或尚未设置 `remoteDescription`，原逻辑会直接丢弃或添加失败且不再重试。
@@ -56,7 +64,7 @@
 
 ## 🎯 当前上下文（最近 3 次）
 
-1. **P2P 文件传输连接建立修复**：文件选择和发送目标仅使用 DataChannel 已就绪 Peer；提前到达的 ICE candidate 会缓存到远端 SDP 就绪后补加，并限制单 Peer 缓存数量；双浏览器已确认连接与 DataChannel 正常打开，完整文件传输仍待回归。
+1. **P2P 文件传输连接建立修复**：文件选择和发送目标仅使用 DataChannel 已就绪 Peer；提前到达的 ICE candidate 会缓存到远端 SDP 就绪后补加，并限制单 Peer 缓存数量；双浏览器已确认连接与 DataChannel 正常打开，完整文件传输仍待回归。生产 coturn 已纳入 CI，需配置 `TURN_SHARED_SECRET`、`TURN_EXTERNAL_IP` 和端口防火墙。
 2. **应用分发与更新接口**：管理端可维护应用和版本历史；公开 `latest.json` 返回最高 `versionCode` 对应字段，APK URL 强制 HTTPS；静态验证完成，待数据库迁移与真实端到端验证。
 3. **P2P 聊天可靠传输与断点续传**：消息只有接收端 SHA-256 verification 后才送达；DataChannel 重连后按首个缺块续传，UI 保留失败状态与重试；本地构建通过，待真实双端断网实测。
 
