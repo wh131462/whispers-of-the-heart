@@ -138,10 +138,8 @@ jobs:
         run: |
           docker pull ghcr.io/wh131462/whispers-of-the-heart/api:latest
           docker pull ghcr.io/wh131462/whispers-of-the-heart/web:latest
-          docker pull coturn/coturn:4.16.0-r0
           docker save ghcr.io/wh131462/whispers-of-the-heart/api:latest | gzip > api-image.tar.gz
           docker save ghcr.io/wh131462/whispers-of-the-heart/web:latest | gzip > web-image.tar.gz
-          docker save coturn/coturn:4.16.0-r0 | gzip > coturn-image.tar.gz
           ls -lh *.tar.gz
 
       - name: Generate production environment config
@@ -182,12 +180,6 @@ jobs:
           API_URL=${{ vars.VITE_API_URL || 'https://api.131462.wang' }}
           API_PORT=7777
           WEB_PORT=8888
-          STUN_URLS=${{ vars.STUN_URLS || 'stun:stun.l.google.com:19302,stun:stun.cloudflare.com:3478' }}
-          TURN_URLS=${{ vars.TURN_URLS || 'turn:turn.131462.wang:3478?transport=udp,turn:turn.131462.wang:3478?transport=tcp' }}
-          TURN_SHARED_SECRET=${{ secrets.TURN_SHARED_SECRET }}
-          TURN_CREDENTIAL_TTL_SECONDS=${{ vars.TURN_CREDENTIAL_TTL_SECONDS || '3600' }}
-          TURN_USERNAME=${{ vars.TURN_USERNAME || '' }}
-          TURN_CREDENTIAL=${{ secrets.TURN_CREDENTIAL }}
           LOG_LEVEL=info
           LOG_FILE=logs/app.log
           CORS_ORIGINS=${{ vars.CORS_ORIGINS || 'https://131462.wang,https://www.131462.wang' }}
@@ -209,55 +201,6 @@ jobs:
           SENTRY_DSN=${{ vars.SENTRY_DSN || '' }}
           EOF
 
-      - name: Validate TURN deployment configuration
-        env:
-          TURN_SHARED_SECRET: ${{ secrets.TURN_SHARED_SECRET }}
-          TURN_EXTERNAL_IP: ${{ vars.TURN_EXTERNAL_IP }}
-          TURN_URLS: ${{ vars.TURN_URLS || 'turn:turn.131462.wang:3478?transport=udp,turn:turn.131462.wang:3478?transport=tcp' }}
-        run: |
-          set -euo pipefail
-          test -n "$TURN_SHARED_SECRET" || {
-            echo "TURN_SHARED_SECRET is required in the production environment"
-            exit 1
-          }
-          test -n "$TURN_EXTERNAL_IP" || {
-            echo "TURN_EXTERNAL_IP is required in the production environment"
-            exit 1
-          }
-          test -n "$TURN_URLS" || {
-            echo "TURN_URLS must contain at least one turn: or turns: URL"
-            exit 1
-          }
-
-      - name: Generate coturn configuration
-        env:
-          TURN_SHARED_SECRET: ${{ secrets.TURN_SHARED_SECRET }}
-          TURN_EXTERNAL_IP: ${{ vars.TURN_EXTERNAL_IP }}
-          TURN_REALM: ${{ vars.TURN_REALM || 'turn.131462.wang' }}
-          TURN_MIN_PORT: ${{ vars.TURN_MIN_PORT || '49160' }}
-          TURN_MAX_PORT: ${{ vars.TURN_MAX_PORT || '49200' }}
-        run: |
-          set -euo pipefail
-          cat > configs/turnserver.conf <<EOF
-          listening-port=3478
-          fingerprint
-          use-auth-secret
-          static-auth-secret=$TURN_SHARED_SECRET
-          realm=$TURN_REALM
-          server-name=$TURN_REALM
-          external-ip=$TURN_EXTERNAL_IP
-          min-port=$TURN_MIN_PORT
-          max-port=$TURN_MAX_PORT
-          no-loopback-peers
-          no-multicast-peers
-          no-cli
-          log-file=stdout
-          simple-log
-          EOF
-          # scp-action 在独立容器内打包工作区，需要能够读取该文件；
-          # 上传到生产服务器后会立即重新收紧为 600。
-          chmod 644 configs/turnserver.conf
-
       - name: Copy files to server
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -265,7 +208,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
-          source: "docker-compose.ghcr.yml,infra/nginx/,infra/backup/,api-image.tar.gz,web-image.tar.gz,coturn-image.tar.gz,configs/env.production,configs/turnserver.conf"
+          source: 'docker-compose.ghcr.yml,infra/nginx/,infra/backup/,api-image.tar.gz,web-image.tar.gz,configs/env.production'
           target: ${{ secrets.DEPLOY_PATH || '/workspace/deploy/whispers' }}
 
       - name: Deploy to server via SSH
@@ -286,8 +229,6 @@ jobs:
 
             # 确保必要目录存在
             mkdir -p uploads logs backups
-            test -s configs/turnserver.conf
-            chmod 600 configs/turnserver.conf
 
             # 确保 Traefik 外部网络 proxy 存在
             docker network inspect proxy >/dev/null 2>&1 || {
@@ -305,18 +246,17 @@ jobs:
             echo "Loading images from files..."
             gunzip -c api-image.tar.gz | docker load
             gunzip -c web-image.tar.gz | docker load
-            gunzip -c coturn-image.tar.gz | docker load
 
             # 清理镜像文件
-            rm -f api-image.tar.gz web-image.tar.gz coturn-image.tar.gz
+            rm -f api-image.tar.gz web-image.tar.gz
 
             # 停止旧容器
             echo "Restarting services..."
             docker compose -f docker-compose.ghcr.yml stop web nginx 2>/dev/null || true
             docker compose -f docker-compose.ghcr.yml rm -f web nginx 2>/dev/null || true
-            # coturn 使用 bind mount 配置，配置变更不会自动触发容器重建
-            docker compose -f docker-compose.ghcr.yml stop coturn 2>/dev/null || true
-            docker compose -f docker-compose.ghcr.yml rm -f coturn 2>/dev/null || true
+            # 清理历史版本创建的中继容器和密钥配置
+            docker rm -f whispers-coturn 2>/dev/null || true
+            rm -f configs/turnserver.conf
             docker volume rm whispers_web_dist 2>/dev/null || true
 
             # 启动服务

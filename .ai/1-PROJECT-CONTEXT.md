@@ -49,7 +49,7 @@ whispers-of-the-heart/
 2. **共享包**: packages/\* 被 web 和 api 复用
 3. **API通信**: RESTful API + JWT 认证
 4. **状态管理**: Zustand + persist 中间件
-5. **实时通信**: Socket.IO（通知与 P2P 信令）+ WebRTC DataChannel；跨 NAT 生产环境由 `apps/api/src/signaling/` 签发 TURN 短期凭证，coturn 由 `docker-compose.ghcr.yml` 和 GitHub Actions 自动部署
+5. **实时通信**: Socket.IO（通知与 P2P 信令）+ WebRTC DataChannel；P2P 仅使用公开 STUN 进行直连，聊天和文件内容只在 DataChannel 上传输
 
 ## 核心功能模块
 

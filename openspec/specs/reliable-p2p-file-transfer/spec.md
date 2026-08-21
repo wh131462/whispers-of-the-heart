@@ -90,16 +90,16 @@ TBD - created by archiving change harden-p2p-file-transfer. Update Purpose after
 - **WHEN** 已选择的接收方离开房间或其 DataChannel 断开
 - **THEN** 发送端清除当前选择、禁止新文件发送，并要求用户重新选择可用接收方
 
-### Requirement: ICE negotiation supports relay fallback
+### Requirement: Direct ICE negotiation is bounded and diagnosable
 
-客户端 MUST 在首次加入和信令重连时获取最新 ICE 服务器配置，并优先尝试直接 P2P 路径；生产环境 SHOULD 配置 TURN，使无法通过 STUN 穿透的 NAT 或防火墙环境可以使用加密的中继路径。TURN 使用共享密钥时，后端 MUST 只向客户端签发有过期时间的短期凭证，不得把共享密钥写入前端产物。ICE 首次失败时发起方 MUST 至少执行一次 ICE restart，重试仍失败后 MUST 展示可诊断的失败原因。
+客户端 MUST 只使用公开 STUN 候选尝试直连，不依赖 TURN 中继或额外凭证服务。ICE 首次失败时发起方 MUST 进行有限次数的 ICE restart；重试仍失败后 MUST 清理失效 PeerConnection、保留聊天/文件会话队列，并展示“直连失败”的可诊断状态，不得无限创建连接或把数据回退到信令服务器。
 
-#### Scenario: Direct connection is blocked
+#### Scenario: Direct connection succeeds
 
-- **WHEN** 双方已完成信令交换但所有 STUN 候选对均无法连通，且服务端已配置 TURN
-- **THEN** WebRTC 选择 relay candidate 建立 DataChannel，文件协议继续通过该加密通道工作
+- **WHEN** 双方已完成信令交换且至少一个 STUN 候选对可以连通
+- **THEN** WebRTC 建立加密 DataChannel，聊天和文件协议继续通过该通道工作
 
-#### Scenario: TURN is not configured
+#### Scenario: Direct connection remains blocked
 
-- **WHEN** ICE 检查失败且服务端只返回 STUN 配置
-- **THEN** 客户端执行一次 ICE restart，仍失败后明确提示服务器未配置 TURN 中继，不得无限创建 PeerConnection
+- **WHEN** 双方完成有限 ICE restart 后所有 STUN 候选对仍无法连通
+- **THEN** 系统停止重复创建 PeerConnection，显示直连失败；未完成的聊天/文件会话保留为可恢复状态

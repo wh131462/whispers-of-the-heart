@@ -4,23 +4,23 @@
 
 ## 📝 会话日志
 
-### 2026-07-31 - coturn 纳入 CI 自动部署
+### 2026-08-21 - 移除 TURN/coturn，恢复纯 STUN 直连
 
-**需求**：将 P2P 跨 NAT 所需的 coturn 从手工启动改为生产 CI 自动部署。
+**需求**：不再部署 `turn.131462.wang` 或任何 coturn 转发服务，恢复聊天和文件传输的直连使用体验。
 
-**实施**：`docker-compose.ghcr.yml` 新增固定版本 `coturn/coturn:4.16.0-r0`，使用 host 网络和 3478/49160-49200 端口；GitHub Actions 在 production 环境校验 `TURN_SHARED_SECRET`、`TURN_EXTERNAL_IP`、`TURN_URLS`，生成带 `use-auth-secret` 和 `static-auth-secret` 的临时配置，随镜像传输到部署服务器，并在每次部署时重建 coturn。工作流路径过滤补充自身和 `configs/**`，确保配置变更也能触发部署。
+**实施**：删除 API 的 ICE 配置 Controller/Service、Compose 的 coturn 服务、CI 的 coturn 镜像/配置生成与 TURN 密钥注入，以及环境模板中的 TURN 字段。`useTrysteroRoom` 改为固定使用公开 STUN；ICE 失败时最多执行两次有限重协商（第二次重建 PeerConnection），最终清理失效连接并提示直连失败。文件聊天 Action 全部要求 DataChannel，避免内容回退到 Socket.IO；已有元数据、进度 ACK、SHA-256、finalize/verification 和内存断点续传协议保持不变。
 
-**验证**：Docker 镜像可拉取，Compose 配置解析和差异检查通过；真实生产部署待配置 GitHub production 变量/密钥及服务器防火墙后验证。
+**验证**：Hooks/API/Web 类型检查与构建、目标 ESLint、CI YAML 和生产 Compose 解析通过；纯 STUN 跨对称 NAT/企业防火墙仍无法保证连通，这是不使用 TURN 的网络能力边界。
 
 ### 2026-07-31 - P2P DataChannel 建立竞态修复
 
 **问题**：文件传输双方已进入同一房间且成员可见，但在部分信令时序下 DataChannel 一直无法就绪，上传任务停留在等待 P2P 通道状态。Trickle ICE candidate 到达时，目标 PeerConnection 可能尚未创建或尚未设置 `remoteDescription`，原逻辑会直接丢弃或添加失败且不再重试。
 
-**实施**：`useTrysteroRoom` 按 Peer 缓存提前到达的 ICE candidate，在 offer/answer 的远端描述设置完成后按序刷新；候选缓存限制为 256 条，Peer 离开、Socket 重连、断开和主动离房时同步清理。信令异步处理增加统一错误隔离，避免单个无效信令产生未处理的 Promise rejection 并影响后续协商。文件传输 UI 区分“无人加入”和“DataChannel 尚未就绪”；多人房间必须显式选择一个通道已就绪的接收方，禁止隐式选择首位成员或默认广播，目标离线后自动清除选择。针对跨 NAT 连通失败，新增公开 ICE 配置接口，由后端按 coturn shared-secret 模式签发短期 TURN 凭证；客户端在加入/重连前刷新配置，首次 ICE 失败执行一次 restart，并在最终失败时显示 STUN-only/TURN 未配置诊断。
+**实施**：`useTrysteroRoom` 按 Peer 缓存提前到达的 ICE candidate，在 offer/answer 的远端描述设置完成后按序刷新；候选缓存限制为 256 条，Peer 离开、Socket 重连、断开和主动离房时同步清理。信令异步处理增加统一错误隔离，避免单个无效信令产生未处理的 Promise rejection 并影响后续协商。文件传输 UI 区分“无人加入”和“DataChannel 尚未就绪”；多人房间必须显式选择一个通道已就绪的接收方，禁止隐式选择首位成员或默认广播，目标离线后自动清除选择。此前尝试的 TURN 配置已在 2026-08-21 移除，当前仅保留 STUN 直连和有限 ICE 重协商。
 
-**修改文件**：`packages/hooks/src/useTrysteroRoom.ts`、`apps/api/src/signaling/{signaling.controller.ts,signaling.service.ts,signaling.module.ts}`、`apps/web/src/apps/p2p-file-transfer/index.tsx`、`configs/env.example`、`.github/workflows/docker-build.yml`、`openspec/specs/reliable-p2p-file-transfer/spec.md`
+**修改文件**：`packages/hooks/src/useTrysteroRoom.ts`、`apps/api/src/signaling/signaling.module.ts`、`apps/web/src/apps/p2p-file-transfer/index.tsx`、`configs/env.example`、`.github/workflows/docker-build.yml`、`openspec/specs/reliable-p2p-file-transfer/spec.md`
 
-**验证**：Hooks/API 类型检查与构建、TURN HMAC 凭证确定性检查、Web 类型检查和生产构建通过；目标 ESLint 无错误，仅保留 `useFileTransfer` 已有的 effect cleanup ref 警告。双浏览器直连验证仍可建立 DataChannel；跨 NAT 的 TURN 真实连通待部署实际 TURN 服务、开放 3478 与 relay 端口后验证。此前文件校验与断点协议保持未改动。
+**验证**：Hooks/API 类型检查与构建、Web 类型检查和生产构建通过；双浏览器直连验证仍可建立 DataChannel。此前文件校验与断点协议保持未改动。
 
 ### 2026-07-31 - 管理后台应用分发与更新接口
 
@@ -64,7 +64,7 @@
 
 ## 🎯 当前上下文（最近 3 次）
 
-1. **P2P 文件传输连接建立修复**：文件选择和发送目标仅使用 DataChannel 已就绪 Peer；提前到达的 ICE candidate 会缓存到远端 SDP 就绪后补加，并限制单 Peer 缓存数量；双浏览器已确认连接与 DataChannel 正常打开，完整文件传输仍待回归。生产 coturn 已纳入 CI，需配置 `TURN_SHARED_SECRET`、`TURN_EXTERNAL_IP` 和端口防火墙。
+1. **P2P 文件传输连接建立修复**：文件选择和发送目标仅使用 DataChannel 已就绪 Peer；提前到达的 ICE candidate 会缓存到远端 SDP 就绪后补加，并限制单 Peer 缓存数量；双浏览器已确认连接与 DataChannel 正常打开，完整文件传输仍待回归。当前生产仅使用 STUN 直连，跨受限 NAT 无法保证成功。
 2. **应用分发与更新接口**：管理端可维护应用和版本历史；公开 `latest.json` 返回最高 `versionCode` 对应字段，APK URL 强制 HTTPS；静态验证完成，待数据库迁移与真实端到端验证。
 3. **P2P 聊天可靠传输与断点续传**：消息只有接收端 SHA-256 verification 后才送达；DataChannel 重连后按首个缺块续传，UI 保留失败状态与重试；本地构建通过，待真实双端断网实测。
 

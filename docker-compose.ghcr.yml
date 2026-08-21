@@ -88,20 +88,6 @@ services:
       - whispers-internal
 
   # ============================================
-  # coturn - WebRTC TURN 中继服务
-  # 使用 host 网络以正确处理 UDP Relay 端口范围
-  # 配置文件由 GitHub Actions 生成并传输，不提交密钥
-  # ============================================
-  coturn:
-    image: coturn/coturn:4.16.0-r0
-    container_name: whispers-coturn
-    restart: always
-    network_mode: host
-    command: ["-c", "/etc/coturn/turnserver.conf"]
-    volumes:
-      - ./configs/turnserver.conf:/etc/coturn/turnserver.conf:ro
-
-  # ============================================
   # PostgreSQL - 数据库
   # 仅内部网络，不对外暴露
   # ============================================

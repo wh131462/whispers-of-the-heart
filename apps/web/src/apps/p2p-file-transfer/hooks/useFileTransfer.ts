@@ -638,9 +638,11 @@ export function useFileTransfer({
 
   useEffect(() => {
     if (roomState.status !== 'connected') return;
+    const options = { requireDataChannel: true } as const;
     sendersRef.current.sendMetadata = createAction<FileMetadata>(
       'file-metadata',
-      handleMetadata
+      handleMetadata,
+      options
     );
     sendersRef.current.sendChunk = createAction<FileChunk>(
       'file-chunk',
@@ -649,19 +651,23 @@ export function useFileTransfer({
     );
     sendersRef.current.sendAck = createAction<TransferAck>(
       'file-ack',
-      handleAck
+      handleAck,
+      options
     );
     sendersRef.current.sendProgress = createAction<TransferProgress>(
       'file-progress',
-      handleProgress
+      handleProgress,
+      options
     );
     sendersRef.current.sendFinalize = createAction<TransferFinalize>(
       'file-finalize',
-      handleFinalize
+      handleFinalize,
+      options
     );
     sendersRef.current.sendVerification = createAction<TransferVerification>(
       'file-verification',
-      handleVerification
+      handleVerification,
+      options
     );
   }, [
     createAction,

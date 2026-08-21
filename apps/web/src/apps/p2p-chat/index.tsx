@@ -122,6 +122,14 @@ export default function P2PChat() {
         {/* 主内容区 */}
         {hasJoinedRoom ? (
           <>
+            {state.error && (
+              <div
+                role="alert"
+                className="px-4 py-2 text-xs text-red-700 bg-red-50 border-b border-red-100"
+              >
+                {state.error}
+              </div>
+            )}
             {!canSend && (
               <div className="px-4 py-2 text-xs text-amber-700 bg-amber-50 border-b border-amber-100">
                 {!isConnected
