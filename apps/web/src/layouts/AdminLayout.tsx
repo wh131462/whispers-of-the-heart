@@ -16,6 +16,7 @@ import {
   Mail,
   MessageCircle,
   PackageOpen,
+  BriefcaseBusiness,
 } from 'lucide-react';
 import { Button } from '@whispers/ui';
 import { useAuthStore } from '../stores/useAuthStore';
@@ -65,6 +66,11 @@ const AdminLayout: React.FC = () => {
       href: '/admin/app-distribution',
       icon: PackageOpen,
     },
+    {
+      name: '作品管理',
+      href: '/admin/projects',
+      icon: BriefcaseBusiness,
+    },
     { name: '站点配置', href: '/admin/settings', icon: Settings },
   ];
 
@@ -86,17 +92,8 @@ const AdminLayout: React.FC = () => {
     );
   }
 
-  const sidebarWidth = sidebarCollapsed ? '4rem' : '16rem';
-
   return (
     <div className="min-h-screen bg-background font-sans">
-      <style>{`
-        @media (min-width: 1024px) {
-          .admin-main-content {
-            padding-left: ${sidebarWidth};
-          }
-        }
-      `}</style>
       {/* 移动端侧边栏遮罩 */}
       {sidebarOpen && (
         <div
@@ -106,15 +103,14 @@ const AdminLayout: React.FC = () => {
       )}
 
       {/* 侧边栏 */}
-      <div
-        className={`fixed inset-y-0 left-0 z-50 bg-card border-r shadow-sm transition-all duration-300 ease-in-out overflow-hidden ${
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col overflow-hidden border-r bg-card shadow-sm transition-all duration-300 ease-in-out ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        }`}
-        style={{ width: sidebarCollapsed ? '4rem' : '16rem' }}
+        } ${sidebarCollapsed ? 'lg:w-16' : 'lg:w-64'}`}
       >
         {/* 头部 */}
         <div
-          className={`flex items-center h-16 border-b ${sidebarCollapsed ? 'justify-center px-2' : 'justify-between px-6'}`}
+          className={`flex h-16 shrink-0 items-center border-b ${sidebarCollapsed ? 'justify-center px-2' : 'justify-between px-6'}`}
         >
           <div
             className={`flex items-center ${sidebarCollapsed ? '' : 'space-x-2'}`}
@@ -134,7 +130,7 @@ const AdminLayout: React.FC = () => {
 
         {/* 用户信息 */}
         <div
-          className={`border-b ${sidebarCollapsed ? 'py-4 flex justify-center' : 'px-6 py-4'}`}
+          className={`shrink-0 border-b ${sidebarCollapsed ? 'flex justify-center py-4' : 'px-6 py-4'}`}
         >
           {sidebarCollapsed ? (
             <UserAvatar
@@ -185,7 +181,9 @@ const AdminLayout: React.FC = () => {
         </div>
 
         {/* 导航菜单 */}
-        <nav className={`py-4 space-y-1 ${sidebarCollapsed ? 'px-2' : 'px-3'}`}>
+        <nav
+          className={`min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain py-4 ${sidebarCollapsed ? 'px-2' : 'px-3'}`}
+        >
           {navigation.map(item => {
             const Icon = item.icon;
             return (
@@ -215,7 +213,7 @@ const AdminLayout: React.FC = () => {
 
         {/* 底部操作 */}
         <div
-          className={`absolute bottom-0 left-0 right-0 border-t space-y-2 ${sidebarCollapsed ? 'p-2' : 'p-4'}`}
+          className={`shrink-0 space-y-2 border-t ${sidebarCollapsed ? 'p-2' : 'p-4'}`}
         >
           {/* 收起/展开按钮 - 仅桌面端显示 */}
           <Button
@@ -267,10 +265,14 @@ const AdminLayout: React.FC = () => {
             {!sidebarCollapsed && '退出登录'}
           </Button>
         </div>
-      </div>
+      </aside>
 
       {/* 主内容区域 */}
-      <div className="admin-main-content transition-all duration-300">
+      <div
+        className={`transition-[padding] duration-300 ${
+          sidebarCollapsed ? 'lg:pl-16' : 'lg:pl-64'
+        }`}
+      >
         {/* 顶部栏 */}
         <header className="bg-card border-b">
           <div className="flex items-center justify-between h-16 px-4 lg:px-6">
@@ -278,7 +280,10 @@ const AdminLayout: React.FC = () => {
               variant="ghost"
               size="icon"
               className="lg:hidden"
-              onClick={() => setSidebarOpen(true)}
+              onClick={() => {
+                setSidebarCollapsed(false);
+                setSidebarOpen(true);
+              }}
             >
               <Menu className="h-5 w-5" />
             </Button>

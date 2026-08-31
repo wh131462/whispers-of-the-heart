@@ -28,6 +28,7 @@ import AboutPage from './pages/AboutPage';
 import FriendsPage from './pages/FriendsPage';
 import AppsPage from './pages/apps/AppsPage';
 import AppDetailPage from './pages/apps/AppDetailPage';
+import ProjectsPage from './pages/projects/ProjectsPage';
 
 // Admin pages (lazy loaded)
 const AdminDashboardPage = lazy(() => import('./pages/admin/DashboardPage'));
@@ -44,6 +45,9 @@ const AdminSettingsPage = lazy(() => import('./pages/admin/SettingsPage'));
 const AdminMailPage = lazy(() => import('./pages/admin/MailPage'));
 const AdminAppDistributionPage = lazy(
   () => import('./pages/admin/AppDistributionPage')
+);
+const AdminProjectShowcasePage = lazy(
+  () => import('./pages/admin/ProjectShowcasePage')
 );
 
 // AI 对话页面（懒加载）
@@ -216,6 +220,15 @@ function App() {
                 </Suspense>
               }
             />
+            {/* 作品管理 */}
+            <Route
+              path="projects"
+              element={
+                <Suspense fallback={<PageLoader />}>
+                  <AdminProjectShowcasePage />
+                </Suspense>
+              }
+            />
             {/* 站点配置 */}
             <Route
               path="settings"
@@ -237,6 +250,7 @@ function App() {
             <Route path="profile" element={<ProfilePage />} />
             <Route path="about" element={<AboutPage />} />
             <Route path="friends" element={<FriendsPage />} />
+            <Route path="projects" element={<ProjectsPage />} />
 
             <Route path="apps" element={<AppsPage />} />
 

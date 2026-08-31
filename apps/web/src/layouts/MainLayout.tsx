@@ -17,6 +17,7 @@ import {
   LayoutGrid,
   Rss,
   MessageCircle,
+  BriefcaseBusiness,
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { useAuthStore } from '../stores/useAuthStore';
@@ -92,6 +93,7 @@ const MainLayout: React.FC = () => {
   const navigation = [
     { name: '首页', href: '/', icon: Home },
     { name: '文章', href: '/posts', icon: FileText },
+    { name: '作品', href: '/projects', icon: BriefcaseBusiness },
     { name: '关于', href: '/about', icon: User },
   ];
 

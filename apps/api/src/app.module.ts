@@ -28,6 +28,7 @@ import { RssModule } from './rss/rss.module';
 import { SitemapModule } from './sitemap/sitemap.module';
 import { FriendLinkModule } from './friend-link/friend-link.module';
 import { AppDistributionModule } from './app-distribution/app-distribution.module';
+import { ProjectShowcaseModule } from './project-showcase/project-showcase.module';
 
 // 查找项目根目录的 configs 文件夹
 function findConfigsDir(): string {
@@ -83,6 +84,7 @@ const configsDir = findConfigsDir();
     SitemapModule,
     FriendLinkModule,
     AppDistributionModule,
+    ProjectShowcaseModule,
   ],
   controllers: [AppController, HitokotoController],
   providers: [AppService],

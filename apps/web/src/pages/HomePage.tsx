@@ -14,9 +14,12 @@ import {
   Tag,
   BookOpen,
   Feather,
+  BriefcaseBusiness,
 } from 'lucide-react';
 import { api } from '@whispers/utils';
 import { FallingPattern } from '@whispers/ui';
+import ProjectShowcaseCard from '../components/project-showcase/ProjectShowcaseCard';
+import type { ApiEnvelope, ShowcaseProject } from '../types/project-showcase';
 
 interface Post {
   id: string;
@@ -202,6 +205,9 @@ const HomePage: React.FC = () => {
   const [_tags, setTags] = useState<TagWithCount[]>([]);
   const [siteConfig, setSiteConfig] = useState<SiteConfig | null>(null);
   const [configLoaded, setConfigLoaded] = useState(false);
+  const [featuredProjects, setFeaturedProjects] = useState<ShowcaseProject[]>(
+    []
+  );
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -236,6 +242,22 @@ const HomePage: React.FC = () => {
     };
 
     fetchInitialData();
+  }, []);
+
+  useEffect(() => {
+    const fetchFeaturedProjects = async (): Promise<void> => {
+      try {
+        const response = await api.get<ApiEnvelope<ShowcaseProject[]>>(
+          '/projects',
+          { params: { featured: true, limit: 4 } }
+        );
+        setFeaturedProjects(response.data.data);
+      } catch {
+        setFeaturedProjects([]);
+      }
+    };
+
+    void fetchFeaturedProjects();
   }, []);
 
   // 获取文章列表
@@ -456,6 +478,56 @@ const HomePage: React.FC = () => {
           </button>
         </div>
       </section>
+
+      {featuredProjects.length > 0 && (
+        <section className="border-y bg-muted/20 py-16 sm:py-20">
+          <div className="container mx-auto max-w-6xl px-4">
+            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div className="max-w-2xl">
+                <div className="mb-3 flex items-center gap-2 text-primary">
+                  <BriefcaseBusiness className="h-4 w-4" />
+                  <span className="font-mono text-xs tracking-[0.18em]">
+                    FEATURED PROJECTS
+                  </span>
+                </div>
+                <h2 className="text-balance font-serif text-3xl font-bold tracking-tight text-foreground">
+                  最近在做的作品
+                </h2>
+                <p className="mt-3 text-pretty text-muted-foreground">
+                  一些已经可以查看源码、在线体验或下载安装的项目。
+                </p>
+              </div>
+              <Link
+                to="/projects"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-primary transition-colors hover:text-primary/75"
+              >
+                查看全部作品
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+
+            <div className="grid items-stretch gap-5 lg:grid-cols-5">
+              <div className="lg:col-span-3">
+                <ProjectShowcaseCard
+                  project={featuredProjects[0]}
+                  variant="featured"
+                />
+              </div>
+              {featuredProjects.length > 1 && (
+                <div className="grid gap-5 lg:col-span-2">
+                  {featuredProjects.slice(1).map(project => (
+                    <ProjectShowcaseCard
+                      key={project.id}
+                      project={project}
+                      variant="compact"
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ==================== 内容区域 ==================== */}
       <section id="content-section" className="py-16 bg-background">

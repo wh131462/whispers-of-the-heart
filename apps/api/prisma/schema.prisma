@@ -399,6 +399,20 @@ enum FriendLinkStatus {
   INACTIVE
 }
 
+// 作品类型枚举
+enum ShowcaseProjectType {
+  OPEN_SOURCE
+  APP
+  WEBSITE
+  SITE_TOOL
+}
+
+// 作品发布状态枚举
+enum ShowcaseProjectStatus {
+  DRAFT
+  PUBLISHED
+}
+
 // 友链模型
 model FriendLink {
   id          String           @id @default(cuid())
@@ -424,11 +438,42 @@ model DistributedApp {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // 关联关系：删除应用时同步删除全部版本
-  releases AppRelease[]
+  // 关联关系：删除应用时同步删除全部版本；关联作品保留并清空关联
+  releases        AppRelease[]
+  showcaseProject ShowcaseProject?
 
   @@index([createdAt])
   @@map("distributed_apps")
+}
+
+// 作品展示模型
+model ShowcaseProject {
+  id            String                @id @default(cuid())
+  name          String
+  slug          String                @unique
+  type          ShowcaseProjectType
+  summary       String
+  description   String?               @db.Text
+  icon          String?
+  coverImage    String?
+  tags          String[]              @default([])
+  platforms     String[]              @default([])
+  repositoryUrl String?
+  websiteUrl    String?
+  downloadUrl   String?
+  status        ShowcaseProjectStatus @default(DRAFT)
+  featured      Boolean               @default(false)
+  sortOrder     Int                   @default(0)
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+
+  // 可选关联应用分发；删除分发应用时保留作品
+  distributedAppId String?         @unique
+  distributedApp   DistributedApp? @relation(fields: [distributedAppId], references: [id], onDelete: SetNull)
+
+  @@index([status, featured, sortOrder])
+  @@index([type, status])
+  @@map("showcase_projects")
 }
 
 // 应用版本模型
