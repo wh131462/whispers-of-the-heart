@@ -317,6 +317,40 @@ export function useTrysteroRoom(config: RoomConfig) {
   );
   createPeerConnectionRef.current = createPeerConnection;
 
+  // 为每个 Peer 选择唯一的 offer 发起方，避免 Socket.IO 重连时双方同时
+  // 创建 offer 产生协商冲突。使用稳定的 peerId 排序，不依赖加入先后。
+  const createOfferForPeer = useCallback(
+    async (peerId: string, peerName: string): Promise<void> => {
+      const existing = peerConnectionsRef.current.get(peerId);
+      if (
+        existing?.isInitiator &&
+        (existing.connection.signalingState === 'have-local-offer' ||
+          existing.connection.signalingState === 'stable')
+      ) {
+        return;
+      }
+
+      const conn = createPeerConnection(peerId, peerName, true);
+      const offer = await conn.connection.createOffer();
+      await conn.connection.setLocalDescription(offer);
+
+      if (
+        peerConnectionsRef.current.get(peerId)?.connection !==
+          conn.connection ||
+        !socketRef.current?.connected
+      ) {
+        return;
+      }
+
+      socketRef.current.emit('signal', {
+        roomCode: roomCodeRef.current,
+        targetPeerId: peerId,
+        signal: conn.connection.localDescription,
+      });
+    },
+    [createPeerConnection]
+  );
+
   // 移除 peer
   const removePeer = useCallback((peerId: string) => {
     const conn = peerConnectionsRef.current.get(peerId);
@@ -510,23 +544,12 @@ export function useTrysteroRoom(config: RoomConfig) {
                   readyPeers: new Set(),
                 });
 
-                // 向所有现有成员发起连接
+                // 由 peerId 较小的一方发起连接，避免重连时双方同时发 offer。
                 response.members.forEach(async member => {
+                  if (peerIdRef.current >= member.peerId) return;
                   try {
-                    const conn = createPeerConnection(
-                      member.peerId,
-                      member.name,
-                      true
-                    );
                     peerJoinCallbackRef.current?.(member.peerId);
-                    const offer = await conn.connection.createOffer();
-                    await conn.connection.setLocalDescription(offer);
-
-                    socket.emit('signal', {
-                      roomCode: fullRoomCode,
-                      targetPeerId: member.peerId,
-                      signal: conn.connection.localDescription,
-                    });
+                    await createOfferForPeer(member.peerId, member.name);
                   } catch (error) {
                     console.error(
                       `[WebRTC] Failed to reconnect peer ${member.peerId}:`,
@@ -614,6 +637,17 @@ export function useTrysteroRoom(config: RoomConfig) {
 
           // 触发 peer join 回调
           peerJoinCallbackRef.current?.(peerId);
+
+          // 新成员加入时同样遵循稳定的发起方规则。若本地 peerId 较小，
+          // 由当前客户端主动创建 offer；否则等待新成员发起。
+          if (peerIdRef.current < peerId) {
+            void createOfferForPeer(peerId, name).catch(error => {
+              console.error(
+                `[WebRTC] Failed to connect peer ${peerId}:`,
+                error
+              );
+            });
+          }
         }
       );
 
@@ -668,7 +702,7 @@ export function useTrysteroRoom(config: RoomConfig) {
         }
       );
     },
-    [updateState, createPeerConnection, handleSignal, removePeer]
+    [updateState, createOfferForPeer, handleSignal, removePeer]
   );
 
   /**
