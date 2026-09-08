@@ -49,7 +49,7 @@ whispers-of-the-heart/
 2. **共享包**: packages/\* 被 web 和 api 复用
 3. **API通信**: RESTful API + JWT 认证
 4. **状态管理**: Zustand + persist 中间件
-5. **实时通信**: Socket.IO（通知与 P2P 信令）+ WebRTC DataChannel；P2P 仅使用公开 STUN 进行直连，聊天和文件内容只在 DataChannel 上传输
+5. **实时通信**: Socket.IO（通知与 P2P 信令）+ WebRTC DataChannel；P2P 默认公开 STUN，可通过前端构建变量追加 TURN；聊天和文件内容只在 DataChannel 上传输。信令按 Socket 会话和连接 ID 隔离，游戏复用相同连接层。TURN 服务需由部署方提供，当前跨网络中继待验收。
 
 ## 核心功能模块
 
@@ -156,5 +156,5 @@ pnpm type-check            # TypeScript类型检查
 
 ---
 
-**最后更新**: 2026-08-31
+**最后更新**: 2026-09-08
 **维护者**: wh131462

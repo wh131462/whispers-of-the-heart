@@ -134,6 +134,7 @@ export function useOnlineGame(options: UseOnlineGameOptions) {
     reset: resetRoom,
     createAction,
     getRoom,
+    selfPeerId,
   } = useTrysteroRoom({ appId, userName });
 
   const [myRole, setMyRole] = useState<PlayerRole>('spectator');
@@ -188,6 +189,7 @@ export function useOnlineGame(options: UseOnlineGameOptions) {
           for (const p of payload.players) {
             // 将发送方的 SELF_PEER_ID 替换为实际的 peerId
             const actualPeerId = p.peerId === SELF_PEER_ID ? peerId : p.peerId;
+            if (actualPeerId === selfPeerId) continue;
             newPlayers.set(actualPeerId, {
               peerId: actualPeerId,
               name: p.name,
@@ -198,14 +200,19 @@ export function useOnlineGame(options: UseOnlineGameOptions) {
 
           // 确定自己的角色
           const availableRole = (() => {
-            const hasP1 = payload.players.some(p => p.role === 'player1');
-            const hasP2 = payload.players.some(p => p.role === 'player2');
+            const others = Array.from(newPlayers.values());
+            const previousRole = playersRef.current.get(SELF_PEER_ID)?.role;
+            if (previousRole && !others.some(p => p.role === previousRole))
+              return previousRole;
+            const hasP1 = others.some(p => p.role === 'player1');
+            const hasP2 = others.some(p => p.role === 'player2');
             if (!hasP1) return 'player1';
             if (!hasP2) return 'player2';
             return 'spectator';
           })();
 
           setMyRole(availableRole);
+          myRoleRef.current = availableRole;
 
           // 把自己添加到玩家列表
           newPlayers.set(SELF_PEER_ID, {
@@ -215,6 +222,7 @@ export function useOnlineGame(options: UseOnlineGameOptions) {
             joinedAt: Date.now(),
           });
           setPlayers(new Map(newPlayers));
+          playersRef.current = newPlayers;
 
           // 告诉对方我的角色
           sendMessageRef.current?.(
@@ -367,12 +375,13 @@ export function useOnlineGame(options: UseOnlineGameOptions) {
         }
       }
     },
-    [onGameAction]
+    [onGameAction, selfPeerId]
   );
 
   // 连接成功后初始化消息通道
   useEffect(() => {
-    if (roomState.status === 'connected' && !sendMessageRef.current) {
+    if (roomState.status === 'connected') {
+      const initializing = !sendMessageRef.current;
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const send = createAction<any>(
         'game',
@@ -383,7 +392,7 @@ export function useOnlineGame(options: UseOnlineGameOptions) {
       sendMessageRef.current = send as ActionSender<MessagePayload> | null;
 
       // 如果是第一个加入的，自动成为 player1
-      if (roomState.peerCount === 0) {
+      if (initializing && roomState.peerCount === 0) {
         setMyRole('player1');
         setPlayers(
           new Map([
@@ -410,10 +419,11 @@ export function useOnlineGame(options: UseOnlineGameOptions) {
     const handlePeerJoin = (peerId: string) => {
       // 发送当前房间信息给新加入的 peer
       const currentPlayers = playersRef.current;
+      if (!currentPlayers.has(SELF_PEER_ID)) return;
 
       // 收集其他玩家（排除自己）
       const playersArray = Array.from(currentPlayers.values())
-        .filter(p => p.peerId !== SELF_PEER_ID)
+        .filter(p => p.peerId !== SELF_PEER_ID && p.peerId !== peerId)
         .map(p => ({
           peerId: p.peerId,
           name: p.name,

@@ -4,6 +4,18 @@
 
 ## 📝 会话日志
 
+### 2026-09-08 - 修复共享 P2P 连接与全部游戏联机入口
+
+**需求**：排查聊天/文件长期无法连接，按推荐方案覆盖聊天、文件及游戏联机，完成验证后创建 commit。
+
+**实施**：共享 WebRTC 按 Socket 会话与 connectionId 隔离信令，逐 Peer 串行处理 SDP/candidate，连接重建清理旧回调与 readyPeers；协商超时、断开和失败采用最多两次重试，双方可见最终失败。修复旧 Socket 延迟离开误删新成员、跨房间信令归属、重复加入及加入 ACK 过期问题；Socket.IO 支持 WebSocket 失败回退 polling。追加可选 TURN 构建变量并贯通 Docker/CI/发布脚本，凭证不写入仓库。
+
+**游戏**：成员监听注册时回放现有成员，广播覆盖尚未建立 PeerConnection 的成员，缓冲消息等发送函数注册后再投递；通用游戏刷新消息处理回调并恢复角色。斗地主修复重连客户端抢占房主、座位重复占用及座位/手牌恢复；史莱姆足球菜单改为游戏区域内遮罩，使在线入口可点击。
+
+**验证**：本地 Vite 页面 + 实际 Nest SignalingModule，多页面聊天中文/emoji 已送达；8 MB 文件完整传输，64 MB 文件在约 2% 时断开双方信令后自动续传，双方 SHA-256 校验通过；五子棋双端落子并分别断开发起方/接收方后继续落子，黑白棋落子翻转同步，史莱姆足球双端入房/开局，斗地主三端入座/准备/发牌及全部断线恢复后叫地主/出牌同步。实际 Socket.IO 验证成员替换、旧断开、旧信令目标、跨房间拒绝、重复加入、切换房间及 WebSocket 被拒绝时 polling 回退。全仓类型、Lint（仅已有 warning）、生产构建、目标 ESLint、Compose/YAML、发布脚本语法与 OpenSpec 校验通过。
+
+**边界与决策**：当前仅创建本地提交，未部署。无可用 TURN 配置且未进行不同设备/运营商网络验收，不能宣称受限 NAT 全部连通。`openspec/changes/repair-p2p-connectivity/` 记录实现与仍待配置的中继验收；默认 STUN，聊天/文件继续仅走 DataChannel，API 房间仍为单实例内存。
+
 ### 2026-09-01 - P2P 聊天重连协商竞态修复
 
 **问题**：P2P 聊天在 DataChannel 未打开时长期显示“正在建立安全数据通道，请稍候”，Socket.IO 重连后尤其容易无法恢复聊天。
@@ -40,31 +52,11 @@
 
 **验证**：Hooks/API 类型检查与构建、Web 类型检查和生产构建通过；双浏览器直连验证仍可建立 DataChannel。此前文件校验与断点协议保持未改动。
 
-### 2026-07-31 - 管理后台应用分发与更新接口
-
-**需求**：在管理后台注册待分发应用、维护版本，并为客户端提供包含 `versionCode`、`versionName`、`apkUrl` 和可选 `releaseNotes` 的 HTTPS JSON 更新地址。
-
-**实施**：新增 `add-app-distribution` OpenSpec 变更；以 `DistributedApp + AppRelease` 保存应用及版本历史，同一应用的 `versionCode` 唯一，公开接口始终选择最高版本码。NestJS 新增管理员应用/版本 CRUD 与无需认证的 `GET /api/v1/app-distributions/:slug/latest.json`，下载地址仅接受 HTTPS，公开成功响应不套统一 API 包裹。管理后台新增响应式“应用分发”页面，可维护应用和版本、识别当前最新版本、复制或打开环境对应的完整更新地址。补充 Web Tailwind `content` 对 `packages/ui/src` 的扫描，修复共享 Dialog 任意值定位类未生成、点击后弹窗实际落在视口下方的问题。
-
-**修改文件**：`apps/api/src/app-distribution/`、`apps/api/prisma/{schema.prisma,migrations/20260731000000_add_app_distribution/}`、`apps/web/src/pages/admin/AppDistributionPage.tsx`、管理路由与侧边栏；规格位于 `openspec/changes/add-app-distribution/`。
-
-**验证**：Prisma Schema 校验与 Client 生成通过；API/Web 类型检查、目标 ESLint、API 构建和 Web 生产构建通过；HTTPS URL 校验确定性检查通过。浏览器复现确认修复前注册弹窗位于视口外，修复后居中完整可见，空表单提交能显示校验提示。本地数据库未启动，且此前迁移检查发现已有 `20260721000000_add_user_token_version` 失败迁移导致 Prisma P3009，因此未完成真实写库/API 端到端验证。Web 构建仅保留已有 Browserslist 数据过期和大 chunk 警告。
-
-### 2026-07-28 - P2P 文件传输连接就绪误判修复
-
-**问题**：文件传输 UI 只依据房间成员数开放文件选择，但成员已加入不代表 WebRTC DataChannel 已建立；metadata/ACK 可经信令通道提前完成握手，发送循环随后发现 DataChannel 未就绪，立即把刚开始的任务标记为“连接已断开，等待重连”。修正 UI 判定后进一步确认底层 WebRTC 信令存在时序错误：`setLocalDescription()` 期间产生的 ICE candidate 可能早于 offer/answer 发出，对端在 PeerConnection 或远端 SDP 尚未建立时直接丢弃候选，导致 DataChannel 一直无法就绪。
-
-**实施**：房间状态新增可传输 Peer 数量，文件选择和默认目标只使用 `readyPeers`；发送循环仅以实时 DataChannel 状态判断分块通道，不再使用延迟成员快照；在线但通道未就绪时显示“正在建立数据通道”，仅成员确实离开时提示等待重连；同时避免旧发送协程在退出时覆盖新协程的 `sending` 状态。共享 WebRTC Hook 按 Peer 缓存提前到达的 ICE candidate，在 offer/answer 设置远端 SDP 后统一补加，并在失败、离房和重连时清理缓存；offer/answer 改为发送 `localDescription`。
-
-**修改文件**：`apps/web/src/apps/p2p-file-transfer/{types.ts,index.tsx,components/FileDropZone.tsx,hooks/useFileTransfer.ts}`、`packages/hooks/src/useTrysteroRoom.ts`。
-
-**验证**：Web/Hooks 类型检查、目标 ESLint、差异检查和全仓生产构建通过；构建前通过完整 `pnpm install` 恢复缺失的 workspace 链接，并重新生成 Prisma Client 以同步当前 schema。真实双浏览器端到端传输待验证。
-
 ## 🎯 当前上下文（最近 3 次）
 
-1. **作品展示与后台管理**：公开作品页和首页精选已接入，后台可维护展示字段并关联应用分发；开发库迁移已执行且真实空列表查询成功，待录入作品后进行浏览器端到端验证。
-2. **P2P 文件传输连接建立修复**：文件选择和发送目标仅使用 DataChannel 已就绪 Peer；提前到达的 ICE candidate 会缓存到远端 SDP 就绪后补加，并限制单 Peer 缓存数量；双浏览器已确认连接与 DataChannel 正常打开，完整文件传输仍待回归。当前生产仅使用 STUN 直连，跨受限 NAT 无法保证成功。
-3. **应用分发与更新接口**：管理端可维护应用和版本历史；公开 `latest.json` 返回最高 `versionCode` 对应字段，APK URL 强制 HTTPS；静态验证完成，待数据库迁移与真实端到端验证。
+1. **P2P 共享连接与联机恢复**：聊天、文件、五子棋、黑白棋、史莱姆足球和斗地主本地多页面回归通过；包含 64 MB 断线续传和游戏角色恢复。已加入可选 TURN 构建配置，尚未部署，跨网络中继验收待提供可用服务。
+2. **作品展示与后台管理**：公开作品页和首页精选已接入，后台可维护展示字段并关联应用分发；开发库迁移已执行，待录入作品后进行端到端验证。
+3. **应用分发与更新接口**：管理端维护应用/版本，公开 latest.json 返回最高 versionCode 对应 HTTPS APK；后续迁移已完成，业务端到端验证待完成。
 
 ## 💡 重要发现
 
@@ -95,6 +87,8 @@
 | 客户端更新接口不应带通用响应包裹     | 管理 CRUD 使用 `ApiResponseDto`，公开 `latest.json` Controller 直接返回固定版本字段        |
 | 共享 UI 的 Tailwind 任意值类未生效   | Web 的 Tailwind `content` 必须扫描 `packages/ui/src/**/*.{js,ts,jsx,tsx}`                  |
 | P2P 成员在线但传输立即暂停           | 区分房间成员与 `readyPeers`；仅 DataChannel 就绪后开放文件选择和启动分块发送               |
+| P2P 旧连接干扰重连                   | Socket sessionId + connectionId 隔离信令；旧 Socket 无权移除新成员，按 Peer 串行协商       |
+| 斗地主重连出现多个房主               | 只在首次显式入房分配房主，普通客户端恢复时请求原房主快照                                   |
 | P2P DataChannel 一直无法就绪         | 缓存早于 offer/answer 到达的 ICE candidate，远端 SDP 设置完成后再按 Peer 补加              |
 | 作品与 APP 下载信息重复维护          | `ShowcaseProject` 可选关联 `DistributedApp`，读取时按最高 `versionCode` 派生最新下载信息   |
 
@@ -120,4 +114,4 @@
 
 ---
 
-**最后更新**：2026-08-31
+**最后更新**：2026-09-08

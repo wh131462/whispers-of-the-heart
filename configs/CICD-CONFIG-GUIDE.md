@@ -4,6 +4,8 @@
 
 > 部署时 CI/CD 会自动从 Secrets/Variables 生成服务器端的 `configs/env.production`，无需手动维护服务器配置文件。
 
+P2P 默认使用 STUN 直连。受限 NAT/防火墙环境需要额外提供可用 TURN 服务：在 GitHub Variables 设置 `VITE_TURN_URL`，在 Secrets 设置 `VITE_TURN_USERNAME` 和 `VITE_TURN_CREDENTIAL`；也可在 Secret `VITE_WEBRTC_ICE_SERVERS` 提供单行 `RTCIceServer[]` JSON，配置多个 UDP/TCP/TLS 地址。配置在 Web 镜像构建时注入，修改后需要重新构建前端。客户端会看见 TURN 凭证，因此只能使用允许分发且限制额度/有效期的凭证，不能填写 TURN 管理密钥。此仓库不自动部署 TURN 服务；配置为空时，跨对称 NAT 的连接仍可能失败。
+
 ---
 
 ## 一、GitHub Secrets（密钥）

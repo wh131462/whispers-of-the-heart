@@ -87,24 +87,27 @@
 
 > 当 `openspec/specs/` 下新增规格时,在此处补充链接
 
-| Spec                    | 描述                                       | 来源 change                                    |
-| ----------------------- | ------------------------------------------ | ---------------------------------------------- |
-| `screen-detector`       | 屏幕检测器小工具的能力契约                 | `comprehensive-screen-detector`(已归档)        |
-| `ui-background-pattern` | 前端落叶背景动画的视觉与性能约束           | `optimize-falling-pattern-performance`(已归档) |
-| `rss-feed`              | `/rss.xml` 端点的内容、缓存与 URL 解析契约 | `add-rss-feed`(已归档)                         |
-| `sitemap-feed`          | `/sitemap.xml` 端点的 URL 集合与生成契约   | `add-sitemap-and-og-meta`(已归档)              |
-| `static-og-meta`        | 站点级静态 OG / Twitter Card meta 契约     | `add-sitemap-and-og-meta`(已归档)              |
+| Spec                         | 描述                                       | 来源 change                                    |
+| ---------------------------- | ------------------------------------------ | ---------------------------------------------- |
+| `screen-detector`            | 屏幕检测器小工具的能力契约                 | `comprehensive-screen-detector`(已归档)        |
+| `ui-background-pattern`      | 前端落叶背景动画的视觉与性能约束           | `optimize-falling-pattern-performance`(已归档) |
+| `rss-feed`                   | `/rss.xml` 端点的内容、缓存与 URL 解析契约 | `add-rss-feed`(已归档)                         |
+| `sitemap-feed`               | `/sitemap.xml` 端点的 URL 集合与生成契约   | `add-sitemap-and-og-meta`(已归档)              |
+| `static-og-meta`             | 站点级静态 OG / Twitter Card meta 契约     | `add-sitemap-and-og-meta`(已归档)              |
+| `reliable-p2p-chat`          | P2P 聊天校验、分块与续传契约               | `harden-p2p-chat`（已归档）                    |
+| `reliable-p2p-file-transfer` | P2P 文件完整性、重连与通道契约             | `harden-p2p-file-transfer`（已归档）           |
 
 ## 进行中的 Changes
 
 > 查看 `openspec/changes/` 获取实时状态
 
-| 变更名                            | 状态   | 目标 spec                                |
-| --------------------------------- | ------ | ---------------------------------------- |
-| `formalize-rest-resource-api`     | 进行中 | `rest-resource-api` (形式化已有实践)     |
-| `formalize-persistent-auth-state` | 进行中 | `persistent-auth-state` (形式化已有实践) |
+| 变更名                            | 状态                                 | 目标 spec                                |
+| --------------------------------- | ------------------------------------ | ---------------------------------------- |
+| `formalize-rest-resource-api`     | 进行中                               | `rest-resource-api` (形式化已有实践)     |
+| `formalize-persistent-auth-state` | 进行中                               | `persistent-auth-state` (形式化已有实践) |
+| `repair-p2p-connectivity`         | 本地回归完成，跨网络 TURN 验收待配置 | `reliable-p2p-file-transfer`             |
 
 ---
 
-**最后更新**: 2026-06-12
+**最后更新**: 2026-09-08
 **维护者**: AI + wh131462

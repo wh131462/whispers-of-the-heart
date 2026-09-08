@@ -107,6 +107,7 @@ export function useOnlineDDZ(config: { appId: string; userName: string }) {
 
   // ──── Refs（避免闭包陈旧 + 解决循环依赖）────
   const isHostRef = useRef(false);
+  const roomRoleAssignedRef = useRef(false);
   const mySeatRef = useRef<SeatIndex | null>(null);
   const seatsRef = useRef<(SeatInfo | null)[]>([null, null, null]);
   const hostGameRef = useRef<HostGameState | null>(null);
@@ -423,6 +424,11 @@ export function useOnlineDDZ(config: { appId: string; userName: string }) {
 
       switch (data.type) {
         case 'seat_request': {
+          const existingSeat = findSeatByPeer(peerId);
+          if (existingSeat !== null) {
+            broadcastRoomUpdate(peerId, existingSeat);
+            return;
+          }
           const currentSeats = seatsRef.current;
           const peerName =
             (data.name as string) ||
@@ -494,6 +500,13 @@ export function useOnlineDDZ(config: { appId: string; userName: string }) {
         }
         case 'sync_request': {
           const syncSeat = findSeatByPeer(peerId);
+          if (syncSeat !== null && seatsRef.current[syncSeat]) {
+            seatsRef.current[syncSeat] = {
+              ...seatsRef.current[syncSeat]!,
+              connected: true,
+            };
+            setSeats([...seatsRef.current]);
+          }
           const game = hostGameRef.current;
           if (game && syncSeat !== null) {
             sendToClientsRef.current?.(
@@ -522,8 +535,8 @@ export function useOnlineDDZ(config: { appId: string; userName: string }) {
       case 'room_update': {
         const roomSeats = data.seats as (SeatInfo | null)[] | undefined;
         if (roomSeats) setSeats([...roomSeats]);
-        if (typeof data.mySeat === 'number' && data.mySeat >= 0) {
-          setMySeat(data.mySeat as SeatIndex);
+        if (typeof data.mySeat === 'number') {
+          setMySeat(data.mySeat >= 0 ? (data.mySeat as SeatIndex) : null);
         }
         break;
       }
@@ -564,34 +577,41 @@ export function useOnlineDDZ(config: { appId: string; userName: string }) {
     );
   }, [roomState.status, createAction, handleClientMsg, handleHostMsg]);
 
+  // Every signaling recovery requests the host's current seat/game snapshot.
+  useEffect(() => {
+    if (
+      roomState.status === 'connected' &&
+      !isHostRef.current &&
+      roomState.peerCount > 0
+    ) {
+      sendToHostRef.current?.({ type: 'sync_request' });
+    }
+  }, [roomState.status, roomState.peerCount]);
+
   // ──── 房主初始化 ────
   useEffect(() => {
     if (roomState.status !== 'connected') return;
-    if (isHostRef.current) return; // 已经是房主
-
-    // 延迟检查，等待 peers 列表稳定
-    const timer = setTimeout(() => {
-      if (roomState.peers.size === 0 && !isHostRef.current) {
-        console.log('[DDZ] I am the host');
-        setIsHost(true);
-        isHostRef.current = true;
-        const seat0: SeatInfo = {
-          peerId: SELF_PEER_ID,
-          name: config.userName,
-          ready: false,
-          connected: true,
-        };
-        const newSeats: (SeatInfo | null)[] = [seat0, null, null];
-        setSeats(newSeats);
-        seatsRef.current = newSeats;
-        setMySeat(0);
-        mySeatRef.current = 0;
-        seatPeerMapRef.current.set(0, SELF_PEER_ID);
-      }
-    }, 200);
-
-    return () => clearTimeout(timer);
-  }, [roomState.status]);
+    if (roomRoleAssignedRef.current) return;
+    roomRoleAssignedRef.current = true;
+    // Only the first explicit join elects a host. A returning client must wait for
+    // the original host even if it reconnects before all other room members.
+    if (roomState.peerCount !== 0) return;
+    console.log('[DDZ] I am the host');
+    setIsHost(true);
+    isHostRef.current = true;
+    const seat0: SeatInfo = {
+      peerId: SELF_PEER_ID,
+      name: config.userName,
+      ready: false,
+      connected: true,
+    };
+    const newSeats: (SeatInfo | null)[] = [seat0, null, null];
+    setSeats(newSeats);
+    seatsRef.current = newSeats;
+    setMySeat(0);
+    mySeatRef.current = 0;
+    seatPeerMapRef.current.set(0, SELF_PEER_ID);
+  }, [roomState.status, roomState.peerCount, config.userName]);
 
   // 客户端入座由 DDZLobby UI 手动触发（requestSeat），不再自动入座
 
@@ -603,8 +623,18 @@ export function useOnlineDDZ(config: { appId: string; userName: string }) {
 
     room.onPeerJoin((peerId: string) => {
       console.log(`[DDZ] Peer joined: ${peerId}`);
-      // 发送当前房间状态给新加入的 peer（未入座，mySeat=-1）
-      broadcastRoomUpdate(peerId, null);
+      const seat = findSeatByPeer(peerId);
+      if (seat !== null && seatsRef.current[seat]) {
+        seatsRef.current[seat] = {
+          ...seatsRef.current[seat]!,
+          connected: true,
+        };
+        setSeats([...seatsRef.current]);
+      }
+      broadcastRoomUpdate(peerId, seat);
+      if (hostGameRef.current && seat !== null) {
+        broadcastGameState(hostGameRef.current);
+      }
     });
 
     room.onPeerLeave((peerId: string) => {
@@ -634,7 +664,13 @@ export function useOnlineDDZ(config: { appId: string; userName: string }) {
         actionsRef.current.checkAITakeover(game);
       }
     });
-  }, [isHost, getRoom, findSeatByPeer, broadcastRoomUpdate]);
+  }, [
+    isHost,
+    getRoom,
+    findSeatByPeer,
+    broadcastRoomUpdate,
+    broadcastGameState,
+  ]);
 
   // ──── 玩家操作 ────
 
@@ -651,6 +687,7 @@ export function useOnlineDDZ(config: { appId: string; userName: string }) {
     resetRoom();
     setIsHost(false);
     isHostRef.current = false;
+    roomRoleAssignedRef.current = false;
     setMySeat(null);
     mySeatRef.current = null;
     setSeats([null, null, null]);

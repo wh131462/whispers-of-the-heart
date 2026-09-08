@@ -33,7 +33,7 @@ export default function GameMenu({ onStartGame }: GameMenuProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60 backdrop-blur-sm">
       <div className="bg-gray-900/95 rounded-lg p-4 max-w-xs w-full mx-3 shadow-2xl border border-gray-700">
         <h1
           className="text-xl font-bold text-center mb-3"

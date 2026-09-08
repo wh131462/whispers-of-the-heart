@@ -110,6 +110,10 @@ jobs:
           # cache-to: type=gha,mode=max,scope=web
           build-args: |
             VITE_API_URL=${{ vars.VITE_API_URL || 'https://api.131462.wang' }}
+            VITE_WEBRTC_ICE_SERVERS=${{ secrets.VITE_WEBRTC_ICE_SERVERS }}
+            VITE_TURN_URL=${{ vars.VITE_TURN_URL }}
+            VITE_TURN_USERNAME=${{ secrets.VITE_TURN_USERNAME }}
+            VITE_TURN_CREDENTIAL=${{ secrets.VITE_TURN_CREDENTIAL }}
             VITE_WEB_URL=${{ vars.VITE_WEB_URL || 'https://131462.wang' }}
             VITE_WEB_PORT=${{ vars.VITE_WEB_PORT || '8888' }}
             VITE_AI_PROVIDER=${{ vars.VITE_AI_PROVIDER || 'deepseek' }}

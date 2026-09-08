@@ -25,6 +25,7 @@ interface SignalPayload {
   roomCode: string;
   targetPeerId: string;
   signal: unknown;
+  targetSessionId?: string;
 }
 
 interface MessagePayload {
@@ -83,7 +84,22 @@ export class SignalingGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: JoinPayload,
   ) {
-    const { roomCode, peerId, name } = payload;
+    const { roomCode, peerId, name } = payload ?? {};
+    if (
+      ![roomCode, peerId, name].every(
+        (value) =>
+          typeof value === 'string' && value.length > 0 && value.length <= 256,
+      )
+    ) {
+      return { success: false, error: 'Invalid room member' };
+    }
+    const previous = this.socketToRoom.get(client.id);
+    if (
+      previous &&
+      (previous.roomCode !== roomCode || previous.peerId !== peerId)
+    ) {
+      this.removeFromRoom(client, previous.roomCode, previous.peerId);
+    }
     console.log(`[Signaling] ${name} (${peerId}) joining room: ${roomCode}`);
 
     // 加入 socket.io 房间
@@ -94,6 +110,13 @@ export class SignalingGateway
       this.rooms.set(roomCode, new Map());
     }
     const room = this.rooms.get(roomCode)!;
+    const replaced = room.get(peerId);
+    if (replaced && replaced.socketId !== client.id) {
+      // Revoke the old Socket before it can forward signals or remove its replacement.
+      this.socketToRoom.delete(replaced.socketId);
+      this.server.sockets.sockets.get(replaced.socketId)?.leave(roomCode);
+      this.server.to(replaced.socketId).emit('session-replaced');
+    }
 
     // 获取现有成员列表（排除自己）
     const existingMembers = Array.from(room.values()).filter(
@@ -105,17 +128,23 @@ export class SignalingGateway
     this.socketToRoom.set(client.id, { roomCode, peerId });
 
     // 通知现有成员有新人加入
-    existingMembers.forEach((member) => {
-      this.server.to(member.socketId).emit('peer-joined', {
-        peerId,
-        name,
+    if (replaced?.socketId !== client.id)
+      existingMembers.forEach((member) => {
+        this.server.to(member.socketId).emit('peer-joined', {
+          peerId,
+          name,
+          sessionId: client.id,
+        });
       });
-    });
 
     // 返回现有成员列表给新加入者
     return {
       success: true,
-      members: existingMembers.map((m) => ({ peerId: m.peerId, name: m.name })),
+      members: existingMembers.map((m) => ({
+        peerId: m.peerId,
+        name: m.name,
+        sessionId: m.socketId,
+      })),
     };
   }
 
@@ -125,6 +154,10 @@ export class SignalingGateway
     @MessageBody() payload: { roomCode: string; peerId: string },
   ) {
     const { roomCode, peerId } = payload;
+    const info = this.socketToRoom.get(client.id);
+    if (info?.roomCode !== roomCode || info.peerId !== peerId) {
+      return { success: false, error: 'Not in room' };
+    }
     this.removeFromRoom(client, roomCode, peerId);
     return { success: true };
   }
@@ -134,19 +167,26 @@ export class SignalingGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() payload: SignalPayload,
   ) {
-    const { roomCode, targetPeerId, signal } = payload;
+    const { roomCode, targetPeerId, signal, targetSessionId } = payload;
     const room = this.rooms.get(roomCode);
     if (!room) return { success: false, error: 'Room not found' };
 
     const info = this.socketToRoom.get(client.id);
-    if (!info) return { success: false, error: 'Not in room' };
+    if (
+      info?.roomCode !== roomCode ||
+      room.get(info.peerId)?.socketId !== client.id
+    )
+      return { success: false, error: 'Not in room' };
 
     const target = room.get(targetPeerId);
     if (!target) return { success: false, error: 'Target not found' };
+    if (targetSessionId && target.socketId !== targetSessionId)
+      return { success: false, error: 'Stale target session' };
 
     // 转发信号给目标
     this.server.to(target.socketId).emit('signal', {
       fromPeerId: info.peerId,
+      fromSessionId: client.id,
       signal,
     });
 
@@ -163,7 +203,11 @@ export class SignalingGateway
     if (!room) return { success: false, error: 'Room not found' };
 
     const info = this.socketToRoom.get(client.id);
-    if (!info) return { success: false, error: 'Not in room' };
+    if (
+      info?.roomCode !== roomCode ||
+      room.get(info.peerId)?.socketId !== client.id
+    )
+      return { success: false, error: 'Not in room' };
 
     if (targetPeerId) {
       // 发送给特定 peer
@@ -191,19 +235,21 @@ export class SignalingGateway
 
   private removeFromRoom(client: Socket, roomCode: string, peerId: string) {
     const room = this.rooms.get(roomCode);
-    if (!room) return;
+    const info = this.socketToRoom.get(client.id);
+    if (info?.roomCode !== roomCode || info.peerId !== peerId) return;
+    this.socketToRoom.delete(client.id);
+    client.leave(roomCode);
 
-    const member = room.get(peerId);
-    if (member) {
+    const member = room?.get(peerId);
+    if (room && member?.socketId === client.id) {
       room.delete(peerId);
-      this.socketToRoom.delete(client.id);
-      client.leave(roomCode);
 
       // 通知其他成员
       room.forEach((m) => {
         this.server.to(m.socketId).emit('peer-left', {
           peerId,
           name: member.name,
+          sessionId: member.socketId,
         });
       });
 
