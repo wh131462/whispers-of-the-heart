@@ -68,7 +68,7 @@ export const appRegistry: AppMeta[] = [
   {
     id: 'p2p-chat',
     name: 'P2P 聊天',
-    description: '基于 WebRTC 的点对点聊天，直连失败时自动使用服务器中转',
+    description: '输入相同房间码即可聊天，支持文字和图片',
     icon: 'MessageSquare',
     tags: ['实用'],
     component: lazy(() => import('./p2p-chat')),

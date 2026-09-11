@@ -7,6 +7,8 @@ import { MemberList } from './MemberList';
 interface ConnectionStatusProps {
   state: ConnectionState;
   peerCount?: number;
+  readyPeerCount?: number;
+  relayPeerCount?: number;
   peers?: Map<string, PeerInfo>;
   currentUserName?: string;
 }
@@ -36,17 +38,30 @@ const stateConfig: Record<
 export function ConnectionStatus({
   state,
   peerCount = 0,
+  readyPeerCount = 0,
+  relayPeerCount = 0,
   peers = new Map(),
   currentUserName = '',
 }: ConnectionStatusProps) {
   const [showMembers, setShowMembers] = useState(false);
   const config = stateConfig[state];
+  const connectionDescription =
+    peerCount === 0
+      ? '已加入房间，等待对方加入'
+      : readyPeerCount === 0
+        ? '已加入房间，正在建立数据通道'
+        : relayPeerCount === 0
+          ? '连接方式：WebRTC 直连'
+          : readyPeerCount > relayPeerCount
+            ? '连接方式：部分成员 WebRTC 直连，部分成员服务器中转'
+            : '连接方式：服务器中转';
 
   const memberList = Array.from(peers.values());
 
   return (
     <div className="relative flex items-center gap-2">
       <span
+        title={state === 'connected' ? connectionDescription : undefined}
         className={cn(
           'inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium',
           config.bgColor,
