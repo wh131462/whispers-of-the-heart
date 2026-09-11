@@ -63,8 +63,8 @@ export function HelpDialog({ open, onClose }: HelpDialogProps) {
             <div>
               <h3 className="text-sm font-medium text-zinc-800">点对点传输</h3>
               <p className="text-sm text-zinc-500 mt-1">
-                文件通过 WebRTC
-                直接在两个浏览器之间传输，不经过服务器存储，速度更快、更安全。
+                文件优先通过 WebRTC
+                直接传输；直连失败时通过服务器中转。服务器不保存文件。
               </p>
             </div>
           </div>
@@ -76,7 +76,8 @@ export function HelpDialog({ open, onClose }: HelpDialogProps) {
             <div>
               <h3 className="text-sm font-medium text-zinc-800">隐私安全</h3>
               <p className="text-sm text-zinc-500 mt-1">
-                传输数据端到端加密，房间码仅用于连接建立，关闭页面后自动销毁。
+                文件分块会进行 SHA-256
+                完整性校验，房间码仅用于连接建立，关闭页面后自动销毁。
               </p>
             </div>
           </div>

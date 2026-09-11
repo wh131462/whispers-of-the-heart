@@ -98,6 +98,9 @@ export default function P2PChat() {
               peers={state.peers}
               currentUserName={userName}
             />
+            {state.relayPeerCount > 0 && (
+              <span className="text-[10px] text-blue-600">服务器中转</span>
+            )}
             {!hasJoinedRoom && (
               <button
                 onClick={() => setShowHelp(true)}
@@ -136,7 +139,9 @@ export default function P2PChat() {
                   ? '数据通道正在恢复，未确认消息会在重连后继续发送。'
                   : state.peerCount === 0
                     ? '等待对方加入房间。'
-                    : '正在建立安全数据通道，请稍候。'}
+                    : state.relayPeerCount > 0
+                      ? '当前使用服务器中转，消息仍会经过完整性校验。'
+                      : '正在建立安全数据通道，请稍候。'}
               </div>
             )}
             <MessageList messages={messages} onRetry={handleRetry} />

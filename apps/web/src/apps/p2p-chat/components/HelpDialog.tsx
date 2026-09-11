@@ -74,10 +74,11 @@ export function HelpDialog({ open, onClose }: HelpDialogProps) {
                 <Shield className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-xs font-medium text-emerald-700">
-                    端到端加密
+                    传输安全
                   </p>
                   <p className="text-xs text-emerald-600 mt-0.5">
-                    所有消息通过 WebRTC 直接传输，不经过任何服务器
+                    优先通过 WebRTC
+                    传输；直连失败时使用服务器中转。消息仍会校验完整性。
                   </p>
                 </div>
               </div>

@@ -123,6 +123,8 @@ export interface RoomState {
   roomCode: string | null;
   peerCount: number;
   readyPeerCount: number;
+  relayPeerCount: number;
+  relayPeers: Set<string>;
   peers: Map<string, PeerInfo>;
   error: string | null;
 }

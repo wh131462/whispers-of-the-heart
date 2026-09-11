@@ -110,6 +110,9 @@ export default function P2PFileTransfer() {
               peers={state.peers}
               currentUserName={userName}
             />
+            {state.relayPeerCount > 0 && (
+              <span className="text-[10px] text-blue-600">服务器中转</span>
+            )}
             {!isConnected && !isConnecting && (
               <button
                 onClick={() => setShowHelp(true)}
@@ -170,6 +173,11 @@ export default function P2PFileTransfer() {
                     })}
                   </select>
                 </label>
+              )}
+              {state.relayPeerCount > 0 && (
+                <p className="mb-2 text-xs text-blue-600">
+                  当前使用服务器中转，文件仍会经过 SHA-256 完整性校验。
+                </p>
               )}
               <FileDropZone
                 onFilesSelected={handleFilesSelected}

@@ -102,9 +102,11 @@ export function useFileTransfer({
     createAction,
     waitForDataChannelDrain,
     isDataChannelOpen,
+    isRelayAvailable,
   } = useTrysteroRoom({
     appId: APP_ID,
     userName,
+    allowRelay: true,
   });
 
   const [transfers, setTransfers] = useState<FileTransferItem[]>([]);
@@ -373,7 +375,10 @@ export function useFileTransfer({
         ) {
           if (!sendQueueRef.current.has(fileId)) return;
           if (queueItem.runId !== runId) return;
-          if (!isDataChannelOpen(queueItem.targetPeerId)) {
+          if (
+            !isDataChannelOpen(queueItem.targetPeerId) &&
+            !isRelayAvailable(queueItem.targetPeerId)
+          ) {
             updateTransfer(fileId, {
               status: 'paused',
               error: '数据通道不可用，等待重新建立',
@@ -429,6 +434,7 @@ export function useFileTransfer({
     [
       clearVerificationTimer,
       isDataChannelOpen,
+      isRelayAvailable,
       updateTransfer,
       waitForDataChannelDrain,
     ]
@@ -638,7 +644,7 @@ export function useFileTransfer({
 
   useEffect(() => {
     if (roomState.status !== 'connected') return;
-    const options = { requireDataChannel: true } as const;
+    const options = { requireDataChannel: true, allowRelay: true } as const;
     sendersRef.current.sendMetadata = createAction<FileMetadata>(
       'file-metadata',
       handleMetadata,
@@ -647,7 +653,7 @@ export function useFileTransfer({
     sendersRef.current.sendChunk = createAction<FileChunk>(
       'file-chunk',
       handleChunk,
-      { requireDataChannel: true }
+      { requireDataChannel: true, allowRelay: true }
     );
     sendersRef.current.sendAck = createAction<TransferAck>(
       'file-ack',
@@ -699,7 +705,8 @@ export function useFileTransfer({
     setTransfers(prev =>
       prev.map(item =>
         (item.status === 'transferring' || item.status === 'verifying') &&
-        !roomState.readyPeers.has(item.peerId)
+        !roomState.readyPeers.has(item.peerId) &&
+        !roomState.relayPeers.has(item.peerId)
           ? {
               ...item,
               status: 'paused',
@@ -712,7 +719,11 @@ export function useFileTransfer({
     );
 
     sendQueueRef.current.forEach(queueItem => {
-      if (!roomState.readyPeers.has(queueItem.targetPeerId)) return;
+      if (
+        !roomState.readyPeers.has(queueItem.targetPeerId) &&
+        !roomState.relayPeers.has(queueItem.targetPeerId)
+      )
+        return;
       queueItem.runId += 1;
       queueItem.sending = false;
       sendersRef.current.sendMetadata?.(
@@ -720,16 +731,24 @@ export function useFileTransfer({
         queueItem.targetPeerId
       );
     });
-  }, [roomState.status, roomState.peers, roomState.readyPeers]);
+  }, [
+    roomState.status,
+    roomState.peers,
+    roomState.readyPeers,
+    roomState.relayPeers,
+  ]);
 
   const sendFile = useCallback(
     async (file: File, targetPeerId?: string) => {
       if (!sendersRef.current.sendMetadata) return;
       const readyPeerId = targetPeerId
-        ? roomState.readyPeers.has(targetPeerId)
+        ? roomState.readyPeers.has(targetPeerId) ||
+          roomState.relayPeers.has(targetPeerId)
           ? targetPeerId
           : undefined
-        : roomState.readyPeers.values().next().value;
+        : new Set([...roomState.readyPeers, ...roomState.relayPeers])
+            .values()
+            .next().value;
       const targetPeer = readyPeerId
         ? roomState.peers.get(readyPeerId)
         : undefined;
@@ -774,7 +793,13 @@ export function useFileTransfer({
       ]);
       sendersRef.current.sendMetadata(metadata, targetPeer.id);
     },
-    [generateFileId, roomState.peers, roomState.readyPeers, userName]
+    [
+      generateFileId,
+      roomState.peers,
+      roomState.readyPeers,
+      roomState.relayPeers,
+      userName,
+    ]
   );
 
   const downloadFile = useCallback(
@@ -834,8 +859,11 @@ export function useFileTransfer({
             : 'disconnected',
     roomCode: roomState.roomCode,
     peerCount: roomState.peerCount,
-    readyPeerCount: roomState.readyPeers.size,
-    readyPeerIds: roomState.readyPeers,
+    readyPeerCount: new Set([...roomState.readyPeers, ...roomState.relayPeers])
+      .size,
+    relayPeerCount: roomState.relayPeers.size,
+    relayPeers: roomState.relayPeers,
+    readyPeerIds: new Set([...roomState.readyPeers, ...roomState.relayPeers]),
     peers: roomState.peers,
     error: roomState.error,
   };

@@ -88,10 +88,6 @@ services:
       target: production
       args:
         - VITE_API_URL=https://api.131462.wang
-        - VITE_WEBRTC_ICE_SERVERS=${VITE_WEBRTC_ICE_SERVERS:-}
-        - VITE_TURN_URL=${VITE_TURN_URL:-}
-        - VITE_TURN_USERNAME=${VITE_TURN_USERNAME:-}
-        - VITE_TURN_CREDENTIAL=${VITE_TURN_CREDENTIAL:-}
     container_name: whispers-web-prod
     restart: "no"
     volumes:

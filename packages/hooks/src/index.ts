@@ -23,6 +23,7 @@ export type {
   RoomConfig,
   TrysteroRoomState,
   ActionSender,
+  ReliableActionSender,
   ActionReceiver,
   ActionOptions,
 } from './useTrysteroRoom';

@@ -101,11 +101,11 @@
 
 > 查看 `openspec/changes/` 获取实时状态
 
-| 变更名                            | 状态                                 | 目标 spec                                |
-| --------------------------------- | ------------------------------------ | ---------------------------------------- |
-| `formalize-rest-resource-api`     | 进行中                               | `rest-resource-api` (形式化已有实践)     |
-| `formalize-persistent-auth-state` | 进行中                               | `persistent-auth-state` (形式化已有实践) |
-| `repair-p2p-connectivity`         | 本地回归完成，跨网络 TURN 验收待配置 | `reliable-p2p-file-transfer`             |
+| 变更名                            | 状态                                                 | 目标 spec                                |
+| --------------------------------- | ---------------------------------------------------- | ---------------------------------------- |
+| `formalize-rest-resource-api`     | 进行中                                               | `rest-resource-api` (形式化已有实践)     |
+| `formalize-persistent-auth-state` | 进行中                                               | `persistent-auth-state` (形式化已有实践) |
+| `repair-p2p-connectivity`         | 本地回归完成；中转兜底由 `add-p2p-server-relay` 接替 | `reliable-p2p-file-transfer`             |
 
 ---
 

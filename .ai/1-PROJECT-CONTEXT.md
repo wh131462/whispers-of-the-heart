@@ -49,7 +49,7 @@ whispers-of-the-heart/
 2. **共享包**: packages/\* 被 web 和 api 复用
 3. **API通信**: RESTful API + JWT 认证
 4. **状态管理**: Zustand + persist 中间件
-5. **实时通信**: Socket.IO（通知与 P2P 信令）+ WebRTC DataChannel；P2P 默认公开 STUN，可通过前端构建变量追加 TURN；聊天和文件内容只在 DataChannel 上传输。信令按 Socket 会话和连接 ID 隔离，游戏复用相同连接层。TURN 服务需由部署方提供，当前跨网络中继待验收。
+5. **实时通信**: Socket.IO（通知、P2P 信令及聊天/文件直连失败时的实时中转）+ WebRTC DataChannel；P2P 默认公开 STUN，聊天和文件优先走 DataChannel，直连失败后使用按会话隔离的 Socket.IO 中转。聊天和文件仍执行分块确认、SHA-256 与断点续传；游戏复用相同连接层及轻量消息转发。
 
 ## 核心功能模块
 

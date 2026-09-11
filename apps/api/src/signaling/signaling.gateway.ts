@@ -13,13 +13,26 @@ interface RoomMember {
   socketId: string;
   peerId: string;
   name: string;
+  relayVersion?: number;
 }
 
 interface JoinPayload {
   roomCode: string;
   peerId: string;
   name: string;
+  relayVersion?: number;
 }
+
+interface RelayPayload {
+  roomCode: string;
+  targetPeerId: string;
+  targetSessionId: string;
+  message: string;
+}
+
+const MAX_RELAY_BYTES = 32 * 1024;
+const MAX_RELAY_IN_FLIGHT = 8;
+const RELAY_BYTES_PER_SECOND = 2 * 1024 * 1024;
 
 interface SignalPayload {
   roomCode: string;
@@ -54,6 +67,10 @@ export class SignalingGateway
     string,
     { roomCode: string; peerId: string }
   >();
+  private relayLimits = new Map<
+    string,
+    { inFlight: number; bytes: number; windowStart: number }
+  >();
 
   handleConnection(client: Socket) {
     console.log(`[Signaling] Client connected: ${client.id}`);
@@ -72,6 +89,7 @@ export class SignalingGateway
   }
 
   handleDisconnect(client: Socket) {
+    this.relayLimits.delete(client.id);
     console.log(`[Signaling] Client disconnected: ${client.id}`);
     const info = this.socketToRoom.get(client.id);
     if (info) {
@@ -124,7 +142,8 @@ export class SignalingGateway
     );
 
     // 添加到房间
-    room.set(peerId, { socketId: client.id, peerId, name });
+    const relayVersion = payload.relayVersion === 1 ? 1 : undefined;
+    room.set(peerId, { socketId: client.id, peerId, name, relayVersion });
     this.socketToRoom.set(client.id, { roomCode, peerId });
 
     // 通知现有成员有新人加入
@@ -134,16 +153,19 @@ export class SignalingGateway
           peerId,
           name,
           sessionId: client.id,
+          relayVersion,
         });
       });
 
     // 返回现有成员列表给新加入者
     return {
       success: true,
+      relayVersion: 1,
       members: existingMembers.map((m) => ({
         peerId: m.peerId,
         name: m.name,
         sessionId: m.socketId,
+        relayVersion: m.relayVersion,
       })),
     };
   }
@@ -191,6 +213,79 @@ export class SignalingGateway
     });
 
     return { success: true };
+  }
+
+  @SubscribeMessage('relay')
+  async handleRelay(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() payload: RelayPayload,
+  ): Promise<{ success: boolean; error?: string }> {
+    if (
+      !payload ||
+      typeof payload.message !== 'string' ||
+      Buffer.byteLength(payload.message, 'utf8') > MAX_RELAY_BYTES ||
+      typeof payload.targetSessionId !== 'string'
+    )
+      return { success: false, error: 'Invalid relay packet' };
+
+    const info = this.socketToRoom.get(client.id);
+    const room = this.rooms.get(payload.roomCode);
+    const source = info && room?.get(info.peerId);
+    const target = room?.get(payload.targetPeerId);
+    if (
+      info?.roomCode !== payload.roomCode ||
+      source?.socketId !== client.id ||
+      source.relayVersion !== 1 ||
+      target?.socketId !== payload.targetSessionId ||
+      target.relayVersion !== 1
+    )
+      return { success: false, error: 'Unavailable relay session' };
+
+    const receiver = this.server.sockets.sockets.get(target.socketId);
+    if (!receiver?.connected || !receiver.conn.transport.writable) {
+      return { success: false, error: 'Receiver unavailable' };
+    }
+    const now = Date.now();
+    const limit = this.relayLimits.get(client.id) ?? {
+      inFlight: 0,
+      bytes: 0,
+      windowStart: now,
+    };
+    this.relayLimits.set(client.id, limit);
+    if (now - limit.windowStart >= 1000) {
+      limit.windowStart = now;
+      limit.bytes = 0;
+    }
+    const bytes = Buffer.byteLength(payload.message, 'utf8');
+    if (
+      limit.inFlight >= MAX_RELAY_IN_FLIGHT ||
+      limit.bytes + bytes > RELAY_BYTES_PER_SECOND
+    ) {
+      return { success: false, error: 'Relay busy' };
+    }
+    limit.inFlight += 1;
+    limit.bytes += bytes;
+    try {
+      const reply: { success?: boolean } = await receiver
+        .timeout(5000)
+        .emitWithAck('relay', {
+          fromPeerId: info.peerId,
+          fromSessionId: client.id,
+          targetSessionId: target.socketId,
+          message: payload.message,
+        });
+      // An ACK from a replaced member cannot confirm the current session.
+      return {
+        success:
+          reply?.success === true &&
+          room?.get(info.peerId) === source &&
+          room?.get(target.peerId) === target,
+      };
+    } catch {
+      return { success: false, error: 'Relay acknowledgement timed out' };
+    } finally {
+      limit.inFlight -= 1;
+    }
   }
 
   @SubscribeMessage('message')

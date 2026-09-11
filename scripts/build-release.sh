@@ -45,10 +45,6 @@ docker build \
   -t whispers-web:$VERSION \
   --target production \
   --build-arg VITE_API_URL=https://api.131462.wang \
-  --build-arg VITE_WEBRTC_ICE_SERVERS \
-  --build-arg VITE_TURN_URL \
-  --build-arg VITE_TURN_USERNAME \
-  --build-arg VITE_TURN_CREDENTIAL \
   .
 
 # 导出镜像

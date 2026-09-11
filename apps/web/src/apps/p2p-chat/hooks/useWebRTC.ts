@@ -155,9 +155,11 @@ export function useRoom({
     createAction,
     waitForDataChannelDrain,
     isDataChannelOpen,
+    isRelayAvailable,
   } = useTrysteroRoom({
     appId: APP_ID,
     userName,
+    allowRelay: true,
   });
 
   const sendersRef = useRef<ActionSenders>(createEmptySenders());
@@ -168,6 +170,7 @@ export function useRoom({
   >(new Map());
   const peersRef = useRef(roomState.peers);
   const readyPeersRef = useRef(roomState.readyPeers);
+  const relayPeersRef = useRef(roomState.relayPeers);
   const onMessageRef = useRef(onMessage);
   const onDeliveryUpdateRef = useRef(onDeliveryUpdate);
   const sessionRunRef = useRef(0);
@@ -183,7 +186,14 @@ export function useRoom({
   useEffect(() => {
     peersRef.current = roomState.peers;
     readyPeersRef.current = roomState.readyPeers;
-  }, [roomState.peers, roomState.readyPeers]);
+    relayPeersRef.current = roomState.relayPeers;
+  }, [roomState.peers, roomState.readyPeers, roomState.relayPeers]);
+
+  const isTransportAvailable = useCallback(
+    (peerId: string) =>
+      readyPeersRef.current.has(peerId) || relayPeersRef.current.has(peerId),
+    []
+  );
 
   const clearVerificationTimer = useCallback(
     (messageId: string, peerId: string) => {
@@ -564,7 +574,7 @@ export function useRoom({
           return;
         }
 
-        if (!isDataChannelOpen(peerId)) {
+        if (!isDataChannelOpen(peerId) && !isRelayAvailable(peerId)) {
           target.status = 'paused';
           target.error = '连接已断开，等待重连';
           verificationTimersRef.current.delete(key);
@@ -617,7 +627,10 @@ export function useRoom({
           if (!sendQueueRef.current.has(messageId) || target.runId !== runId) {
             return;
           }
-          if (!peersRef.current.has(peerId) || !isDataChannelOpen(peerId)) {
+          if (
+            !peersRef.current.has(peerId) ||
+            (!isDataChannelOpen(peerId) && !isRelayAvailable(peerId))
+          ) {
             target.status = 'paused';
             target.error = '连接已断开，等待重连';
             notifyDelivery(messageId);
@@ -625,7 +638,7 @@ export function useRoom({
           }
 
           await waitForDataChannelDrain(peerId);
-          if (!isDataChannelOpen(peerId)) {
+          if (!isDataChannelOpen(peerId) && !isRelayAvailable(peerId)) {
             target.status = 'paused';
             target.error = '连接已断开，等待重连';
             notifyDelivery(messageId);
@@ -653,7 +666,7 @@ export function useRoom({
           }
         }
 
-        if (!isDataChannelOpen(peerId)) {
+        if (!isDataChannelOpen(peerId) && !isRelayAvailable(peerId)) {
           target.status = 'paused';
           target.error = '连接已断开，等待重连';
           notifyDelivery(messageId);
@@ -676,6 +689,7 @@ export function useRoom({
     [
       armVerificationTimer,
       isDataChannelOpen,
+      isRelayAvailable,
       notifyDelivery,
       waitForDataChannelDrain,
     ]
@@ -797,7 +811,7 @@ export function useRoom({
 
   useEffect(() => {
     if (roomState.status !== 'connected') return;
-    const options = { requireDataChannel: true } as const;
+    const options = { requireDataChannel: true, allowRelay: true } as const;
     sendersRef.current.sendMetadata = createAction<ChatMetadata>(
       'chat-metadata',
       handleMetadata,
@@ -843,7 +857,7 @@ export function useRoom({
     sendQueueRef.current.forEach(queueItem => {
       queueItem.targets.forEach(target => {
         if (target.status === 'delivered' || target.status === 'failed') return;
-        if (!roomState.readyPeers.has(target.peerId)) {
+        if (!isTransportAvailable(target.peerId)) {
           target.runId += 1;
           target.sending = false;
           target.status = 'paused';
@@ -867,6 +881,8 @@ export function useRoom({
     clearVerificationTimer,
     notifyDelivery,
     roomState.readyPeers,
+    roomState.relayPeers,
+    isTransportAvailable,
     roomState.status,
   ]);
 
@@ -940,12 +956,12 @@ export function useRoom({
           targetPeers.forEach(peer => {
             targets.set(peer.id, {
               peerId: peer.id,
-              status: readyPeersRef.current.has(peer.id) ? 'pending' : 'paused',
+              status: isTransportAvailable(peer.id) ? 'pending' : 'paused',
               checksumRetries: 0,
               verificationAttempts: 0,
               sending: false,
               runId: 0,
-              error: readyPeersRef.current.has(peer.id)
+              error: isTransportAvailable(peer.id)
                 ? undefined
                 : '等待数据通道建立',
             });
@@ -958,7 +974,7 @@ export function useRoom({
           notifyDelivery(message.messageId);
 
           targets.forEach(target => {
-            if (readyPeersRef.current.has(target.peerId)) {
+            if (isTransportAvailable(target.peerId)) {
               sendersRef.current.sendMetadata?.(metadata, target.peerId);
               armVerificationTimer(message.messageId, target.peerId);
             }
@@ -975,7 +991,7 @@ export function useRoom({
       })();
       return true;
     },
-    [armVerificationTimer, notifyDelivery, userName]
+    [armVerificationTimer, isTransportAvailable, notifyDelivery, userName]
   );
 
   const retryMessage = useCallback(
@@ -987,17 +1003,17 @@ export function useRoom({
       queueItem.targets.forEach(target => {
         if (target.status !== 'failed') return;
         retried = true;
-        target.status = readyPeersRef.current.has(target.peerId)
+        target.status = isTransportAvailable(target.peerId)
           ? 'pending'
           : 'paused';
-        target.error = readyPeersRef.current.has(target.peerId)
+        target.error = isTransportAvailable(target.peerId)
           ? undefined
           : '等待对方重新连接';
         target.checksumRetries = 0;
         target.verificationAttempts = 0;
         target.runId += 1;
         target.sending = false;
-        if (readyPeersRef.current.has(target.peerId)) {
+        if (isTransportAvailable(target.peerId)) {
           sendersRef.current.sendMetadata?.(queueItem.metadata, target.peerId);
           armVerificationTimer(messageId, target.peerId);
         }
@@ -1005,7 +1021,7 @@ export function useRoom({
       if (retried) notifyDelivery(messageId);
       return retried;
     },
-    [armVerificationTimer, notifyDelivery]
+    [armVerificationTimer, isTransportAvailable, notifyDelivery]
   );
 
   const handleReset = useCallback(() => {
@@ -1029,7 +1045,10 @@ export function useRoom({
             : 'disconnected',
     roomCode: roomState.roomCode,
     peerCount: roomState.peerCount,
-    readyPeerCount: roomState.readyPeers.size,
+    readyPeerCount: new Set([...roomState.readyPeers, ...roomState.relayPeers])
+      .size,
+    relayPeerCount: roomState.relayPeers.size,
+    relayPeers: roomState.relayPeers,
     peers: roomState.peers,
     error: roomState.error,
   };
