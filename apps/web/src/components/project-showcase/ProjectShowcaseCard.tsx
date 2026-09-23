@@ -21,6 +21,7 @@ import {
 interface ProjectShowcaseCardProps {
   project: ShowcaseProject;
   variant?: 'standard' | 'featured' | 'compact';
+  showMetadata?: boolean;
 }
 
 const TYPE_ICONS: Record<ShowcaseProjectType, LucideIcon> = {
@@ -33,6 +34,7 @@ const TYPE_ICONS: Record<ShowcaseProjectType, LucideIcon> = {
 const ProjectShowcaseCard: React.FC<ProjectShowcaseCardProps> = ({
   project,
   variant = 'standard',
+  showMetadata = true,
 }) => {
   const [coverFailed, setCoverFailed] = useState(false);
   const [iconFailed, setIconFailed] = useState(false);
@@ -46,25 +48,25 @@ const ProjectShowcaseCard: React.FC<ProjectShowcaseCardProps> = ({
 
   return (
     <article
-      className={`group relative flex h-full overflow-hidden rounded-2xl bg-card ring-1 ring-border/70 transition duration-300 hover:-translate-y-1 hover:ring-primary/35 hover:shadow-xl hover:shadow-primary/5 ${
+      className={`group relative flex h-full overflow-hidden rounded-lg bg-card ring-1 ring-border/80 shadow-[0_8px_24px_-16px_hsl(var(--foreground)/0.36)] transition-[transform,box-shadow,background-color] duration-300 ease-out hover:-translate-y-0.5 hover:bg-card hover:ring-primary/40 hover:shadow-[0_18px_38px_-20px_hsl(var(--foreground)/0.42),0_5px_16px_-10px_hsl(var(--primary)/0.24)] dark:shadow-[0_8px_24px_-16px_hsl(var(--background)/0.8)] dark:hover:shadow-[0_18px_38px_-20px_hsl(var(--background)/0.9),0_5px_16px_-10px_hsl(var(--primary)/0.3)] motion-reduce:transform-none motion-reduce:transition-none ${
         variant === 'featured'
-          ? 'min-h-[28rem] flex-col'
+          ? 'min-h-[30rem] flex-col'
           : variant === 'compact'
             ? 'min-h-0 flex-col'
-            : 'min-h-72 flex-col'
+            : 'min-h-[22rem] flex-col'
       }`}
     >
       {variant !== 'compact' && (
         <div
-          className={`relative overflow-hidden bg-gradient-to-br from-primary/15 via-muted to-background ${
-            variant === 'featured' ? 'min-h-52 flex-1' : 'h-36'
+          className={`relative z-[1] -mb-px overflow-hidden bg-gradient-to-br from-primary/20 via-muted/80 to-background ${
+            variant === 'featured' ? 'min-h-56 flex-1' : 'h-40'
           }`}
         >
           {showCover ? (
             <img
               src={getMediaUrl(project.coverImage)}
               alt={`${project.name} 封面`}
-              className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+              className="h-full w-full object-cover saturate-[0.92] transition-[transform,filter] duration-500 ease-out group-hover:scale-[1.015] group-hover:saturate-100 motion-reduce:transition-none"
               onError={() => setCoverFailed(true)}
             />
           ) : (
@@ -72,13 +74,13 @@ const ProjectShowcaseCard: React.FC<ProjectShowcaseCardProps> = ({
               <TypeIcon className="h-16 w-16 text-primary/45" />
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-card/90 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-card/95 via-card/35 to-transparent" />
           <div className="absolute left-5 top-5 flex items-center gap-2">
-            <span className="rounded-md bg-background/85 px-2.5 py-1 text-xs font-medium text-foreground shadow-sm backdrop-blur">
+            <span className="rounded-md bg-background/80 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-foreground shadow-sm backdrop-blur">
               {SHOWCASE_PROJECT_TYPE_LABELS[project.type]}
             </span>
             {project.latestRelease && (
-              <span className="rounded-md bg-background/85 px-2.5 py-1 font-mono text-xs text-muted-foreground shadow-sm backdrop-blur">
+              <span className="rounded-md bg-background/70 px-2.5 py-1 font-mono text-[11px] text-muted-foreground shadow-sm backdrop-blur">
                 v{project.latestRelease.versionName}
               </span>
             )}
@@ -87,8 +89,8 @@ const ProjectShowcaseCard: React.FC<ProjectShowcaseCardProps> = ({
       )}
 
       <div
-        className={`relative flex flex-1 flex-col ${
-          variant === 'compact' ? 'p-4 sm:p-5' : 'p-5 sm:p-6'
+        className={`relative z-[2] flex flex-1 flex-col bg-card ${
+          variant === 'compact' ? 'p-5' : 'p-5 sm:p-7'
         }`}
       >
         {variant === 'compact' && (
@@ -101,7 +103,7 @@ const ProjectShowcaseCard: React.FC<ProjectShowcaseCardProps> = ({
             )}
           </div>
         )}
-        <div className="mb-4 flex items-start gap-3">
+        <div className="mb-5 flex items-start gap-3">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
             {project.icon && !iconFailed ? (
               <img
@@ -117,12 +119,12 @@ const ProjectShowcaseCard: React.FC<ProjectShowcaseCardProps> = ({
           <div className="min-w-0">
             <h3
               className={`text-balance font-serif font-bold tracking-tight text-foreground ${
-                variant === 'featured' ? 'text-2xl' : 'text-xl'
+                variant === 'featured' ? 'text-[1.7rem]' : 'text-xl'
               }`}
             >
               {project.name}
             </h3>
-            {project.platforms.length > 0 && (
+            {showMetadata && project.platforms.length > 0 && (
               <p className="mt-1 truncate text-xs text-muted-foreground">
                 {project.platforms.join(' · ')}
               </p>
@@ -131,25 +133,25 @@ const ProjectShowcaseCard: React.FC<ProjectShowcaseCardProps> = ({
         </div>
 
         <p
-          className={`text-pretty text-sm leading-6 text-muted-foreground ${
+          className={`max-w-[42rem] text-pretty text-sm leading-6 text-muted-foreground ${
             variant === 'compact' ? 'line-clamp-2' : ''
           }`}
         >
           {project.summary}
         </p>
 
-        {visibleTags.length > 0 && variant !== 'compact' && (
-          <div className="mt-5 flex flex-wrap gap-2">
+        {showMetadata && visibleTags.length > 0 && variant !== 'compact' && (
+          <div className="mt-6 flex flex-wrap gap-2">
             {visibleTags.map(tag => (
               <span
                 key={tag}
-                className="rounded-md bg-muted px-2 py-1 text-xs text-muted-foreground"
+                className="rounded-md bg-muted/80 px-2.5 py-1 text-[11px] font-medium text-muted-foreground"
               >
                 {tag}
               </span>
             ))}
             {project.tags.length > visibleTags.length && (
-              <span className="px-1 py-1 text-xs text-muted-foreground">
+              <span className="px-1 py-1 text-[11px] text-muted-foreground">
                 +{project.tags.length - visibleTags.length}
               </span>
             )}
@@ -158,7 +160,7 @@ const ProjectShowcaseCard: React.FC<ProjectShowcaseCardProps> = ({
 
         <div
           className={`mt-auto flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-medium ${
-            variant === 'compact' ? 'pt-4' : 'pt-6'
+            variant === 'compact' ? 'pt-5' : 'pt-8'
           }`}
         >
           {project.websiteUrl && (
@@ -166,7 +168,7 @@ const ProjectShowcaseCard: React.FC<ProjectShowcaseCardProps> = ({
               href={project.websiteUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-primary transition-colors hover:text-primary/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="inline-flex items-center gap-1.5 text-primary transition-[color,transform] duration-200 ease-out hover:translate-x-0.5 hover:text-primary/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
             >
               <ExternalLink className="h-4 w-4" />
               {websiteLabel}
@@ -177,7 +179,7 @@ const ProjectShowcaseCard: React.FC<ProjectShowcaseCardProps> = ({
               href={project.repositoryUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="inline-flex items-center gap-1.5 text-foreground transition-[color,transform] duration-200 ease-out hover:translate-x-0.5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
             >
               <Code2 className="h-4 w-4" />
               查看源码
@@ -188,7 +190,7 @@ const ProjectShowcaseCard: React.FC<ProjectShowcaseCardProps> = ({
               href={project.effectiveDownloadUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="inline-flex items-center gap-1.5 text-foreground transition-[color,transform] duration-200 ease-out hover:translate-x-0.5 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
             >
               <Download className="h-4 w-4" />
               下载

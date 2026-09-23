@@ -14,7 +14,6 @@ import {
   Tag,
   BookOpen,
   Feather,
-  BriefcaseBusiness,
 } from 'lucide-react';
 import { api } from '@whispers/utils';
 import { FallingPattern } from '@whispers/ui';
@@ -480,22 +479,17 @@ const HomePage: React.FC = () => {
       </section>
 
       {featuredProjects.length > 0 && (
-        <section className="border-y bg-muted/20 py-16 sm:py-20">
+        <section className="relative overflow-hidden border-y bg-muted/10 py-16 sm:py-24">
+          <div className="pointer-events-none absolute -left-32 top-20 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
           <div className="container mx-auto max-w-6xl px-4">
-            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-              <div className="max-w-2xl">
-                <div className="mb-3 flex items-center gap-2 text-primary">
-                  <BriefcaseBusiness className="h-4 w-4" />
-                  <span className="font-mono text-xs tracking-[0.18em]">
-                    FEATURED PROJECTS
-                  </span>
-                </div>
-                <h2 className="text-balance font-serif text-3xl font-bold tracking-tight text-foreground">
+            <div className="relative mb-10 flex flex-col gap-6 border-b border-border/70 pb-6 sm:flex-row sm:items-end sm:justify-between">
+              <div className="flex items-end gap-4">
+                <span className="font-mono text-4xl font-semibold tabular-nums tracking-tight text-primary/80">
+                  {featuredProjects.length.toString().padStart(2, '0')}
+                </span>
+                <h2 className="text-balance font-serif text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
                   最近在做的作品
                 </h2>
-                <p className="mt-3 text-pretty text-muted-foreground">
-                  一些已经可以查看源码、在线体验或下载安装的项目。
-                </p>
               </div>
               <Link
                 to="/projects"
@@ -506,11 +500,12 @@ const HomePage: React.FC = () => {
               </Link>
             </div>
 
-            <div className="grid items-stretch gap-5 lg:grid-cols-5">
+            <div className="relative grid items-stretch gap-5 lg:grid-cols-5">
               <div className="lg:col-span-3">
                 <ProjectShowcaseCard
                   project={featuredProjects[0]}
                   variant="featured"
+                  showMetadata={false}
                 />
               </div>
               {featuredProjects.length > 1 && (
@@ -520,6 +515,7 @@ const HomePage: React.FC = () => {
                       key={project.id}
                       project={project}
                       variant="compact"
+                      showMetadata={false}
                     />
                   ))}
                 </div>
