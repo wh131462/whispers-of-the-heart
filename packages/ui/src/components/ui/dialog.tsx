@@ -2,20 +2,6 @@ import * as React from 'react';
 import { Dialog as DialogPrimitive } from 'radix-ui';
 import { cn } from '@/lib/utils';
 
-// 简单的图标组件
-const X = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg width="15" height="15" viewBox="0 0 15 15" fill="none" {...props}>
-    <path
-      d="m11.7816 4.0316c.4462.4462.4462 1.1692 0 1.6154l-6.1348 6.1348c-.4462.4462-1.1692.4462-1.6154 0-.4462-.4462-.4462-1.1692 0-1.6154l6.1348-6.1348c.4462-.4462 1.1692-.4462 1.6154 0z"
-      fill="currentColor"
-    />
-    <path
-      d="m4.0316 4.0316c-.4462.4462-.4462 1.1692 0 1.6154l6.1348 6.1348c.4462.4462 1.1692.4462 1.6154 0 .4462-.4462.4462-1.1692 0-1.6154l-6.1348-6.1348c-.4462-.4462-1.1692-.4462-1.6154 0z"
-      fill="currentColor"
-    />
-  </svg>
-);
-
 const Dialog = DialogPrimitive.Root;
 
 const DialogTrigger = DialogPrimitive.Trigger;
@@ -54,10 +40,6 @@ const DialogContent = React.forwardRef<
       {...props}
     >
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-        <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
-      </DialogPrimitive.Close>
     </DialogPrimitive.Content>
   </DialogPortal>
 ));
