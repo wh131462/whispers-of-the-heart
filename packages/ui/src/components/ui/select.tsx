@@ -165,6 +165,7 @@ const SelectTrigger = React.forwardRef<HTMLButtonElement, SelectTriggerProps>(
         onClick={handleClick}
         disabled={disabled}
         {...props}
+        type="button"
       >
         {children}
         <ChevronDown
@@ -295,6 +296,8 @@ const SelectContent: React.FC<SelectContentProps> = ({
       {createPortal(
         <div
           ref={contentRef}
+          onPointerDownCapture={event => event.stopPropagation()}
+          onMouseDownCapture={event => event.stopPropagation()}
           className={cn(
             'fixed z-[10000000] max-h-96 min-w-[8rem] overflow-hidden rounded-md border bg-white text-gray-900 shadow-lg',
             'animate-in fade-in-0 zoom-in-95 duration-200',
@@ -304,6 +307,7 @@ const SelectContent: React.FC<SelectContentProps> = ({
             top: `${position.top}px`,
             left: `${position.left}px`,
             zIndex: 10000000,
+            pointerEvents: 'auto',
           }}
         >
           <div className="p-1">{children}</div>
