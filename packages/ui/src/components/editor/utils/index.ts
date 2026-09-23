@@ -3,15 +3,14 @@
  */
 
 // 类型
-export type { MediaPickerRequest } from './types';
+export type {
+  MediaPickerRequest,
+  MediaSelectResult,
+  UploadMediaFunction,
+} from './types';
 
 // 配置
-export {
-  DEFAULT_UPLOAD_ENDPOINT,
-  MEDIA_BLOCK_TYPES,
-  MEDIA_TYPE_NAMES,
-  MEDIA_TYPE_MAP,
-} from './config';
+export { MEDIA_BLOCK_TYPES, MEDIA_TYPE_NAMES, MEDIA_TYPE_MAP } from './config';
 
 // Markdown 工具
 export { preprocessMarkdownForMindMap } from './markdown-utils';

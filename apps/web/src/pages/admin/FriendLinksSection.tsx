@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@whispers/ui';
 import { api } from '@whispers/utils';
-import MediaPickerDialog from '../../components/admin/MediaPickerDialog';
+import MediaPickerDialog from '../../components/media/MediaPickerDialog';
 
 type FriendLinkStatus = 'ACTIVE' | 'INACTIVE';
 type AvatarCheck = 'idle' | 'checking' | 'ok' | 'fail';
@@ -192,8 +192,8 @@ const FriendLinksSection: React.FC<Props> = ({ onError, onSuccess }) => {
     setShowForm(true);
   };
 
-  const handleMediaSelect = (url: string) => {
-    setForm(prev => ({ ...prev, avatar: url }));
+  const handleMediaSelect = (media: { url: string }) => {
+    setForm(prev => ({ ...prev, avatar: media.url }));
     setCandidates([]);
     setMediaPickerOpen(false);
   };
@@ -576,6 +576,7 @@ const FriendLinksSection: React.FC<Props> = ({ onError, onSuccess }) => {
         onClose={() => setMediaPickerOpen(false)}
         onSelect={handleMediaSelect}
         filterType="image"
+        purpose="avatar"
         title="选择友链头像"
       />
     </div>

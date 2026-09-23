@@ -44,12 +44,11 @@ import '@blocknote/xl-ai/style.css';
 
 import { customSchema } from './customSchema';
 import { AIConfig, createLanguageModel, validateAIConfig } from './ai';
-import { type MediaSelectResult } from './MediaPicker';
+import type { MediaSelectResult, UploadMediaFunction } from './utils/types';
 
 // 共享工具导入
 import {
   type MediaPickerRequest,
-  DEFAULT_UPLOAD_ENDPOINT,
   MEDIA_BLOCK_TYPES,
   MEDIA_TYPE_NAMES,
   MEDIA_TYPE_MAP,
@@ -215,7 +214,7 @@ export interface BlockNoteEditorProps {
   placeholder?: string;
   className?: string;
   authToken?: string | null;
-  uploadEndpoint?: string;
+  uploadFile?: UploadMediaFunction;
   onInsertImage?: (url: string) => void;
   onOpenMediaPicker?: (
     type: 'image' | 'video' | 'audio' | 'file',
@@ -230,14 +229,12 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
   editable = true,
   className = '',
   authToken,
-  uploadEndpoint = DEFAULT_UPLOAD_ENDPOINT,
+  uploadFile: uploadMediaFile,
   onOpenMediaPicker,
   aiConfig,
 }) => {
   const isInitializedRef = useRef(false);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const authTokenRef = useRef(authToken);
-  const uploadEndpointRef = useRef(uploadEndpoint);
   const isUpdatingFromPropRef = useRef(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
@@ -273,14 +270,6 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
     }
   }, [isAIEnabled, mergedAiConfig]);
 
-  useEffect(() => {
-    authTokenRef.current = authToken;
-  }, [authToken]);
-
-  useEffect(() => {
-    uploadEndpointRef.current = uploadEndpoint;
-  }, [uploadEndpoint]);
-
   // 创建编辑器实例
   const editor = useCreateBlockNote({
     schema: customSchema,
@@ -297,32 +286,7 @@ export const BlockNoteEditorComponent: React.FC<BlockNoteEditorProps> = ({
       },
     },
     extensions: aiTransport ? [AIExtension({ transport: aiTransport })] : [],
-    uploadFile: async (file: File): Promise<string> => {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const headers: Record<string, string> = {};
-      if (authTokenRef.current) {
-        headers['Authorization'] = `Bearer ${authTokenRef.current}`;
-      }
-
-      const response = await fetch(uploadEndpointRef.current, {
-        method: 'POST',
-        headers,
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error('Upload failed');
-      }
-
-      const result = await response.json();
-      if (result.success && result.data?.url) {
-        return result.data.url;
-      }
-
-      throw new Error('Invalid response');
-    },
+    uploadFile: uploadMediaFile,
   });
 
   // 获取自定义 slash menu items

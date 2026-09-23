@@ -15,11 +15,12 @@ import {
 import {
   blogApi,
   api,
+  uploadMedia,
   generateExcerpt as generateExcerptFromMarkdown,
 } from '@whispers/utils';
 import { useToastContext } from '../../contexts/ToastContext';
 import { useAuthStore } from '../../stores/useAuthStore';
-import MediaPickerDialog from '../../components/admin/MediaPickerDialog';
+import MediaPickerDialog from '../../components/media/MediaPickerDialog';
 import ConfirmDialog from '../../components/ConfirmDialog';
 import {
   CoverImage,
@@ -565,6 +566,10 @@ const PostEditPage: React.FC = () => {
               placeholder="开始写作，输入 / 打开命令菜单..."
               editable={true}
               authToken={accessToken}
+              uploadFile={async (file: File): Promise<string> => {
+                const media = await uploadMedia(file, { purpose: 'editor' });
+                return media.url;
+              }}
               aiConfig={getAIConfig()}
               onOpenMediaPicker={(type, onSelect) => {
                 setEditorMediaType(type);
@@ -580,11 +585,12 @@ const PostEditPage: React.FC = () => {
       <MediaPickerDialog
         isOpen={showMediaPicker}
         onClose={() => setShowMediaPicker(false)}
-        onSelect={url => {
-          setPost(prev => ({ ...prev, coverImage: url }));
+        onSelect={media => {
+          setPost(prev => ({ ...prev, coverImage: media.url }));
           setShowMediaPicker(false);
         }}
         filterType="image"
+        purpose="cover"
         title="选择封面图片"
       />
 
@@ -595,18 +601,19 @@ const PostEditPage: React.FC = () => {
           setShowEditorMediaPicker(false);
           editorMediaCallbackRef.current = null;
         }}
-        onSelect={(url, media) => {
+        onSelect={media => {
           if (editorMediaCallbackRef.current) {
             editorMediaCallbackRef.current({
-              url,
-              fileName: media?.originalName,
-              fileSize: media?.size,
+              url: media.url,
+              fileName: media.originalName,
+              fileSize: media.size,
             });
           }
           setShowEditorMediaPicker(false);
           editorMediaCallbackRef.current = null;
         }}
         filterType={editorMediaType}
+        purpose="editor"
         title={
           editorMediaType === 'image'
             ? '选择图片'

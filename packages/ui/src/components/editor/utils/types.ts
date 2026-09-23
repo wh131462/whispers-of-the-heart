@@ -8,6 +8,14 @@ export interface MediaPickerRequest {
   blockId: string;
 }
 
+export type UploadMediaFunction = (file: File) => Promise<string>;
+
+export interface MediaSelectResult {
+  url: string;
+  fileName?: string;
+  fileSize?: number;
+}
+
 /** 媒体块信息 */
 export interface MediaBlockInfo {
   type: 'customImage' | 'customVideo' | 'customAudio' | 'customFile';

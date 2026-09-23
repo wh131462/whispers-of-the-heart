@@ -28,19 +28,15 @@ import {
   Image,
 } from 'lucide-react';
 import { DEFAULT_AVATAR } from '../constants/images';
-import { api, getMediaUrl, setAuthToken } from '@whispers/utils';
-import {
-  MediaPicker,
-  type MediaType,
-  type MediaItem,
-  type MediaSelectResult,
-} from '@whispers/ui';
+import { api, getMediaUrl, type MediaItem } from '@whispers/utils';
+import { type MediaSelectResult } from '@whispers/ui';
+import MediaPickerDialog from '../components/media/MediaPickerDialog';
 
 // 更换邮箱步骤
 type EmailChangeStep = 'idle' | 'input' | 'verify' | 'success';
 
 const ProfilePage: React.FC = () => {
-  const { user, updateUser, accessToken } = useAuthStore();
+  const { user, updateUser } = useAuthStore();
   const isAdmin = user?.isAdmin || false;
   const [isEditing, setIsEditing] = useState(false);
   const [avatarError, setAvatarError] = useState(false);
@@ -204,59 +200,6 @@ const ProfilePage: React.FC = () => {
     }
     return getMediaUrl(formData.avatar);
   };
-
-  // 获取媒体列表（仅图片）
-  const fetchMedia = useCallback(
-    async (_type: MediaType): Promise<MediaItem[]> => {
-      try {
-        const token = accessToken || localStorage.getItem('auth_token');
-        if (token) {
-          setAuthToken(token);
-        }
-
-        const params: Record<string, string> = {};
-        // 头像只需要图片类型
-        params.type = 'image/';
-        // 管理员可以查看所有用户的文件
-        if (isAdmin) {
-          params.all = 'true';
-        }
-
-        const response = await api.get('/media', { params });
-        if (response.data?.success) {
-          return response.data.data.items || [];
-        }
-        return [];
-      } catch {
-        return [];
-      }
-    },
-    [accessToken, isAdmin]
-  );
-
-  // 上传文件
-  const uploadAvatarFile = useCallback(
-    async (file: File): Promise<string> => {
-      const token = accessToken || localStorage.getItem('auth_token');
-      if (!token) {
-        throw new Error('未登录');
-      }
-      setAuthToken(token);
-
-      const formDataUpload = new FormData();
-      formDataUpload.append('file', file);
-
-      const response = await api.post('/media/upload', formDataUpload, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-
-      if (response.data?.success && response.data.data?.url) {
-        return response.data.data.url;
-      }
-      throw new Error('上传失败');
-    },
-    [accessToken]
-  );
 
   // 处理媒体选择
   const handleMediaSelect = useCallback((result: MediaSelectResult) => {
@@ -692,13 +635,19 @@ const ProfilePage: React.FC = () => {
       </div>
 
       {/* 媒体选择器 */}
-      <MediaPicker
+      <MediaPickerDialog
         isOpen={mediaPickerOpen}
         onClose={() => setMediaPickerOpen(false)}
-        onSelect={handleMediaSelect}
-        type="image"
-        fetchMedia={fetchMedia}
-        uploadFile={uploadAvatarFile}
+        onSelect={(media: MediaItem) =>
+          handleMediaSelect({
+            url: media.url,
+            fileName: media.originalName,
+            fileSize: media.size,
+          })
+        }
+        filterType="image"
+        purpose="avatar"
+        all={isAdmin}
         title="选择头像"
       />
     </div>

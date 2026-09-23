@@ -4,6 +4,7 @@ export * from './time';
 // 请求相关工具
 export * from './request';
 export * from './api-client';
+export * from './media-api';
 
 // 字符串处理工具
 export * from './string';

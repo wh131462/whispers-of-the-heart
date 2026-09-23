@@ -23,14 +23,10 @@ import data from '@emoji-mart/data';
 import Picker from '@emoji-mart/react';
 import { customSchema } from './customSchema';
 import { ImageIcon, MathIcon, QuoteIcon } from './assets/icons';
-import { type MediaSelectResult } from './MediaPicker';
+import type { MediaSelectResult, UploadMediaFunction } from './utils/types';
 
 // 共享工具导入
-import {
-  DEFAULT_UPLOAD_ENDPOINT,
-  getCommentSlashMenuItems,
-  blocksToMarkdown,
-} from './utils';
+import { getCommentSlashMenuItems, blocksToMarkdown } from './utils';
 
 export interface CommentEditorProps {
   content?: string;
@@ -42,8 +38,7 @@ export interface CommentEditorProps {
   minHeight?: number;
   /** 认证令牌，用于上传文件 */
   authToken?: string | null;
-  /** 上传端点 URL */
-  uploadEndpoint?: string;
+  uploadFile?: UploadMediaFunction;
   /**
    * 当需要打开媒体选择器时触发
    * @param type - 媒体类型 (image, video, audio, file)
@@ -69,8 +64,7 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
       className = '',
       disabled = false,
       minHeight = 120,
-      authToken,
-      uploadEndpoint = DEFAULT_UPLOAD_ENDPOINT,
+      uploadFile: uploadMediaFile,
       onOpenMediaPicker,
     },
     ref
@@ -85,19 +79,7 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
     const isUpdatingFromPropRef = useRef(false);
     // 用于追踪组件挂载状态
     const isMountedRef = useRef(true);
-    // 保存最新的 authToken 和 uploadEndpoint
-    const authTokenRef = useRef(authToken);
-    const uploadEndpointRef = useRef(uploadEndpoint);
     const wrapperRef = useRef<HTMLDivElement>(null);
-
-    // 更新 refs
-    useEffect(() => {
-      authTokenRef.current = authToken;
-    }, [authToken]);
-
-    useEffect(() => {
-      uploadEndpointRef.current = uploadEndpoint;
-    }, [uploadEndpoint]);
 
     // 使用 useCreateBlockNote hook 创建编辑器实例
     const editor = useCreateBlockNote({
@@ -113,32 +95,7 @@ export const CommentEditor = forwardRef<CommentEditorRef, CommentEditorProps>(
           checkListItem: '待办事项',
         },
       },
-      uploadFile: async (file: File): Promise<string> => {
-        const formData = new FormData();
-        formData.append('file', file);
-
-        const headers: Record<string, string> = {};
-        if (authTokenRef.current) {
-          headers['Authorization'] = `Bearer ${authTokenRef.current}`;
-        }
-
-        const response = await fetch(uploadEndpointRef.current, {
-          method: 'POST',
-          headers,
-          body: formData,
-        });
-
-        if (!response.ok) {
-          throw new Error('Upload failed');
-        }
-
-        const result = await response.json();
-        if (result.success && result.data?.url) {
-          return result.data.url;
-        }
-
-        throw new Error('Invalid response');
-      },
+      uploadFile: uploadMediaFile,
     });
 
     // 获取 slash menu items（使用共享配置）

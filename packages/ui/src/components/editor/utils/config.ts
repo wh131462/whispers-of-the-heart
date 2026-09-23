@@ -2,28 +2,6 @@
  * 编辑器共享配置
  */
 
-/** 获取 API 基础 URL */
-export const getApiBaseUrl = (): string => {
-  if (typeof window !== 'undefined') {
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const env = (import.meta as any)?.env || {};
-      if (env.VITE_API_URL) {
-        return env.VITE_API_URL;
-      }
-    } catch {
-      // ignore
-    }
-  }
-  return 'http://localhost:7777';
-};
-
-/** API 基础 URL */
-export const API_BASE_URL = getApiBaseUrl();
-
-/** 默认上传端点 */
-export const DEFAULT_UPLOAD_ENDPOINT = `${API_BASE_URL}/api/v1/media/upload`;
-
 /** 媒体块类型列表 */
 export const MEDIA_BLOCK_TYPES = [
   'customImage',

@@ -16,12 +16,13 @@ import {
   DefaultValuePipe,
   HttpStatus,
   HttpException,
+  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname, join } from 'path';
 import { randomBytes } from 'crypto';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, unlinkSync } from 'fs';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { MediaService } from './media.service';
@@ -52,6 +53,75 @@ const getSubdirByMimeType = (mimeType: string): string => {
   if (mimeType.startsWith('video/')) return 'videos';
   if (mimeType.startsWith('audio/')) return 'audios';
   return 'files';
+};
+
+type UploadPurpose = 'avatar' | 'logo' | 'cover' | 'editor' | 'library';
+
+const UPLOAD_MAX_SIZE: Record<UploadPurpose, number> = {
+  avatar: 5 * 1024 * 1024,
+  logo: 5 * 1024 * 1024,
+  cover: 10 * 1024 * 1024,
+  editor: 50 * 1024 * 1024,
+  library: 50 * 1024 * 1024,
+};
+
+export const normalizeUploadPurpose = (value?: string): UploadPurpose => {
+  if (
+    value === 'avatar' ||
+    value === 'logo' ||
+    value === 'cover' ||
+    value === 'editor' ||
+    value === 'library'
+  ) {
+    return value;
+  }
+  return 'library';
+};
+
+export const normalizeMimeFilter = (value?: string): string | undefined => {
+  if (!value || value === 'all') return undefined;
+  if (value === 'file') return 'file';
+  if (value.endsWith('/')) return value;
+  if (value === 'image' || value === 'video' || value === 'audio') {
+    return `${value}/`;
+  }
+  return value;
+};
+
+const removeUploadedFile = (file: Express.Multer.File): void => {
+  if (file.path && existsSync(file.path)) {
+    try {
+      unlinkSync(file.path);
+    } catch {
+      // The upload error is the important failure; cleanup is best effort.
+    }
+  }
+};
+
+export const validateUploadedFile = (
+  file: Express.Multer.File,
+  purpose: UploadPurpose,
+): void => {
+  const isImage = file.mimetype.startsWith('image/');
+  if (
+    (purpose === 'avatar' || purpose === 'logo') &&
+    (!isImage || file.mimetype === 'image/svg+xml')
+  ) {
+    removeUploadedFile(file);
+    throw new BadRequestException(
+      '头像和 Logo 只支持 JPG、PNG、GIF 或 WebP 图片',
+    );
+  }
+  if (purpose === 'cover' && !isImage) {
+    removeUploadedFile(file);
+    throw new BadRequestException('封面只支持图片文件');
+  }
+  if (file.size > UPLOAD_MAX_SIZE[purpose]) {
+    removeUploadedFile(file);
+    throw new BadRequestException(
+      `文件大小不能超过 ${UPLOAD_MAX_SIZE[purpose] / 1024 / 1024}MB`,
+    );
+  }
 };
 
 // 使用绝对路径确保上传目录一致
@@ -85,7 +155,7 @@ const storage = diskStorage({
 
 // File filter for allowed types
 
-const fileFilter = (
+export const fileFilter = (
   _req: ExpressRequest,
   file: Express.Multer.File,
   callback: FileFilterCallback,
@@ -112,7 +182,7 @@ const fileFilter = (
   if (allowedMimes.includes(file.mimetype)) {
     callback(null, true);
   } else {
-    callback(new Error('不支持的文件类型'));
+    callback(new BadRequestException('不支持的文件类型'));
   }
 };
 
@@ -128,6 +198,7 @@ export class MediaController {
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
     @Query('type') type?: string,
+    @Query('mimeType') legacyMimeType?: string,
     @Query('search') search?: string,
     @Query('uploaderId') uploaderId?: string,
     @Query('all') all?: string, // 管理员专用：查询所有文件
@@ -165,11 +236,13 @@ export class MediaController {
       effectiveUploaderId = userId;
     }
 
-    const skip = (page - 1) * limit;
+    const safePage = Math.max(1, page);
+    const safeLimit = Math.min(100, Math.max(1, limit));
+    const skip = (safePage - 1) * safeLimit;
     const result = await this.mediaService.findAll({
       skip,
-      take: limit,
-      mimeType: type,
+      take: safeLimit,
+      mimeType: normalizeMimeFilter(type ?? legacyMimeType),
       search,
       uploaderId: effectiveUploaderId,
     });
@@ -227,6 +300,11 @@ export class MediaController {
           type: 'number',
           description: '音视频时长（秒）',
         },
+        purpose: {
+          type: 'string',
+          enum: ['avatar', 'logo', 'cover', 'editor', 'library'],
+          description: '上传用途，用于选择对应的类型和大小限制',
+        },
       },
     },
   })
@@ -244,6 +322,7 @@ export class MediaController {
     @Request() req: AuthenticatedRequest,
     @Body('tags') tagsString?: string,
     @Body('duration') durationString?: string,
+    @Body('purpose') purposeString?: string,
   ) {
     if (!file) {
       throw new HttpException(
@@ -258,6 +337,9 @@ export class MediaController {
         HttpStatus.UNAUTHORIZED,
       );
     }
+
+    const purpose = normalizeUploadPurpose(purposeString);
+    validateUploadedFile(file, purpose);
 
     const tags = tagsString ? tagsString.split(',').map((t) => t.trim()) : [];
     const duration = durationString ? parseFloat(durationString) : undefined;
@@ -293,12 +375,23 @@ export class MediaController {
     @UploadedFiles() files: Express.Multer.File[],
     @Request() req: AuthenticatedRequest,
     @Body('tags') tagsString?: string,
+    @Body('purpose') purposeString?: string,
   ) {
     if (!req.user?.id) {
       throw new HttpException(
         { success: false, message: '用户未认证' },
         HttpStatus.UNAUTHORIZED,
       );
+    }
+    if (!files?.length) {
+      throw new BadRequestException('请选择要上传的文件');
+    }
+    const purpose = normalizeUploadPurpose(purposeString);
+    try {
+      files.forEach((file) => validateUploadedFile(file, purpose));
+    } catch (error) {
+      files.filter((file) => existsSync(file.path)).forEach(removeUploadedFile);
+      throw error;
     }
     const tags = tagsString ? tagsString.split(',').map((t) => t.trim()) : [];
     const results = await Promise.all(

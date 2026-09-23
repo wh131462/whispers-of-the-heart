@@ -154,37 +154,52 @@ export const useToast = () => {
 export const useToastContext = () => {
   const { addToast } = useToast();
 
-  const success = (message: string, title?: string) => {
-    addToast({
-      title: title || '成功',
-      description: message,
-      variant: 'success',
-    });
-  };
+  const success = useCallback(
+    (message: string, title?: string) => {
+      addToast({
+        title: title || '成功',
+        description: message,
+        variant: 'success',
+      });
+    },
+    [addToast]
+  );
 
-  const error = (message: string, title?: string) => {
-    addToast({
-      title: title || '错误',
-      description: message,
-      variant: 'destructive',
-    });
-  };
+  const error = useCallback(
+    (message: string, title?: string) => {
+      addToast({
+        title: title || '错误',
+        description: message,
+        variant: 'destructive',
+      });
+    },
+    [addToast]
+  );
 
-  const warning = (message: string, title?: string) => {
-    addToast({
-      title: title || '警告',
-      description: message,
-      variant: 'warning',
-    });
-  };
+  const warning = useCallback(
+    (message: string, title?: string) => {
+      addToast({
+        title: title || '警告',
+        description: message,
+        variant: 'warning',
+      });
+    },
+    [addToast]
+  );
 
-  const info = (message: string, title?: string) => {
-    addToast({
-      title: title || '提示',
-      description: message,
-      variant: 'default',
-    });
-  };
+  const info = useCallback(
+    (message: string, title?: string) => {
+      addToast({
+        title: title || '提示',
+        description: message,
+        variant: 'default',
+      });
+    },
+    [addToast]
+  );
 
-  return { success, error, warning, info };
+  return React.useMemo(
+    () => ({ success, error, warning, info }),
+    [success, error, warning, info]
+  );
 };

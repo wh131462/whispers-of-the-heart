@@ -65,7 +65,15 @@ export class MediaService {
     const where: Prisma.MediaWhereInput = {};
 
     if (mimeType) {
-      where.mimeType = { startsWith: mimeType };
+      if (mimeType === 'file') {
+        where.NOT = [
+          { mimeType: { startsWith: 'image/' } },
+          { mimeType: { startsWith: 'video/' } },
+          { mimeType: { startsWith: 'audio/' } },
+        ];
+      } else {
+        where.mimeType = { startsWith: mimeType };
+      }
     }
 
     if (search) {

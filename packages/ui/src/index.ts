@@ -53,13 +53,10 @@ export type {
   CommentEditorProps,
   CommentEditorRef,
 } from './components/editor/CommentEditor';
-export { MediaPicker } from './components/editor/MediaPicker';
 export type {
-  MediaPickerProps,
-  MediaItem,
-  MediaType,
   MediaSelectResult,
-} from './components/editor/MediaPicker';
+  UploadMediaFunction,
+} from './components/editor/utils/types';
 
 // 媒体播放器组件
 export { default as AudioPlayer } from './components/AudioPlayer';

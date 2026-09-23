@@ -19,7 +19,7 @@ import {
   ChevronRight,
   Info,
 } from 'lucide-react';
-import { api } from '@whispers/utils';
+import { api, uploadMedia } from '@whispers/utils';
 import { useToastContext } from '../../contexts/ToastContext';
 import {
   FilePreviewModal,
@@ -150,10 +150,13 @@ const MediaPage: React.FC = () => {
     fetchStats();
   }, [page, typeFilter]);
 
-  const fetchMedia = async () => {
+  const fetchMedia = async (targetPage = page) => {
     try {
       setLoading(true);
-      const params: Record<string, string | number> = { page, limit: 24 };
+      const params: Record<string, string | number> = {
+        page: targetPage,
+        limit: 24,
+      };
       if (typeFilter !== 'all') {
         params.type = typeFilter;
       }
@@ -189,7 +192,7 @@ const MediaPage: React.FC = () => {
 
   const handleSearch = () => {
     setPage(1);
-    fetchMedia();
+    void fetchMedia(1);
   };
 
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -199,17 +202,10 @@ const MediaPage: React.FC = () => {
     setUploading(true);
     try {
       for (const file of Array.from(files)) {
-        const formData = new FormData();
-        formData.append('file', file);
-
-        // 获取音视频文件的时长
         const duration = await getMediaDuration(file);
-        if (duration !== undefined) {
-          formData.append('duration', duration.toString());
-        }
-
-        await api.post('/media/upload', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
+        await uploadMedia(file, {
+          purpose: 'library',
+          duration,
         });
       }
 

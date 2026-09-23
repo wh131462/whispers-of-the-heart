@@ -3,14 +3,15 @@ import { Send, LogIn } from 'lucide-react';
 import { Button } from './ui/button';
 import { useToast } from '../contexts/ToastContext';
 import { useAuthStore } from '../stores/useAuthStore';
-import { api, setAuthToken } from '@whispers/utils';
 import {
-  CommentEditor,
-  MediaPicker,
-  type MediaType,
+  api,
+  setAuthToken,
+  uploadMedia,
+  type MediaFilter,
   type MediaItem,
-  type MediaSelectResult,
-} from '@whispers/ui';
+} from '@whispers/utils';
+import { CommentEditor, type MediaSelectResult } from '@whispers/ui';
+import MediaPickerDialog from './media/MediaPickerDialog';
 import { useNavigate } from 'react-router-dom';
 
 // 定义编辑器 ref 类型
@@ -46,7 +47,7 @@ const CommentForm: React.FC<CommentFormProps> = ({
 
   // 媒体选择器状态
   const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
-  const [mediaPickerType, setMediaPickerType] = useState<MediaType>('image');
+  const [mediaPickerType, setMediaPickerType] = useState<MediaFilter>('image');
   const [mediaSelectCallback, setMediaSelectCallback] = useState<
     ((result: MediaSelectResult) => void) | null
   >(null);
@@ -54,36 +55,6 @@ const CommentForm: React.FC<CommentFormProps> = ({
   const handleContentChange = useCallback((markdown: string) => {
     setContent(markdown);
   }, []);
-
-  // 获取媒体列表
-  const fetchMedia = useCallback(
-    async (type: MediaType): Promise<MediaItem[]> => {
-      try {
-        const token = accessToken || localStorage.getItem('auth_token');
-        if (token) {
-          setAuthToken(token);
-        }
-
-        const params: Record<string, string> = {};
-        if (type !== 'all') {
-          params.type = `${type}/`;
-        }
-        // 管理员可以查看所有用户的文件
-        if (isAdmin) {
-          params.all = 'true';
-        }
-
-        const response = await api.get('/media', { params });
-        if (response.data?.success) {
-          return response.data.data.items || [];
-        }
-        return [];
-      } catch {
-        return [];
-      }
-    },
-    [accessToken, isAdmin]
-  );
 
   // 上传文件
   const uploadFile = useCallback(
@@ -94,17 +65,8 @@ const CommentForm: React.FC<CommentFormProps> = ({
       }
       setAuthToken(token);
 
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await api.post('/media/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-
-      if (response.data?.success && response.data.data?.url) {
-        return response.data.data.url;
-      }
-      throw new Error('上传失败');
+      const media = await uploadMedia(file, { purpose: 'editor' });
+      return media.url;
     },
     [accessToken]
   );
@@ -115,8 +77,7 @@ const CommentForm: React.FC<CommentFormProps> = ({
       type: 'image' | 'video' | 'audio' | 'file',
       onSelect: (result: MediaSelectResult) => void
     ) => {
-      // file 类型映射为 all，因为 MediaPicker 不支持 file 类型
-      const pickerType: MediaType = type === 'file' ? 'all' : type;
+      const pickerType: MediaFilter = type === 'file' ? 'file' : type;
       setMediaPickerType(pickerType);
       setMediaSelectCallback(() => onSelect);
       setMediaPickerOpen(true);
@@ -235,17 +196,24 @@ const CommentForm: React.FC<CommentFormProps> = ({
         disabled={isSubmitting}
         minHeight={compact ? 80 : 120}
         authToken={accessToken}
+        uploadFile={uploadFile}
         onOpenMediaPicker={handleOpenMediaPicker}
       />
 
       {/* 媒体选择器 */}
-      <MediaPicker
+      <MediaPickerDialog
         isOpen={mediaPickerOpen}
         onClose={handleCloseMediaPicker}
-        onSelect={handleMediaSelect}
-        type={mediaPickerType}
-        fetchMedia={fetchMedia}
-        uploadFile={uploadFile}
+        onSelect={(media: MediaItem) =>
+          handleMediaSelect({
+            url: media.url,
+            fileName: media.originalName,
+            fileSize: media.size,
+          })
+        }
+        filterType={mediaPickerType}
+        purpose="editor"
+        all={isAdmin}
       />
 
       <div className="flex items-center justify-end gap-2">

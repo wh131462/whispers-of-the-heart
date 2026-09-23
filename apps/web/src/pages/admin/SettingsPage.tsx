@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Globe,
   Share2,
@@ -14,6 +14,7 @@ import { Button, Input } from '@whispers/ui';
 import { api } from '@whispers/utils';
 import logoImg from '../../assets/logo.png';
 import FriendLinksSection from './FriendLinksSection';
+import MediaPickerDialog from '../../components/media/MediaPickerDialog';
 
 interface SiteConfig {
   siteName: string;
@@ -55,13 +56,12 @@ const SettingsPage: React.FC = () => {
   const [config, setConfig] = useState<SiteConfig>(defaultConfig);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [uploadingOwnerAvatar, setUploadingOwnerAvatar] = useState(false);
+  const [mediaPicker, setMediaPicker] = useState<'logo' | 'ownerAvatar' | null>(
+    null
+  );
   const [newBannedWord, setNewBannedWord] = useState('');
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const ownerAvatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchConfig();
@@ -165,102 +165,15 @@ const SettingsPage: React.FC = () => {
     }));
   };
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // 验证文件类型
-    if (!file.type.startsWith('image/')) {
-      setError('请选择图片文件');
-      return;
+  const handleMediaSelect = (media: { url: string }): void => {
+    if (mediaPicker === 'logo') {
+      setConfig(prev => ({ ...prev, siteLogo: media.url }));
+      setSuccess('Logo 上传成功');
+    } else if (mediaPicker === 'ownerAvatar') {
+      setConfig(prev => ({ ...prev, ownerAvatar: media.url }));
+      setSuccess('博主头像上传成功');
     }
-
-    // 验证文件大小 (最大 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError('图片大小不能超过 5MB');
-      return;
-    }
-
-    try {
-      setUploading(true);
-      setError(null);
-
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await api.post('/media/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      if (response.data?.success && response.data?.data?.url) {
-        setConfig(prev => ({ ...prev, siteLogo: response.data.data.url }));
-        setSuccess('头像上传成功');
-        setTimeout(() => setSuccess(null), 3000);
-      } else {
-        setError('上传失败');
-      }
-    } catch (err) {
-      console.error('Failed to upload avatar:', err);
-      setError('上传头像失败');
-    } finally {
-      setUploading(false);
-      // 清空 input 以便可以再次选择同一文件
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
-
-  const handleOwnerAvatarUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // 验证文件类型
-    if (!file.type.startsWith('image/')) {
-      setError('请选择图片文件');
-      return;
-    }
-
-    // 验证文件大小 (最大 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError('图片大小不能超过 5MB');
-      return;
-    }
-
-    try {
-      setUploadingOwnerAvatar(true);
-      setError(null);
-
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const response = await api.post('/media/upload', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-
-      if (response.data?.success && response.data?.data?.url) {
-        setConfig(prev => ({ ...prev, ownerAvatar: response.data.data.url }));
-        setSuccess('博主头像上传成功');
-        setTimeout(() => setSuccess(null), 3000);
-      } else {
-        setError('上传失败');
-      }
-    } catch (err) {
-      console.error('Failed to upload owner avatar:', err);
-      setError('上传博主头像失败');
-    } finally {
-      setUploadingOwnerAvatar(false);
-      // 清空 input 以便可以再次选择同一文件
-      if (ownerAvatarInputRef.current) {
-        ownerAvatarInputRef.current.value = '';
-      }
-    }
+    setMediaPicker(null);
   };
 
   if (loading) {
@@ -341,11 +254,6 @@ const SettingsPage: React.FC = () => {
                     e.currentTarget.src = logoImg;
                   }}
                 />
-                {uploading && (
-                  <div className="absolute inset-0 bg-background/80 rounded-full flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                  </div>
-                )}
                 {config.siteLogo && (
                   <button
                     type="button"
@@ -360,22 +268,13 @@ const SettingsPage: React.FC = () => {
                 )}
               </div>
               <div className="flex flex-col gap-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarUpload}
-                  className="hidden"
-                  id="logo-upload"
-                />
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
+                  onClick={() => setMediaPicker('logo')}
                 >
                   <Upload className="h-4 w-4 mr-2" />
-                  {uploading ? '上传中...' : '上传 Logo'}
+                  上传 Logo
                 </Button>
                 <p className="text-xs text-muted-foreground">
                   支持 JPG、PNG、GIF，最大 5MB
@@ -435,29 +334,15 @@ const SettingsPage: React.FC = () => {
                     <User className="h-8 w-8 text-muted-foreground" />
                   </div>
                 )}
-                {uploadingOwnerAvatar && (
-                  <div className="absolute inset-0 bg-background/80 rounded-full flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                  </div>
-                )}
               </div>
               <div className="flex flex-col gap-2">
-                <input
-                  ref={ownerAvatarInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleOwnerAvatarUpload}
-                  className="hidden"
-                  id="owner-avatar-upload"
-                />
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => ownerAvatarInputRef.current?.click()}
-                  disabled={uploadingOwnerAvatar}
+                  onClick={() => setMediaPicker('ownerAvatar')}
                 >
                   <Upload className="h-4 w-4 mr-2" />
-                  {uploadingOwnerAvatar ? '上传中...' : '上传头像'}
+                  上传头像
                 </Button>
                 <p className="text-xs text-muted-foreground">
                   支持 JPG、PNG、GIF，最大 5MB
@@ -614,6 +499,15 @@ const SettingsPage: React.FC = () => {
           setSuccess(msg);
           setTimeout(() => setSuccess(null), 3000);
         }}
+      />
+
+      <MediaPickerDialog
+        isOpen={mediaPicker !== null}
+        onClose={() => setMediaPicker(null)}
+        onSelect={handleMediaSelect}
+        filterType="image"
+        purpose={mediaPicker === 'logo' ? 'logo' : 'avatar'}
+        title={mediaPicker === 'logo' ? '选择网站 Logo' : '选择博主头像'}
       />
     </div>
   );
