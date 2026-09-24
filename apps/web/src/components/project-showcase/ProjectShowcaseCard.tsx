@@ -38,19 +38,18 @@ const ProjectShowcaseCard: React.FC<ProjectShowcaseCardProps> = ({
 }) => {
   const [coverFailed, setCoverFailed] = useState(false);
   const [iconFailed, setIconFailed] = useState(false);
+  const [descriptionExpanded, setDescriptionExpanded] = useState(
+    variant === 'standard'
+  );
   const TypeIcon = TYPE_ICONS[project.type];
   const showCover = Boolean(project.coverImage) && !coverFailed;
+  const description = project.description?.trim() ?? '';
   const visibleTags = project.tags.slice(0, variant === 'compact' ? 3 : 5);
   const websiteLabel =
     project.type === 'WEBSITE' || project.type === 'SITE_TOOL'
       ? '立即体验'
       : '访问官网';
-  const summaryClamp =
-    variant === 'featured'
-      ? 'line-clamp-3'
-      : variant === 'compact'
-        ? 'line-clamp-2'
-        : 'line-clamp-2';
+  const summaryClamp = variant === 'featured' ? 'line-clamp-3' : 'line-clamp-2';
   const descriptionClamp =
     variant === 'featured'
       ? 'line-clamp-5'
@@ -70,7 +69,7 @@ const ProjectShowcaseCard: React.FC<ProjectShowcaseCardProps> = ({
     >
       {variant !== 'compact' && (
         <div
-          className={`relative z-[1] -mb-px overflow-hidden bg-gradient-to-br from-primary/20 via-muted/80 to-background ${
+          className={`relative z-[1] -mb-px overflow-hidden bg-muted ${
             variant === 'featured' ? 'min-h-56 flex-1' : 'h-40'
           }`}
         >
@@ -82,11 +81,26 @@ const ProjectShowcaseCard: React.FC<ProjectShowcaseCardProps> = ({
               onError={() => setCoverFailed(true)}
             />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <TypeIcon className="h-16 w-16 text-primary/45" />
+            <div className="absolute inset-0 overflow-hidden bg-gradient-to-br from-primary/20 via-muted to-background">
+              <div className="absolute -right-16 -top-20 h-52 w-52 rounded-full bg-primary/25 blur-3xl transition-transform duration-700 group-hover:translate-x-3 group-hover:-translate-y-2 motion-reduce:transition-none" />
+              <div className="absolute -bottom-24 -left-12 h-48 w-48 rounded-full bg-foreground/10 blur-3xl" />
+              <div className="absolute inset-0 opacity-20 [background-image:linear-gradient(135deg,transparent_0%,transparent_47%,hsl(var(--foreground)/0.16)_48%,transparent_49%,transparent_100%)] [background-size:28px_28px]" />
+              <span
+                aria-hidden="true"
+                className="absolute -bottom-8 -right-2 font-serif text-[11rem] font-bold leading-none text-foreground/[0.07] transition-transform duration-700 group-hover:-translate-x-2 group-hover:-translate-y-1 motion-reduce:transition-none"
+              >
+                {project.name.trim().charAt(0).toUpperCase()}
+              </span>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="flex h-24 w-24 rotate-6 items-center justify-center rounded-[1.75rem] border border-primary/25 bg-background/20 text-primary/70 shadow-[inset_0_1px_0_hsl(var(--background)/0.35),0_16px_32px_-20px_hsl(var(--foreground)/0.7)] backdrop-blur-sm transition-transform duration-500 group-hover:rotate-3 group-hover:scale-105 motion-reduce:transition-none">
+                  <TypeIcon className="h-12 w-12 -rotate-6 stroke-[1.25]" />
+                </div>
+              </div>
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-card/95 via-card/35 to-transparent" />
+          {showCover && (
+            <div className="absolute inset-0 bg-gradient-to-t from-card/95 via-card/35 to-transparent" />
+          )}
           <div className="absolute left-5 top-5 flex items-center gap-2">
             <span className="rounded-md bg-background/80 px-2.5 py-1 text-[11px] font-semibold tracking-wide text-foreground shadow-sm backdrop-blur">
               {SHOWCASE_PROJECT_TYPE_LABELS[project.type]}
@@ -144,24 +158,31 @@ const ProjectShowcaseCard: React.FC<ProjectShowcaseCardProps> = ({
           </div>
         </div>
 
-        <p
-          className={`max-w-[42rem] text-pretty text-sm leading-6 text-foreground/85 ${summaryClamp}`}
-        >
-          {project.summary}
-        </p>
-
-        {project.description?.trim() && (
-          <div className="mt-4 border-l-2 border-primary/25 pl-3">
-            <p className="font-mono text-[10px] font-semibold tracking-[0.16em] text-primary/75">
-              详细介绍
-            </p>
-            <p
-              className={`mt-1 max-w-[42rem] whitespace-pre-line break-words text-sm leading-6 text-muted-foreground ${descriptionClamp}`}
-            >
-              {project.description}
-            </p>
-          </div>
-        )}
+        <div className="max-w-[42rem] space-y-2">
+          <p
+            className={`text-pretty text-base leading-7 text-foreground/90 ${summaryClamp}`}
+          >
+            {project.summary}
+          </p>
+          {description && (
+            <>
+              <p
+                className={`text-pretty whitespace-pre-line break-words text-sm leading-6 text-muted-foreground/85 ${descriptionExpanded ? '' : descriptionClamp}`}
+              >
+                {description}
+              </p>
+              {variant !== 'standard' && description.length > 180 && (
+                <button
+                  type="button"
+                  onClick={() => setDescriptionExpanded(expanded => !expanded)}
+                  className="text-xs font-medium text-primary transition-colors hover:text-primary/75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none"
+                >
+                  {descriptionExpanded ? '收起介绍' : '展开完整介绍'}
+                </button>
+              )}
+            </>
+          )}
+        </div>
 
         {showMetadata && visibleTags.length > 0 && variant !== 'compact' && (
           <div className="mt-6 flex flex-wrap gap-2">
