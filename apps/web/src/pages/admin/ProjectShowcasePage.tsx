@@ -567,285 +567,277 @@ const ProjectShowcasePage: React.FC = () => {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="min-h-0 flex-1 bg-muted/15 p-3 sm:p-4">
-              <div className="scrollbar-thin-overlay h-full min-h-0 overflow-y-auto overscroll-contain rounded-xl border border-border/70 bg-background">
-                <div className="space-y-7 p-6 sm:p-8">
-                  <div className="grid gap-4 rounded-lg bg-muted/25 p-4 sm:grid-cols-2 sm:p-5">
-                    <label className="space-y-1.5 text-sm font-medium">
-                      <span>作品名称 *</span>
-                      <Input
-                        value={form.name}
-                        maxLength={100}
-                        onChange={event =>
-                          updateForm('name', event.target.value)
-                        }
-                      />
-                    </label>
-                    <label className="space-y-1.5 text-sm font-medium">
-                      <span>slug *</span>
-                      <Input
-                        value={form.slug}
-                        maxLength={80}
-                        className="font-mono"
-                        placeholder="例如：whispers-android"
-                        onChange={event =>
-                          updateForm('slug', event.target.value.toLowerCase())
-                        }
-                      />
-                    </label>
-                    <div className="space-y-1.5 text-sm font-medium">
-                      <span>作品类型 *</span>
-                      <Select
-                        value={form.type}
-                        onValueChange={value =>
-                          updateForm('type', value as ShowcaseProjectType)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {SHOWCASE_PROJECT_TYPES.map(type => (
-                            <SelectItem key={type} value={type}>
-                              {SHOWCASE_PROJECT_TYPE_LABELS[type]}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <label className="space-y-1.5 text-sm font-medium">
-                      <span>排序值</span>
-                      <Input
-                        type="number"
-                        min={-10000}
-                        max={10000}
-                        value={form.sortOrder}
-                        onChange={event =>
-                          updateForm('sortOrder', event.target.value)
-                        }
-                      />
-                    </label>
-                    <label className="space-y-1.5 text-sm font-medium sm:col-span-2">
-                      <span>一句话介绍 *</span>
-                      <Input
-                        value={form.summary}
-                        maxLength={240}
-                        placeholder="用一句具体的话说明作品解决了什么问题"
-                        onChange={event =>
-                          updateForm('summary', event.target.value)
-                        }
-                      />
-                      <span className="block text-right text-xs font-normal text-muted-foreground">
-                        {form.summary.length}/240
-                      </span>
-                    </label>
-                    <label className="space-y-1.5 text-sm font-medium sm:col-span-2">
-                      <span>详细介绍</span>
-                      <textarea
-                        value={form.description}
-                        maxLength={5000}
-                        rows={4}
-                        className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                        onChange={event =>
-                          updateForm('description', event.target.value)
-                        }
-                      />
-                    </label>
+            <div className="scrollbar-thin-overlay min-h-0 flex-1 overflow-y-auto overscroll-contain bg-muted/15">
+              <div className="space-y-7 p-6 sm:p-8">
+                <div className="grid gap-4 rounded-lg bg-muted/25 p-4 sm:grid-cols-2 sm:p-5">
+                  <label className="space-y-1.5 text-sm font-medium">
+                    <span>作品名称 *</span>
+                    <Input
+                      value={form.name}
+                      maxLength={100}
+                      onChange={event => updateForm('name', event.target.value)}
+                    />
+                  </label>
+                  <label className="space-y-1.5 text-sm font-medium">
+                    <span>slug *</span>
+                    <Input
+                      value={form.slug}
+                      maxLength={80}
+                      className="font-mono"
+                      placeholder="例如：whispers-android"
+                      onChange={event =>
+                        updateForm('slug', event.target.value.toLowerCase())
+                      }
+                    />
+                  </label>
+                  <div className="space-y-1.5 text-sm font-medium">
+                    <span>作品类型 *</span>
+                    <Select
+                      value={form.type}
+                      onValueChange={value =>
+                        updateForm('type', value as ShowcaseProjectType)
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {SHOWCASE_PROJECT_TYPES.map(type => (
+                          <SelectItem key={type} value={type}>
+                            {SHOWCASE_PROJECT_TYPE_LABELS[type]}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
+                  <label className="space-y-1.5 text-sm font-medium">
+                    <span>排序值</span>
+                    <Input
+                      type="number"
+                      min={-10000}
+                      max={10000}
+                      value={form.sortOrder}
+                      onChange={event =>
+                        updateForm('sortOrder', event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className="space-y-1.5 text-sm font-medium sm:col-span-2">
+                    <span>一句话介绍 *</span>
+                    <Input
+                      value={form.summary}
+                      maxLength={240}
+                      placeholder="用一句具体的话说明作品解决了什么问题"
+                      onChange={event =>
+                        updateForm('summary', event.target.value)
+                      }
+                    />
+                    <span className="block text-right text-xs font-normal text-muted-foreground">
+                      {form.summary.length}/240
+                    </span>
+                  </label>
+                  <label className="space-y-1.5 text-sm font-medium sm:col-span-2">
+                    <span>详细介绍</span>
+                    <textarea
+                      value={form.description}
+                      maxLength={5000}
+                      rows={4}
+                      className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      onChange={event =>
+                        updateForm('description', event.target.value)
+                      }
+                    />
+                  </label>
+                </div>
 
-                  <div className="rounded-lg bg-muted/25 p-4 sm:p-5">
-                    <div className="flex items-end justify-between gap-3">
-                      <div>
-                        <p className="font-mono text-[10px] tracking-[0.2em] text-primary">
-                          VISUALS
-                        </p>
-                        <h3 className="mt-1 font-semibold text-foreground">
-                          视觉素材
-                        </h3>
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        建议使用统一的封面比例
-                      </span>
+                <div className="rounded-lg bg-muted/25 p-4 sm:p-5">
+                  <div className="flex items-end justify-between gap-3">
+                    <div>
+                      <p className="font-mono text-[10px] tracking-[0.2em] text-primary">
+                        VISUALS
+                      </p>
+                      <h3 className="mt-1 font-semibold text-foreground">
+                        视觉素材
+                      </h3>
                     </div>
-                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                      {(['icon', 'coverImage'] as MediaField[]).map(field => {
-                        const value = form[field];
-                        const label =
-                          field === 'icon' ? '作品图标' : '作品封面';
-                        return (
-                          <div key={field} className="space-y-2">
-                            <span className="text-sm font-medium">{label}</span>
-                            <div className="flex items-center gap-3">
-                              <div
-                                className={`flex shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted ${
-                                  field === 'icon' ? 'h-16 w-16' : 'h-16 w-28'
-                                }`}
+                    <span className="text-xs text-muted-foreground">
+                      建议使用统一的封面比例
+                    </span>
+                  </div>
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    {(['icon', 'coverImage'] as MediaField[]).map(field => {
+                      const value = form[field];
+                      const label = field === 'icon' ? '作品图标' : '作品封面';
+                      return (
+                        <div key={field} className="space-y-2">
+                          <span className="text-sm font-medium">{label}</span>
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={`flex shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted ${
+                                field === 'icon' ? 'h-16 w-16' : 'h-16 w-28'
+                              }`}
+                            >
+                              {value ? (
+                                <img
+                                  src={getMediaUrl(value)}
+                                  alt={label}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                              )}
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openMediaPicker(field)}
                               >
-                                {value ? (
-                                  <img
-                                    src={getMediaUrl(value)}
-                                    alt={label}
-                                    className="h-full w-full object-cover"
-                                  />
-                                ) : (
-                                  <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                                )}
-                              </div>
-                              <div className="flex flex-wrap gap-2">
+                                选择图片
+                              </Button>
+                              {value && (
                                 <Button
                                   type="button"
                                   size="sm"
-                                  variant="outline"
-                                  onClick={() => openMediaPicker(field)}
+                                  variant="ghost"
+                                  onClick={() => updateForm(field, '')}
                                 >
-                                  选择图片
+                                  清除
                                 </Button>
-                                {value && (
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() => updateForm(field, '')}
-                                  >
-                                    清除
-                                  </Button>
-                                )}
-                              </div>
+                              )}
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
+                        </div>
+                      );
+                    })}
                   </div>
+                </div>
 
-                  <div className="grid gap-4 rounded-lg bg-muted/25 p-4 sm:grid-cols-2 sm:p-5">
-                    <label className="space-y-1.5 text-sm font-medium">
-                      <span>技术标签</span>
-                      <Input
-                        value={form.tags}
-                        placeholder="React, NestJS, PostgreSQL"
-                        onChange={event =>
-                          updateForm('tags', event.target.value)
-                        }
-                      />
-                    </label>
-                    <label className="space-y-1.5 text-sm font-medium">
-                      <span>支持平台</span>
-                      <Input
-                        value={form.platforms}
-                        placeholder="Web, Android, iOS"
-                        onChange={event =>
-                          updateForm('platforms', event.target.value)
-                        }
-                      />
-                    </label>
-                    <label className="space-y-1.5 text-sm font-medium sm:col-span-2">
-                      <span>源码地址</span>
-                      <Input
-                        type="url"
-                        value={form.repositoryUrl}
-                        placeholder="https://github.com/..."
-                        onChange={event =>
-                          updateForm('repositoryUrl', event.target.value)
-                        }
-                      />
-                    </label>
-                    <label className="space-y-1.5 text-sm font-medium">
-                      <span>官网或体验地址</span>
-                      <Input
-                        type="url"
-                        value={form.websiteUrl}
-                        placeholder="https://..."
-                        onChange={event =>
-                          updateForm('websiteUrl', event.target.value)
-                        }
-                      />
-                    </label>
-                    <label className="space-y-1.5 text-sm font-medium">
-                      <span>手工下载地址</span>
-                      <Input
-                        type="url"
-                        value={form.downloadUrl}
-                        placeholder="https://..."
-                        onChange={event =>
-                          updateForm('downloadUrl', event.target.value)
-                        }
-                      />
-                    </label>
+                <div className="grid gap-4 rounded-lg bg-muted/25 p-4 sm:grid-cols-2 sm:p-5">
+                  <label className="space-y-1.5 text-sm font-medium">
+                    <span>技术标签</span>
+                    <Input
+                      value={form.tags}
+                      placeholder="React, NestJS, PostgreSQL"
+                      onChange={event => updateForm('tags', event.target.value)}
+                    />
+                  </label>
+                  <label className="space-y-1.5 text-sm font-medium">
+                    <span>支持平台</span>
+                    <Input
+                      value={form.platforms}
+                      placeholder="Web, Android, iOS"
+                      onChange={event =>
+                        updateForm('platforms', event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className="space-y-1.5 text-sm font-medium sm:col-span-2">
+                    <span>源码地址</span>
+                    <Input
+                      type="url"
+                      value={form.repositoryUrl}
+                      placeholder="https://github.com/..."
+                      onChange={event =>
+                        updateForm('repositoryUrl', event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className="space-y-1.5 text-sm font-medium">
+                    <span>官网或体验地址</span>
+                    <Input
+                      type="url"
+                      value={form.websiteUrl}
+                      placeholder="https://..."
+                      onChange={event =>
+                        updateForm('websiteUrl', event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className="space-y-1.5 text-sm font-medium">
+                    <span>手工下载地址</span>
+                    <Input
+                      type="url"
+                      value={form.downloadUrl}
+                      placeholder="https://..."
+                      onChange={event =>
+                        updateForm('downloadUrl', event.target.value)
+                      }
+                    />
+                  </label>
+                </div>
+
+                {form.type === 'APP' && (
+                  <div className="block space-y-1.5 text-sm font-medium">
+                    <span>关联应用分发</span>
+                    <Select
+                      value={form.distributedAppId || 'NONE'}
+                      onValueChange={value =>
+                        updateForm(
+                          'distributedAppId',
+                          value === 'NONE' ? '' : value
+                        )
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="不关联" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="NONE">不关联</SelectItem>
+                        {distributedApps.map(app => (
+                          <SelectItem key={app.id} value={app.id}>
+                            {app.name}（{app.slug}）
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <span className="block text-xs font-normal text-muted-foreground">
+                      关联后，前台下载按钮优先使用最高 versionCode 对应的 APK。
+                    </span>
                   </div>
+                )}
 
-                  {form.type === 'APP' && (
-                    <div className="block space-y-1.5 text-sm font-medium">
-                      <span>关联应用分发</span>
-                      <Select
-                        value={form.distributedAppId || 'NONE'}
-                        onValueChange={value =>
-                          updateForm(
-                            'distributedAppId',
-                            value === 'NONE' ? '' : value
-                          )
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="不关联" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="NONE">不关联</SelectItem>
-                          {distributedApps.map(app => (
-                            <SelectItem key={app.id} value={app.id}>
-                              {app.name}（{app.slug}）
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <span className="block text-xs font-normal text-muted-foreground">
-                        关联后，前台下载按钮优先使用最高 versionCode 对应的
-                        APK。
+                <div className="grid gap-3 rounded-lg bg-foreground/[0.04] p-4 ring-1 ring-border/60 sm:grid-cols-2 sm:p-5">
+                  <label className="flex cursor-pointer items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={form.status === 'PUBLISHED'}
+                      className="h-4 w-4 rounded border-input accent-primary"
+                      onChange={event =>
+                        updateForm(
+                          'status',
+                          event.target.checked ? 'PUBLISHED' : 'DRAFT'
+                        )
+                      }
+                    />
+                    <span>
+                      <span className="block text-sm font-medium">
+                        立即上线
                       </span>
-                    </div>
-                  )}
-
-                  <div className="grid gap-3 rounded-lg bg-foreground/[0.04] p-4 ring-1 ring-border/60 sm:grid-cols-2 sm:p-5">
-                    <label className="flex cursor-pointer items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={form.status === 'PUBLISHED'}
-                        className="h-4 w-4 rounded border-input accent-primary"
-                        onChange={event =>
-                          updateForm(
-                            'status',
-                            event.target.checked ? 'PUBLISHED' : 'DRAFT'
-                          )
-                        }
-                      />
-                      <span>
-                        <span className="block text-sm font-medium">
-                          立即上线
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          关闭时保存为草稿
-                        </span>
+                      <span className="text-xs text-muted-foreground">
+                        关闭时保存为草稿
                       </span>
-                    </label>
-                    <label className="flex cursor-pointer items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={form.featured}
-                        className="h-4 w-4 rounded border-input accent-primary"
-                        onChange={event =>
-                          updateForm('featured', event.target.checked)
-                        }
-                      />
-                      <span>
-                        <span className="block text-sm font-medium">
-                          首页推荐
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          首页最多读取四项
-                        </span>
+                    </span>
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={form.featured}
+                      className="h-4 w-4 rounded border-input accent-primary"
+                      onChange={event =>
+                        updateForm('featured', event.target.checked)
+                      }
+                    />
+                    <span>
+                      <span className="block text-sm font-medium">
+                        首页推荐
                       </span>
-                    </label>
-                  </div>
+                      <span className="text-xs text-muted-foreground">
+                        首页最多读取四项
+                      </span>
+                    </span>
+                  </label>
                 </div>
               </div>
             </div>

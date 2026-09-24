@@ -366,166 +366,163 @@ const MediaPickerDialog: React.FC<MediaPickerDialogProps> = ({
           </label>
         </div>
 
-        <div className="min-h-0 flex-1 bg-muted/15 p-3 sm:p-4">
-          <div className="scrollbar-thin-overlay h-full min-h-0 overflow-y-auto overscroll-contain rounded-xl border border-border/70 bg-background">
-            <div className="grid min-h-full grid-rows-[auto_auto] md:grid-cols-[minmax(0,1fr)_18rem] md:grid-rows-1">
-              <section className="px-5 py-4 sm:px-7 sm:py-5">
-                <div className="mb-3 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">
-                      媒体库
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      {loading
-                        ? '正在同步文件…'
-                        : `${media.length} 个文件 · ${selectedLabel}`}
-                    </p>
-                  </div>
-                  {loading && (
-                    <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
-                  )}
+        <div className="scrollbar-thin-overlay min-h-0 flex-1 overflow-y-auto overscroll-contain bg-muted/15">
+          <div className="grid min-h-full grid-rows-[auto_auto] md:grid-cols-[minmax(0,1fr)_18rem] md:grid-rows-1">
+            <section className="px-5 py-4 sm:px-7 sm:py-5">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    媒体库
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {loading
+                      ? '正在同步文件…'
+                      : `${media.length} 个文件 · ${selectedLabel}`}
+                  </p>
                 </div>
-
-                {loading ? (
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                    {Array.from({ length: 8 }, (_, index) => (
-                      <div
-                        key={index}
-                        className="overflow-hidden rounded-xl border border-border/60 bg-card"
-                      >
-                        <Skeleton className="aspect-[4/3] rounded-none" />
-                        <div className="space-y-2 p-3">
-                          <Skeleton className="h-3 w-4/5" />
-                          <Skeleton className="h-2.5 w-2/5" />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : media.length === 0 ? (
-                  <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-border/80 bg-background/60 px-6 text-center">
-                    <div className="mb-4 rounded-2xl bg-muted p-4 text-muted-foreground">
-                      <Upload className="h-7 w-7" />
-                    </div>
-                    <p className="text-sm font-medium text-foreground">
-                      还没有媒体文件
-                    </p>
-                    <p className="mt-1 max-w-xs text-xs leading-5 text-muted-foreground">
-                      上传图片、视频、音频或文档后，它们会出现在这里。
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-                    {media.map(item => {
-                      const isSelected = selectedMedia?.id === item.id;
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => {
-                            if (isMediaTypeAllowed(item))
-                              setSelectedMedia(item);
-                          }}
-                          aria-pressed={isSelected}
-                          className={`group overflow-hidden rounded-xl border bg-card text-left transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                            isSelected
-                              ? 'border-primary ring-2 ring-primary/25'
-                              : 'border-border/70 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5'
-                          }`}
-                        >
-                          <div className="relative aspect-[4/3] overflow-hidden bg-muted/70">
-                            <MediaPreview media={item} />
-                            {isSelected && (
-                              <div className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
-                                <Check className="h-3.5 w-3.5" />
-                              </div>
-                            )}
-                          </div>
-                          <div className="min-w-0 p-3">
-                            <p className="truncate text-sm font-medium text-foreground">
-                              {item.originalName}
-                            </p>
-                            <p className="mt-1 truncate text-xs text-muted-foreground">
-                              {getMediaKind(item.mimeType)} ·{' '}
-                              {formatFileSize(item.size)}
-                            </p>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                {loading && (
+                  <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
                 )}
-              </section>
+              </div>
 
-              <aside className="border-t border-border/70 bg-background p-4 sm:p-5 md:sticky md:top-0 md:self-start md:border-l md:border-t-0">
-                {selectedMedia ? (
-                  <div className="flex h-full flex-col">
-                    <div className="mb-3 flex items-center justify-between">
-                      <p className="text-sm font-semibold text-foreground">
-                        文件详情
+              {loading ? (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  {Array.from({ length: 8 }, (_, index) => (
+                    <div
+                      key={index}
+                      className="overflow-hidden rounded-xl border border-border/60 bg-card"
+                    >
+                      <Skeleton className="aspect-[4/3] rounded-none" />
+                      <div className="space-y-2 p-3">
+                        <Skeleton className="h-3 w-4/5" />
+                        <Skeleton className="h-2.5 w-2/5" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : media.length === 0 ? (
+                <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-border/80 bg-background/60 px-6 text-center">
+                  <div className="mb-4 rounded-2xl bg-muted p-4 text-muted-foreground">
+                    <Upload className="h-7 w-7" />
+                  </div>
+                  <p className="text-sm font-medium text-foreground">
+                    还没有媒体文件
+                  </p>
+                  <p className="mt-1 max-w-xs text-xs leading-5 text-muted-foreground">
+                    上传图片、视频、音频或文档后，它们会出现在这里。
+                  </p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  {media.map(item => {
+                    const isSelected = selectedMedia?.id === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                          if (isMediaTypeAllowed(item)) setSelectedMedia(item);
+                        }}
+                        aria-pressed={isSelected}
+                        className={`group overflow-hidden rounded-xl border bg-card text-left transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                          isSelected
+                            ? 'border-primary ring-2 ring-primary/25'
+                            : 'border-border/70 hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5'
+                        }`}
+                      >
+                        <div className="relative aspect-[4/3] overflow-hidden bg-muted/70">
+                          <MediaPreview media={item} />
+                          {isSelected && (
+                            <div className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                              <Check className="h-3.5 w-3.5" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0 p-3">
+                          <p className="truncate text-sm font-medium text-foreground">
+                            {item.originalName}
+                          </p>
+                          <p className="mt-1 truncate text-xs text-muted-foreground">
+                            {getMediaKind(item.mimeType)} ·{' '}
+                            {formatFileSize(item.size)}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+
+            <aside className="border-t border-border/70 bg-background p-4 sm:p-5 md:sticky md:top-0 md:self-start md:border-l md:border-t-0">
+              {selectedMedia ? (
+                <div className="flex h-full flex-col">
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-sm font-semibold text-foreground">
+                      文件详情
+                    </p>
+                    <span className="rounded-md bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground">
+                      {getMediaKind(selectedMedia.mimeType)}
+                    </span>
+                  </div>
+
+                  <div className="aspect-[4/3] overflow-hidden rounded-2xl border border-border/70 bg-muted/60">
+                    <MediaPreview media={selectedMedia} large />
+                  </div>
+
+                  <div className="mt-4 space-y-4">
+                    <div>
+                      <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                        文件名
                       </p>
-                      <span className="rounded-md bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground">
-                        {getMediaKind(selectedMedia.mimeType)}
-                      </span>
+                      <p className="mt-1 break-all text-sm font-medium leading-5 text-foreground">
+                        {selectedMedia.originalName}
+                      </p>
                     </div>
-
-                    <div className="aspect-[4/3] overflow-hidden rounded-2xl border border-border/70 bg-muted/60">
-                      <MediaPreview media={selectedMedia} large />
-                    </div>
-
-                    <div className="mt-4 space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
                       <div>
                         <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                          文件名
+                          类型
                         </p>
-                        <p className="mt-1 break-all text-sm font-medium leading-5 text-foreground">
-                          {selectedMedia.originalName}
+                        <p className="mt-1 break-all text-xs text-foreground">
+                          {selectedMedia.mimeType}
                         </p>
-                      </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                            类型
-                          </p>
-                          <p className="mt-1 break-all text-xs text-foreground">
-                            {selectedMedia.mimeType}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                            大小
-                          </p>
-                          <p className="mt-1 text-xs text-foreground">
-                            {formatFileSize(selectedMedia.size)}
-                          </p>
-                        </div>
                       </div>
                       <div>
                         <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                          上传时间
+                          大小
                         </p>
                         <p className="mt-1 text-xs text-foreground">
-                          {new Date(selectedMedia.createdAt).toLocaleDateString(
-                            'zh-CN'
-                          )}
+                          {formatFileSize(selectedMedia.size)}
                         </p>
                       </div>
                     </div>
-                  </div>
-                ) : (
-                  <div className="flex h-full min-h-44 flex-col items-center justify-center text-center text-muted-foreground">
-                    <div className="mb-3 rounded-2xl bg-muted p-4">
-                      <FileText className="h-7 w-7" />
+                    <div>
+                      <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                        上传时间
+                      </p>
+                      <p className="mt-1 text-xs text-foreground">
+                        {new Date(selectedMedia.createdAt).toLocaleDateString(
+                          'zh-CN'
+                        )}
+                      </p>
                     </div>
-                    <p className="text-sm font-medium text-foreground">
-                      选择文件查看详情
-                    </p>
-                    <p className="mt-1 text-xs leading-5">
-                      预览和文件信息会显示在这里
-                    </p>
                   </div>
-                )}
-              </aside>
-            </div>
+                </div>
+              ) : (
+                <div className="flex h-full min-h-44 flex-col items-center justify-center text-center text-muted-foreground">
+                  <div className="mb-3 rounded-2xl bg-muted p-4">
+                    <FileText className="h-7 w-7" />
+                  </div>
+                  <p className="text-sm font-medium text-foreground">
+                    选择文件查看详情
+                  </p>
+                  <p className="mt-1 text-xs leading-5">
+                    预览和文件信息会显示在这里
+                  </p>
+                </div>
+              )}
+            </aside>
           </div>
         </div>
 
