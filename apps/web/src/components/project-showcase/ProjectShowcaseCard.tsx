@@ -45,6 +45,18 @@ const ProjectShowcaseCard: React.FC<ProjectShowcaseCardProps> = ({
     project.type === 'WEBSITE' || project.type === 'SITE_TOOL'
       ? '立即体验'
       : '访问官网';
+  const summaryClamp =
+    variant === 'featured'
+      ? 'line-clamp-3'
+      : variant === 'compact'
+        ? 'line-clamp-2'
+        : 'line-clamp-2';
+  const descriptionClamp =
+    variant === 'featured'
+      ? 'line-clamp-5'
+      : variant === 'compact'
+        ? 'line-clamp-3'
+        : 'line-clamp-4';
 
   return (
     <article
@@ -133,12 +145,23 @@ const ProjectShowcaseCard: React.FC<ProjectShowcaseCardProps> = ({
         </div>
 
         <p
-          className={`max-w-[42rem] text-pretty text-sm leading-6 text-muted-foreground ${
-            variant === 'compact' ? 'line-clamp-2' : ''
-          }`}
+          className={`max-w-[42rem] text-pretty text-sm leading-6 text-foreground/85 ${summaryClamp}`}
         >
           {project.summary}
         </p>
+
+        {project.description?.trim() && (
+          <div className="mt-4 border-l-2 border-primary/25 pl-3">
+            <p className="font-mono text-[10px] font-semibold tracking-[0.16em] text-primary/75">
+              详细介绍
+            </p>
+            <p
+              className={`mt-1 max-w-[42rem] whitespace-pre-line break-words text-sm leading-6 text-muted-foreground ${descriptionClamp}`}
+            >
+              {project.description}
+            </p>
+          </div>
+        )}
 
         {showMetadata && visibleTags.length > 0 && variant !== 'compact' && (
           <div className="mt-6 flex flex-wrap gap-2">
